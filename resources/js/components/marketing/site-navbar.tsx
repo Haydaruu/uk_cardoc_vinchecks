@@ -1,7 +1,7 @@
 import { Link, usePage } from '@inertiajs/react';
 import { Menu, X } from 'lucide-react';
 import { useState } from 'react';
-import { login, register } from '@/routes';
+
 
 const navItems = [
     { label: 'Vehicle Check', href: '/' },
@@ -57,13 +57,13 @@ export default function SiteNavbar() {
 
                 <div className="hidden items-center gap-5 md:flex">
                     <Link
-                        href={login()}
+                        href="/authPage"
                         className="text-sm font-medium text-slate-600 transition-colors hover:text-primary-container"
                     >
                         Login
                     </Link>
                     <Link
-                        href={register()}
+                        href="/authPage"
                         className="rounded-sm bg-secondary px-5 py-2.5 text-[11px] font-bold uppercase tracking-widest text-white transition-colors hover:bg-secondary-container"
                     >
                         Create Account
@@ -104,14 +104,14 @@ export default function SiteNavbar() {
                     </nav>
                     <div className="mt-4 flex flex-col gap-3 border-t border-slate-100 pt-4">
                         <Link
-                            href={login()}
+                            href="/authPage"
                             onClick={() => setMobileOpen(false)}
                             className="px-3 py-2 text-sm font-medium text-slate-600"
                         >
                             Login
                         </Link>
                         <Link
-                            href={register()}
+                            href="/authPage"
                             onClick={() => setMobileOpen(false)}
                             className="rounded-sm bg-secondary px-5 py-3 text-center text-[11px] font-bold uppercase tracking-widest text-white"
                         >
