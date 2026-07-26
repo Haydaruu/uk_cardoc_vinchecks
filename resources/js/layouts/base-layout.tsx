@@ -1,5 +1,5 @@
-import SiteFooter from '@/components/marketing/site-footer';
-import SiteNavbar from '@/components/marketing/site-navbar';
+import SiteFooter from '@/components/site-footer';
+import SiteNavbar from '@/components/site-navbar';
 import { PropsWithChildren } from 'react';
 
 export default function BaseLayout({ children }: PropsWithChildren) {

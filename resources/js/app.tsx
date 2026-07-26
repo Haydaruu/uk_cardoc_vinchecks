@@ -1,12 +1,10 @@
 import { createInertiaApp } from '@inertiajs/react';
-import { defaultLayout, title } from './inertia-shared';
-import { resolvePage } from './resolve-page';
+
+const appName = import.meta.env.VITE_APP_NAME || 'UKCardoc';
 
 createInertiaApp({
-    title: (title) => `${title} - UkcarDoc`,
-    resolve: resolvePage,
-    layout: defaultLayout,
+    title: (title) => (title ? `${title} - ${appName}` : appName),
     progress: {
-        color: '#bb001a',
+        color: '#4B5563',
     },
 });

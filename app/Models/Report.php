@@ -11,7 +11,7 @@ class Report extends Model
         'vin_check_id',
         'vin',
         'report_data',
-        'reports_type',
+        'report_type',
         'file_path',
         'download_count',
         'generated_at',

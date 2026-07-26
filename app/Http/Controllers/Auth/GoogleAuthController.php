@@ -3,16 +3,16 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
-use Laravel\Socialite\Socialite;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Str;
-use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Laravel\Socialite\Socialite;
+use App\Models\User;
 use Inertia\Inertia;
+use Illuminate\Support\Str;
 
 class GoogleAuthController extends Controller
 {
-    public function redirect() {
+     public function redirect() {
         return Socialite::driver('google')->redirect();
     }
 
@@ -25,6 +25,7 @@ class GoogleAuthController extends Controller
                     'name' =>$googleUser->name,
                     'email' =>$googleUser->email,
                     'phone_number'=> null,
+                    'provider' => 'google',
                     'password' => Str::password(12),
                     'email_verified_at' => now(),
                 ]

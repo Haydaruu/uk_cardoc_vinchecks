@@ -21,13 +21,13 @@ class Vehicle extends Model
         'year_of_manufacture',
         'outstanding_finance',
         'write_off_category',
-        'last_refreshment_at',
+        'last_refresed_at',
         'raw_api_response',
     ];
 
     protected $casts = [
         'mot_expiry_date' => 'date',
-        'last_refreshment_at' => 'datetime',
+        'last_refresed_at' => 'datetime',
         'outstanding_finance' => 'boolean',
         'raw_api_response' => 'array',
     ];

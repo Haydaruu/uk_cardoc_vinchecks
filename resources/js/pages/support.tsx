@@ -1,5 +1,5 @@
 import { Head } from '@inertiajs/react';
-import FaqAccordion from '@/components/marketing/faq-accordion';
+import FaqAccordion from '@/components/faq/faq-accordion';
 import BaseLayout from '@/layouts/base-layout';
 import {
     ArrowRight,

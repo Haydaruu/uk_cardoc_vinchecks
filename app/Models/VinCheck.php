@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class VinCheck extends Model
 {
-    protected $filliable = [
+    protected $fillable = [
          'user_id',
         'registration_number',
         'data_source',
@@ -29,6 +29,6 @@ class VinCheck extends Model
 
     public function report()
     {
-        return $this->hasOne(report::class);
+        return $this->hasOne(Report::class);
     }
 }

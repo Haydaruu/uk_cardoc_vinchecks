@@ -18,10 +18,10 @@ return new class extends Migration
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
-            $table->string('google_id')->nullable();
-            $table->string('avatar')->nullable();
+            $table->string('google_id')->nullable()->unique();
+            $table->text('avatar')->nullable();
             $table->enum('provider', ['google','local'])->default('local');
-            $table->integer('credits')->default(0);
+            $table->unsignedInteger('credits')->default(0);
             $table->timestamp('last_login_at')->nullable();
             $table->timestamp('deleted_at')->nullable();
             $table->rememberToken();

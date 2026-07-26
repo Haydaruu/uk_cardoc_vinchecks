@@ -8,13 +8,15 @@ class Transaction extends Model
 {
     protected $fillable = [
         'user_id',
+        'invoice_id',
         'currency',
         'amount',
         'type',
         'payment_method',
-        'payment_gateaway_ref',
+        'payment_gateway_ref',
         'description',
         'status',
+        'paid_at',
         'refunded_at',
     ];
 
