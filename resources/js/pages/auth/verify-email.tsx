@@ -1,6 +1,7 @@
 import { Link, useForm, usePage } from '@inertiajs/react';
 import { Mail, Pencil, ArrowLeft, Send } from 'lucide-react';
 import { useState } from 'react';
+import { send } from '@/routes/verification';
 
 type SharedProps = {
     auth: {
@@ -15,7 +16,7 @@ export default function VerifyEmail() {
     const [sent, setSent] = useState(false);
 
     function resend() {
-        post(route('verification.send'), {
+        post(send().url, {
             onSuccess: () => setSent(true),
         });
     }
@@ -63,7 +64,7 @@ export default function VerifyEmail() {
                         Change email address
                     </Link>
                     <Link
-                        href={route('authPage')}
+                        href='/auth-page'
                         className="flex items-center gap-1.5 text-slate-500 hover:text-primary-container"
                     >
                         <ArrowLeft size={14} />

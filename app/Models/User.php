@@ -24,7 +24,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
-#[Fillable(['name', 'role', 'email', 'phone_number', 'password', 'credits','google_id','avatar','provider', 'last_login_at'])]
+#[Fillable(['name', 'role', 'email', 'phone_number', 'password', 'credits','google_id','avatar','provider', 'last_login_at', 'email_verified_at'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable implements MustVerifyEmail
 {
