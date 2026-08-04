@@ -13,13 +13,14 @@ return new class extends Migration
     {
         Schema::create('vin_checks', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('user_id')->nullable()->constrained()->cascadeOnDelete();
             $table->string('registration_number')->nullable()->index();
             $table->string('data_source')->nullable();
             $table->string('vin')->unique()->nullable();
             $table->enum('check_type', ['free', 'premium'])->nullable();
             $table->string('ip_address')->nullable();
             $table->enum('status', ['pending', 'success', 'failed'])->nullable();
+            $table->string('stage')->nullable();
             $table->timestamp('cached_until')->nullable();
             $table->timestamps(); //created_at & updated_at
         });

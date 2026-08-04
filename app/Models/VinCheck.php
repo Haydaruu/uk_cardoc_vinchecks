@@ -29,6 +29,6 @@ class VinCheck extends Model
 
     public function report()
     {
-        return $this->hasOne(Report::class);
+        return $this->hasMany(Report::class);
     }
 }

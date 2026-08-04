@@ -41,4 +41,9 @@ return [
         'redirect' => env('GOOGLE_REDIRECT'),
     ],
 
+    'checkcardetails' => [
+        'key' => env('CHECKCARDETAILS_API_KEY'),
+        'base_url' => env('CHECKCARDETAILS_BASE_URL'),
+    ],  
+
 ];

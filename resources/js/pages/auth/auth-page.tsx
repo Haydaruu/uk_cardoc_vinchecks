@@ -4,8 +4,9 @@ import AuthLayoutLeftPanel from '@/layouts/auth/auth-layout-left-panel';
 import LoginForm from '@/components/auth/login-form';
 import RegisterForm from '@/components/auth/register-form';
 
-export default function AuthPage() {
-    const [activeTab, setActiveTab] = useState('login');
+type Props = { initialTab?: 'login' | 'register' };
+export default function AuthPage({ initialTab = 'login' }: Props) {
+    const [activeTab, setActiveTab] = useState(initialTab);
 
     return (
         <>

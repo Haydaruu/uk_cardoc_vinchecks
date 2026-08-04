@@ -3,11 +3,18 @@ import { Menu, X } from 'lucide-react';
 import { useState } from 'react';
 import ProfileDropdown from '@/components/profile-dropdown-menu';
 
-const navItems = [
-    { label: 'Vehicle Check', href: '/' },
+const GuestNavItems = [
+    { label: 'About Us', href: '/about-us' },
     { label: 'Pricing', href: '/pricing' },
-    { label: 'Support', href: '/support' },
-    { label: 'My Reports', href: '/my-report' },
+    { label: 'Help', href: '/help' },
+    
+] as const;
+
+const UserNavItems = [
+    { label: 'About Us', href: '/about-us' },
+    { label: 'Pricing', href: '/pricing'},
+    { label: 'Help', href: '/help'},
+    { label: 'My Report', href: '/my-report'},
 ] as const;
 
 type SharedProps = {
@@ -31,18 +38,18 @@ function isActive(currentUrl: string, href: string): boolean {
 export default function SiteNavbar() {
     const { url, props } = usePage<SharedProps>();
     const { auth } = props;
+    const navItems = auth.user ? UserNavItems : GuestNavItems;
     const [mobileOpen, setMobileOpen] = useState(false);
 
     return (
         <header className="sticky top-0 z-50 border-b border-slate-100 bg-white/95 backdrop-blur-sm">
             <div className="mx-auto flex h-16 max-w-[1200px] items-center justify-between px-6 md:px-10">
                 <Link
-                    href="/"
+                    href={auth.user ? '/dashboard' : '/'}
                     className="font-sans text-lg font-black tracking-tight text-primary-container"
                 >
                     UKCARDOC
                 </Link>
-
                 <nav className="hidden items-center gap-8 md:flex">
                     {navItems.map((item) => {
                         const active = isActive(url, item.href);
@@ -70,13 +77,13 @@ export default function SiteNavbar() {
                     {!auth.user ?(
                     <>
                         <Link
-                            href="/auth-page"
+                            href="/login"
                             className="text-sm font-medium text-slate-600 transition-colors hover:text-primary-container"
                         >
                             Login
                         </Link>
                         <Link
-                            href="/auth-page"
+                            href="/register"
                             className="rounded-sm bg-secondary px-5 py-2.5 text-[11px] font-bold uppercase tracking-widest text-white transition-colors hover:bg-secondary-container"
                         >
                             Create Account
@@ -145,14 +152,14 @@ export default function SiteNavbar() {
                     </nav>
                     <div className="mt-4 flex flex-col gap-3 border-t border-slate-100 pt-4">
                         <Link
-                            href="/auth-page"
+                            href="/login"
                             onClick={() => setMobileOpen(false)}
                             className="px-3 py-2 text-sm font-medium text-slate-600"
                         >
                             Login
                         </Link>
                         <Link
-                            href="/auth-page"
+                            href="/register"
                             onClick={() => setMobileOpen(false)}
                             className="rounded-sm bg-secondary px-5 py-3 text-center text-[11px] font-bold uppercase tracking-widest text-white"
                         >

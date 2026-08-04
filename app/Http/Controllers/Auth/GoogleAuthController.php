@@ -26,13 +26,16 @@ class GoogleAuthController extends Controller
                     'email' =>$googleUser->email,
                     'phone_number'=> null,
                     'provider' => 'google',
-                    'password' => Str::password(12),
                     'email_verified_at' => now(),
+                    'password' => Str::password(12),
                 ]
             );
 
         Auth::login($user);
 
-        return Inertia::render('home');
+        return match ($user->role) {
+            'admin', 'super_admin' => redirect()->route('admin.dashboard'),
+            default => redirect()->route('user.dashboard'),
+        };
     }
 }
