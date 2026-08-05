@@ -8,11 +8,14 @@ use Inertia\Inertia;
 
 
 
-Route::get('/', [PageController::class, 'home'])->name('page.home');
+Route::get('/', [PageController::class, 'home'])
+    ->middleware('redirect.home.auth')    
+    ->name('page.home');
 Route::get('/support', [PageController::class, 'support'])->name('page.support');
 Route::get('/pricing', [PageController::class, 'pricing'])->name('page.pricing');
 Route::get('/my-report', [PageController::class, 'myReport'])->name('page.my-report');
 
+//Iki auth Google
 Route::middleware('guest')->group(function () {
     Route::get('/auth-page', function(){ return Inertia::render('auth/auth-page'); })->name('authPage');
     Route::prefix('auth/google')->name('google.')->controller(GoogleAuthController::class)->group(function () {

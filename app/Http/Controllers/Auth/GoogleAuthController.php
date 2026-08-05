@@ -33,6 +33,8 @@ class GoogleAuthController extends Controller
 
         Auth::login($user);
 
+        Inertia::clearHistory();
+
         return match ($user->role) {
             'admin', 'super_admin' => redirect()->route('admin.dashboard'),
             default => redirect()->route('user.dashboard'),
