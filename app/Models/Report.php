@@ -32,6 +32,6 @@ class Report extends Model
 
     public function vinCheck()
     {
-        return $this->belongsTo(VinCheck::class);
+        return $this->belongsTo(VinCheck::class, 'vin_check_id');
     }
 }

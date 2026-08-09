@@ -2,11 +2,11 @@
 
 namespace App\Jobs;
 
-use Illuminate\Contracts\Queue\ShouldQueue;
 use App\Models\CreditTransaction;
 use App\Models\Report;
 use App\Models\Vehicle;
 use App\Models\VinCheck;
+use App\Contracts\VehicleDataProviderInterface;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -19,10 +19,11 @@ class ProcessVehicleCheck implements ShouldQueue
 {
     use Queueable, InteractsWithQueue, Dispatchable, SerializesModels;
 
-    public int $tier = 3;
-    public int $backOf = 5;
+    public int $tries = 3;
+    public int $backoff = 5;
     public function __construct(
         private int $vinCheckId,
+        private ?int $upgradeReportId = null,
     ){}
 
     public function handle(VehicleDataProviderInterface $provider): void
@@ -33,13 +34,46 @@ class ProcessVehicleCheck implements ShouldQueue
 
         try {
             
-            $registrationData= $provider->getRegistarationDetails($regNumber);
+            $vinCheck->update(['stage' => 'connecting']);
+            $registrationData= $provider->getRegistrationDetails($regNumber);
 
-            $historyData [];
+            $historyData= [];
+            $actualReportType= 'basic';
 
             if ($isPremium) {
-                $vinCheck->update(['stage' => 'Verifying_history']);
-                $historyData = $provider->getHistoryCheck($regNumber);
+                $vinCheck->update(['stage' => 'verifying_history']);
+
+                try{
+                    $historyData = $provider->getHistoryCheck($regNumber);
+                    $actualReportType = 'premium';
+                } catch (\Throwable $e) {
+                    Log::warning('Premium history check failed', [
+                        'vin_check_id' => $vinCheck->id,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+                
+                $premiumData = [];
+
+                foreach ([
+                    'history' => fn () => $provider->getHistoryCheck($regNumber),
+                    'mileage' => fn () => $provider->getMileageHistory($regNumber),
+                    'image' => fn () => $provider->getVehicleImage($regNumber),
+                    'valuation' => fn () => $provider->getVehicleValuation($regNumber),
+                ] as $key => $call) {
+                    try {
+                        $premiumData[$key] = $call();
+                    } catch (\Throwable $e) {
+                        Log::warning("Premium data point '{$key}' failed", [
+                            'vin_check_id' => $vinCheck->id,
+                            'error' => $e->getMessage(),
+                        ]);
+                        $premiumData[$key] = null; // ditandai gagal, bukan bikin seluruh proses berhenti
+                    }
+                }
+
+                $historyData = array_filter($premiumData); // buang yang null
+                $actualReportType = !empty($premiumData['history']) ? 'premium' : 'basic';
             }
 
             $vinCheck->update(['stage' => 'finalizing']);
@@ -51,28 +85,33 @@ class ProcessVehicleCheck implements ShouldQueue
                 $this->mapApiDataToVehicle($mergeData),
             );
 
-            DB::Transaction(function () use ($vinCheck, $vehicle, $isPremium, $mergeData){
-                $report = Report::create([
+            DB::Transaction(function () use ($vinCheck, $vehicle, $isPremium, $mergeData, $actualReportType) {
+                    if ($this->upgradeReportId) {
+                        Report::where('id', $this->upgradeReportId)->update([
+                        'report_data' => $mergeData,
+                        'report_type' => $actualReportType,
+                    ]);
+                    $report = Report::find($this->upgradeReportId);
+                } else {
+                    $report = Report::create([
+                    'user_id' => $vinCheck->user_id,
                     'vehicle_id' => $vehicle->id,
                     'vin_check_id' => $vinCheck->id,
                     'vin' => $vehicle->vin,
                     'report_data' => $mergeData,
-                    'report_type' => $isPremium ? 'premium' : 'basic',
+                    'report_type' => $actualReportType,
                     'generated_at' => now(),
                 ]);
-                
-                if ($isPremium && $vinCheck->user_id) {
+            }
+                if ($actualReportType === 'premium' && $isPremium && $vinCheck->user_id) {
                     $user = $vinCheck->user;
                     $subscription = $user->activeSubscription();
-                    $newBalance = $user->credits - 1;
-                    $user->update(['credits' => $newBalance]);
 
                     if($subscription) {
-                        $subscription->increment('report_used');
+                        $subscription->increment('reports_used');
                     } else {
                         $newBalance = $user->credits - 1;
                         $user->update(['credits' => $newBalance]);
-                    }
 
                     CreditTransaction::create([
                         'user_id' => $user->id,
@@ -83,22 +122,17 @@ class ProcessVehicleCheck implements ShouldQueue
                         'description' => "Vehicle check: {$vinCheck->registration_number}",
                     ]);
                 }
-
-                $vinCheck->update([
-                    'stage' => 'completed',
-                    'status' => 'success',
-                ]);
+            }
+                $vinCheck->update(['stage' => 'completed', 'status' => 'success']);
             });
+
         } catch (\Throwable $e) {
             Log::error('Vehicle check failed', [
                 'vin_check_id' => $vinCheck->id,
                 'error' => $e->getMessage(),
             ]);
 
-            $vinCheck->update([
-                'stage' => 'failed',
-                'status' => 'failed',
-            ]);
+            $vinCheck->update(['stage' => 'failed','status' => 'failed']);
 
             // Jangan throw lagi kalau ini percobaan terakhir — biar nggak retry sia-sia
             if ($this->attempts() >= $this->tries) {
@@ -109,7 +143,7 @@ class ProcessVehicleCheck implements ShouldQueue
         }
     }
 
-    private function mapApiToVehicle(array $apiData): array
+    private function mapApiDataToVehicle(array $apiData): array
     {
         return [
             'brand' => $apiData['make'] ?? null,
@@ -125,7 +159,7 @@ class ProcessVehicleCheck implements ShouldQueue
             'outstanding_finance' => !empty($apiData['financeRecord']),
             'write_off_category' => $apiData['writeoff'][0]['status'] ?? null,
             'raw_api_response' => $apiData,
-            'last_refresed_at' => now(),
+            'last_refreshed_at' => now(),
         ];
     }
 }

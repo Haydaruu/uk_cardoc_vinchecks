@@ -27,7 +27,7 @@ return new class extends Migration
             $table->integer('year_of_manufacture')->nullable();
             $table->boolean('outstanding_finance')->default(false);
             $table->string('write_off_category')->nullable();
-            $table->timestamp('last_refresed_at')->index()->nullable();
+            $table->timestamp('last_refreshed_at')->index()->nullable();
             $table->json('raw_api_response')->nullable();
             $table->timestamps(); // created_at & updated_at
         });

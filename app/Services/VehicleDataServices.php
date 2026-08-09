@@ -5,9 +5,10 @@ use App\Models\ApiLog;
 use App\Models\Vehicle;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use App\Contracts\VehicleDataProviderInterface;
 
 
-class VehicleDataServices
+class VehicleDataServices implements VehicleDataProviderInterface
 {
     /**
      * Create a new class instance.
@@ -22,6 +23,7 @@ class VehicleDataServices
         $this->baseUrl = config('services.checkcardetails.base_url');
     }
 
+
     private function fetch(string $dataPoint, string $vrm) : array
     {
         $startTime = microtime(true);
@@ -31,7 +33,7 @@ class VehicleDataServices
             $response = Http::timeout(20)
             ->retry(2, 500)
             ->get($endpoint, [
-                'apiKey' => $this->apiKey,
+                'apikey' => $this->apiKey,
                 'vrm' => $vrm,
             ]);
 
@@ -48,7 +50,7 @@ class VehicleDataServices
 
             return $this->handleResponse($response, $dataPoint);
         } catch (\Illuminate\Http\Client\ConnectionException $e) {
-            $this->logicApiCall(
+            $this->logApiCall(
                 vin: $vrm,
                 endpoint: $dataPoint,
                 statusCode: 0,
@@ -65,7 +67,7 @@ class VehicleDataServices
 
     private function handleResponse($response, string $dataPoint): array
     {
-        return match ($reponse->status()){
+        return match ($response->status()){
             200 => $response->json(),
 
             404 => throw new \App\Exceptions\VehicleNotFoundException(
@@ -96,7 +98,7 @@ class VehicleDataServices
         int $statusCode,
         int $durationMs,
         array $requestPayload,
-        ?array $reponsePayload,
+        ?array $responsePayload,
         ?string $errorMessage = null,
         string $status = 'success',
     ): void {
@@ -115,9 +117,9 @@ class VehicleDataServices
 
     // ==== Method publik per data point ====
 
-    public function getRegistrationDetails(stirng $vrm): array
+    public function getRegistrationDetails(string $vrm): array
     {
-        return $this->fecth('vehicleregistration', $vrm );
+        return $this->fetch('vehicleregistration', $vrm );
     }
 
     public function getFullVehicleData(string $vrm): array
@@ -130,16 +132,29 @@ class VehicleDataServices
         return $this->fetch('carhistorycheck', $vrm);
     }
 
-    public function getMostHistory(string $vrm): array
+    public function getMotHistory(string $vrm): array
     {
         return $this->fetch('mot', $vrm);
+    }
+    public function getMileageHistory(string $vrm): array
+    {
+        return $this->fetch('mileage', $vrm);
+    }
+    public function getVehicleImage(string $vrm): array
+    {
+        return $this->fetch('vehicleimage', $vrm);
+    }
+
+    public function getVehicleValuation(string $vrm): array
+    {
+        return $this->fetch('vehiclevaluations', $vrm);
     }
 
     public function performCheck(string $vrm, string $tier = 'basic'): array
     {
         $data = $this->getRegistrationDetails($vrm);
 
-        if (in_array($tier, ['permium', 'full'])) {
+        if (in_array($tier, ['premium', 'full'])) {
             $data = array_merge(
                 $data,
                 $this->getHistoryCheck($vrm),
@@ -165,7 +180,7 @@ class VehicleDataServices
             'tax_status' => $apiResponse['tax']['taxStatus'] ?? null,
             'mot_expiry_date' => $apiResponse['mot']['motDueDate'] ?? null,
             'raw_api_response' => $apiResponse,
-            'last_refresed_at' => now(),
+            'last_refreshed_at' => now(),
         ];
     }
 }

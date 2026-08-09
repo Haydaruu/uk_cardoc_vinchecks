@@ -1,6 +1,6 @@
 // resources/js/pages/vehicle-check/loading.tsx
 import { Head, router, usePage } from '@inertiajs/react';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { ShieldCheck } from 'lucide-react';
 
 type VinCheckProps = {
@@ -28,17 +28,20 @@ export default function LoadingReport() {
     const { props } = usePage<{ vinCheck: VinCheckProps }>();
     const { vinCheck } = props;
     const steps = STEPS[vinCheck.check_type];
-    const currentIndex = steps.findIndex((s) => s.key === vinCheck.stage);
+    const currentIndex = Math.max(0,steps.findIndex((s) => s.key === vinCheck.stage));
+    const [attempts, setAttempts] = useState(0);
+    const MAXX_ATTEMPTS = 30;
 
     useEffect(() => {
-        if (vinCheck.status !== 'pending') return;
+        if (vinCheck.status !== 'pending' || attempts >= MAXX_ATTEMPTS) return;
 
         const interval = setInterval(() => {
+            setAttempts((prev) => prev + 1);
             router.reload({ only: ['vinCheck'] });
         }, 1500);
 
         return () => clearInterval(interval);
-    }, [vinCheck.status]);
+    }, [vinCheck.status, attempts]);
 
     useEffect(() => {
         if (vinCheck.status === 'success') {
@@ -50,9 +53,9 @@ export default function LoadingReport() {
         return (
             <div className="flex min-h-svh items-center justify-center">
                 <div className="text-center">
-                    <p className="text-lg font-bold text-[#bb001a]">Pengecekan gagal</p>
+                    <p className="text-lg font-bold text-[#bb001a]">Vehicle check failed</p>
                     <p className="mt-2 text-sm text-slate-500">
-                        Terjadi kendala saat mengambil data kendaraan. Silakan coba lagi.
+                        We encountered an issue while retrieving the vehicle details. Please try again.
                     </p>
                 </div>
             </div>

@@ -4,17 +4,32 @@ import {
     ShieldCheck, FileText, History,
     Search, ArrowRight, CheckCircle, AlertTriangle, BadgeCheck
 } from "lucide-react";
+import { useForm } from "@inertiajs/react";
+import { store } from "@/actions/App/Http/Controllers/VehicleCheckController";
+
+type Props = {
+    user: { name: string; credits: number; is_premium: boolean };
+};
 
 function Home() {
+    const { data, setData, post, processing, errors } = useForm({
+        registration_number: ''
+    });
+
+    function handleCheck(e: React.FormEvent<HTMLFormElement>) {
+        e.preventDefault();
+        post(store().url);
+    }
+
     return (
         <>
             <Head title="UK Vehicle History Check" />
 
             {/* ── HERO ── */}
-            <section className="relative min-h-[600px] flex items-center overflow-hidden bg-gradient-to-br from-slate-50 via-white to-slate-100">
+            <section className="relative min-h-[600px] flex items-center overflow-hidden">
                 {/* subtle grid bg */}
                 <div className="absolute inset-0 opacity-[0.03]"
-                    style={{ backgroundImage: "linear-gradient(#000 1px,transparent 1px),linear-gradient(90deg,#000 1px,transparent 1px)", backgroundSize: "40px 40px" }} />
+                    style={{ backgroundImage: "url('/images/home/bg_home.webp')", backgroundSize: "1280px 870px" }} />
 
                 <div className="relative max-w-[1200px] mx-auto px-6 md:px-10 py-24 w-full">
                     {/* eyebrow */}
@@ -34,17 +49,28 @@ function Home() {
 
                     {/* Search bar */}
                     <div className="flex flex-col sm:flex-row gap-0 max-w-xl shadow-lg shadow-slate-200/60">
-                        <div className="relative flex-1">
-                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-                            <input
-                                type="text"
-                                placeholder="Enter Registration (e.g. AB12 CDE) or VIN"
-                                className="w-full pl-11 pr-4 py-4 border border-slate-200 sm:border-r-0 sm:rounded-l-sm rounded-sm text-sm text-slate-700 placeholder:text-slate-300 focus:outline-none focus:border-secondary bg-white"
-                            />
-                        </div>
-                        <button className="bg-secondary text-white font-bold uppercase tracking-wider text-sm px-8 py-4 sm:rounded-r-sm hover:bg-red-700 transition-colors whitespace-nowrap flex items-center gap-2">
-                            CHECK NOW <ArrowRight size={15} />
-                        </button>
+                        <form onSubmit={handleCheck} className="flex flex-col sm:flex-row gap-0 max-w-xl shadow-lg shadow-slate-200/60">
+                            <div className="relative flex-1">
+                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                                <input
+                                    type="text"
+                                    value={data.registration_number}
+                                    onChange={(e) => setData('registration_number', e.target.value)}
+                                    placeholder="Enter Registration (e.g. AB12 CDE) or VIN"
+                                    className="w-full pl-11 pr-4 py-4 border border-slate-200 sm:border-r-0 sm:rounded-l-sm rounded-sm text-sm text-slate-700 placeholder:text-slate-300 focus:outline-none focus:border-secondary bg-white"
+                                />
+                                {errors.registration_number && (
+                                    <p className="mt-1 text-xs text-red-600">{errors.registration_number}</p>
+                                )}
+                            </div>
+                            <button
+                                type="submit"
+                                disabled={processing}
+                                className="bg-secondary text-white font-bold uppercase tracking-wider text-sm px-8 py-4 sm:rounded-r-sm hover:bg-red-700 transition-colors whitespace-nowrap flex items-center gap-2"
+                            >
+                                {processing ? 'Checking...' : 'CHECK NOW'} <ArrowRight size={15} />
+                            </button>
+                        </form>
                     </div>
 
                     {/* trust badges */}

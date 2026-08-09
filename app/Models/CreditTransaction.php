@@ -11,8 +11,8 @@ class CreditTransaction extends Model
         'user_id',
         'type',
         'amount',
-        'balancee_after',
-        'refernece_id',
+        'balance_after',
+        'reference_id',
         'description',
     ];
 

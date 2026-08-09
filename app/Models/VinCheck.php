@@ -3,11 +3,12 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class VinCheck extends Model
 {
     protected $fillable = [
-         'user_id',
+        'user_id',
         'registration_number',
         'data_source',
         'vin',
@@ -27,8 +28,8 @@ class VinCheck extends Model
         return $this->belongsTo(User::class);
     }
 
-    public function report()
+    public function reports()
     {
-        return $this->hasMany(Report::class);
+        return $this->hasMany(Report::class, 'vin_check_id');
     }
 }

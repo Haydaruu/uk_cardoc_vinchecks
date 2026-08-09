@@ -24,27 +24,20 @@ class VehicleCheckController extends Controller
     {
         $user = $request->user();
         $regNumber = $request->validated('registration_number');
-        $tier = $user ? 'premium' : 'free';
-
-        if($user && !$user->canPerformCheck()){
-            return redirect()->route('page.pricing')->with('error', 'Kuota Habis. Silahkan top up atau upgrade.');
-        }
 
         if (!$user) {
-            $key = 'guest-check: ' .$request->ip();
+            $key = 'guest-check:' . $request->ip();
             if (RateLimiter::tooManyAttempts($key, maxAttempts: 3)) {
-                return back()->withErrors(['registration_number' => 'Batas cek gratis harian tercapai. Silakan login untuk cek lebih lanjut.']);
+                return back()->withErrors(['registration_number' => 'Batas cek gratis harian tercapai.']);
             }
-            RateLimiter::hit($key, decaySeconds:86400);
-        } elseif ($user->credits < 1) {
-            return redirect()->route('page.pricing')
-                ->with('error', 'Credit habis');
+            RateLimiter::hit($key, decaySeconds: 86400);
         }
+        // TIDAK ADA LAGI cek credit di sini — basic check itu gratis buat siapa aja
 
         $vinCheck = VinCheck::create([
             'user_id' => $user?->id,
             'registration_number' => $regNumber,
-            'check_type' => $tier === 'premium' ? 'premium' : 'free',
+            'check_type' => 'free',
             'ip_address' => $request->ip(),
             'status' => 'pending',
             'stage' => 'queued',
@@ -62,7 +55,7 @@ class VehicleCheckController extends Controller
             $report = $vinCheck->reports()->latest()->first();
             return redirect()->route('page.my-report.show', $report->id);
         }
-        return Inertia::render('VehicleCheck/Loading', [
+        return Inertia::render('user/vehicle-check/loading', [
             'vinCheck' => [
                 'id' => $vinCheck->id,
                 'stage' => $vinCheck->stage,
@@ -71,6 +64,33 @@ class VehicleCheckController extends Controller
                 'registration_number' => $vinCheck->registration_number,
             ],
         ]);
+    }
+
+    public function unlock(Report $report, Request $request)
+    {
+        $user = $request->user();
+
+        if (!$user) {
+            return back()->with('modal', 'login_required');
+        }
+
+        if (!$user->canPerformCheck()){
+            return back()->with('modal', 'Credit_exhausted');
+        }
+
+        $vinCheck = VinCheck::create([
+            'user_id' => $user?->id,
+            'registration_number' => $regNumber,
+            'check_type' => 'premium',
+            'ip_address' => $request->ip(),
+            'status' => 'pending',
+            'stage' => 'queued',
+        ]);
+
+        
+        ProcessVehicleCheck::dispatch($vinCheck->id, upgradeReportId: $report->id);
+
+        return redirect()->route('vehicle-check.loading', $vinCheck->id);
     }
 
     private function mapApiToVehicle(array $apiData): array
