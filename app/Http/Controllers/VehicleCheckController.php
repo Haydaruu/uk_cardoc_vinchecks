@@ -74,20 +74,19 @@ class VehicleCheckController extends Controller
             return back()->with('modal', 'login_required');
         }
 
-        if (!$user->canPerformCheck()){
-            return back()->with('modal', 'Credit_exhausted');
+        if (!$user->canPerformCheck()) {
+            return back()->with('modal', 'credits_exhausted');
         }
 
         $vinCheck = VinCheck::create([
-            'user_id' => $user?->id,
-            'registration_number' => $regNumber,
+            'user_id' => $user->id,
+            'registration_number' => $report->vinCheck->registration_number,
             'check_type' => 'premium',
             'ip_address' => $request->ip(),
             'status' => 'pending',
             'stage' => 'queued',
         ]);
 
-        
         ProcessVehicleCheck::dispatch($vinCheck->id, upgradeReportId: $report->id);
 
         return redirect()->route('vehicle-check.loading', $vinCheck->id);

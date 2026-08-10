@@ -1,13 +1,10 @@
 import { Head, router, usePage } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
-import { Lock } from 'lucide-react';
+import { Lock, Leaf } from 'lucide-react';
 import BaseLayout from '@/layouts/base-layout';
 import LoginRequiredModal from '@/components/report/login-required-modal';
-import CreditExhaustedModal from '@/components/report/credits-exhausted-modal';
+import CreditsExhaustedModal from '@/components/report/credits-exhausted-modal';
 
-type PageProps = {
-    flash: {modal?: 'login_required' | 'credit_exhausted' };
-}
 type ReportProps = {
     report: {
         id: number;
@@ -20,24 +17,37 @@ type ReportProps = {
             fuelType: string;
             engineCapacity: number;
             yearOfManufacture: number;
+            co2Emissions?: number;
             tax?: { taxStatus: string };
             mot?: { motStatus: string; motDueDate: string };
         };
     };
 };
 
+type PageProps = {
+    flash: { modal?: 'login_required' | 'credits_exhausted' };
+};
+
+function isUlezCompliant(fuelType: string, year: number): boolean {
+    const fuel = fuelType?.toLowerCase();
+    if (fuel === 'diesel' || fuel === 'heavy oil') return year >= 2015;
+    if (fuel === 'petrol') return year >= 2006;
+    return true; // electric/hybrid dianggap compliant
+}
+
 export default function ShowReport({ report }: ReportProps) {
     const { data } = report;
     const isPremium = report.report_type === 'premium';
     const { props } = usePage<PageProps>();
-    const [ modal, setModal] = useState<string | null>(null);
+    const [modal, setModal] = useState<string | null>(null);
+    const ulezCompliant = isUlezCompliant(data.fuelType, data.yearOfManufacture);
 
     useEffect(() => {
         if (props.flash?.modal) setModal(props.flash.modal);
-    }, [props.flash?.modal])
+    }, [props.flash?.modal]);
 
     function handleUnlock() {
-        router.post(`/reports/${report.id}/unclock`)
+        router.post(`/reports/${report.id}/unlock`);
     }
 
     return (
@@ -64,34 +74,51 @@ export default function ShowReport({ report }: ReportProps) {
                     )}
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-3">
-                    <InfoCard label="Fuel Type" value={data.fuelType} />
-                    <InfoCard label="Engine" value={`${data.engineCapacity}cc`} />
-                    <InfoCard label="Year" value={String(data.yearOfManufacture)} />
-                </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                    <div className="rounded-lg border border-slate-200 p-6">
+                        <div className="grid grid-cols-2 gap-4">
+                            <InfoCard label="Fuel Type" value={data.fuelType} />
+                            <InfoCard label="Engine" value={`${data.engineCapacity}cc`} />
+                            <InfoCard label="Tax Status" value={data.tax?.taxStatus ?? 'Unknown'} />
+                            <InfoCard label="MOT Status" value={data.mot?.motStatus ?? 'Unknown'} />
+                        </div>
+                    </div>
 
-                <div className="mt-4 grid gap-4 md:grid-cols-2">
-                    <InfoCard label="Tax Status" value={data.tax?.taxStatus ?? 'Unknown'} />
-                    <InfoCard label="MOT Status" value={data.mot?.motStatus ?? 'Unknown'} />
+                    {/* ULEZ Compliant card — dihitung dari data yang sudah ada, bukan API baru */}
+                    <div className="flex flex-col items-center justify-center rounded-lg border border-slate-200 p-6 text-center">
+                        <Leaf className={`mb-2 size-8 ${ulezCompliant ? 'text-green-500' : 'text-red-500'}`} />
+                        <p className="font-bold">{ulezCompliant ? 'ULEZ Compliant' : 'Not ULEZ Compliant'}</p>
+                        <p className="mt-1 text-xs text-slate-400">
+                            {ulezCompliant
+                                ? 'This vehicle meets the emissions standards for the London Ultra Low Emission Zone.'
+                                : 'This vehicle may be subject to daily ULEZ charges in London.'}
+                        </p>
+                    </div>
                 </div>
 
                 {!isPremium && (
                     <div className="mt-6 grid gap-4 md:grid-cols-2">
-                        <LockedCard title="Outstanding Finance" />
-                        <LockedCard title="Accident History" />
+                        <div>
+                            <LockedCard title="Outstanding Finance" />
+                            <p className="mt-2 text-xs italic text-slate-400">Active finance agreements may exist. Unlock to verify.</p>
+                        </div>
+                        <div>
+                            <LockedCard title="Accident History" />
+                            <p className="mt-2 text-xs italic text-slate-400">Total loss or Category S/N records may be present.</p>
+                        </div>
                     </div>
                 )}
             </div>
 
             {modal === 'login_required' && <LoginRequiredModal onClose={() => setModal(null)} />}
-            {modal === 'credits_exhausted' && <CreditExhaustedModal onClose={() => setModal(null)} />}
+            {modal === 'credits_exhausted' && <CreditsExhaustedModal onClose={() => setModal(null)} />}
         </>
     );
 }
 
 function InfoCard({ label, value }: { label: string; value: string }) {
-     return (
-        <div className="rounded-lg border border-slate-200 p-4">
+    return (
+        <div>
             <p className="text-xs uppercase text-slate-400">{label}</p>
             <p className="mt-1 font-semibold text-[#151c27]">{value}</p>
         </div>
