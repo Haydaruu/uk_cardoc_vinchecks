@@ -1,6 +1,6 @@
 // resources/js/pages/vehicle-check/loading.tsx
 import { Head, router, usePage } from '@inertiajs/react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ShieldCheck } from 'lucide-react';
 
 type VinCheckProps = {
@@ -12,28 +12,69 @@ type VinCheckProps = {
 };
 
 // Definisikan urutan step per tier — ini yang bikin desain guest (2 step) vs premium (3 step) otomatis kepakai
+// Catatan: label sengaja tanpa "..." statis karena sekarang dot dianimasikan terpisah (lihat DOT_FRAMES)
 const STEPS = {
     free: [
-        { key: 'connecting', label: 'Connecting to DVLA...' },
+        { key: 'connecting', label: 'Connecting to DVLA' },
         { key: 'finalizing', label: 'Finalizing Sovereign Report' },
     ],
     premium: [
-        { key: 'connecting', label: 'Connecting to DVLA...' },
-        { key: 'verifying_history', label: 'Verifying vehicle history...' },
+        { key: 'connecting', label: 'Connecting to DVLA' },
+        { key: 'verifying_history', label: 'Verifying vehicle history' },
         { key: 'finalizing', label: 'Finalizing Sovereign Report' },
     ],
 } as const;
+
+const DOT_FRAMES = ['.', '..', '...'];
+const DOT_INTERVAL_MS = 400;
+
+// Progress bar step aktif mendekati 92% mengikuti waktu berjalan sejak step ini jadi aktif.
+// Sisa 8% baru terisi penuh saat poll berikutnya konfirmasi backend benar-benar pindah stage —
+// jadi bar tidak pernah "berbohong" bilang selesai sebelum job.handle() beneran maju.
+const PROGRESS_CAP = 92;
+const PROGRESS_TIME_CONSTANT_MS = 4000;
 
 export default function LoadingReport() {
     const { props } = usePage<{ vinCheck: VinCheckProps }>();
     const { vinCheck } = props;
     const steps = STEPS[vinCheck.check_type];
-    const currentIndex = Math.max(0,steps.findIndex((s) => s.key === vinCheck.stage));
+    const currentIndex = Math.max(0, steps.findIndex((s) => s.key === vinCheck.stage));
+
     const [attempts, setAttempts] = useState(0);
-    const MAXX_ATTEMPTS = 30;
+    const MAX_ATTEMPTS = 30;
+
+    // Animasi titik "." -> ".." -> "..." -> kembali dari awal, jalan terus untuk step yang aktif
+    const [dotFrame, setDotFrame] = useState(0);
+    useEffect(() => {
+        const dotInterval = setInterval(() => {
+            setDotFrame((prev) => (prev + 1) % DOT_FRAMES.length);
+        }, DOT_INTERVAL_MS);
+        return () => clearInterval(dotInterval);
+    }, []);
+
+    // Progress bar realtime: reset ke 0 tiap kali step aktif berpindah (mulai dari kiri lagi),
+    // lalu terus bertambah ke kanan mengikuti waktu berjalan sambil menunggu poll berikutnya
+    const [stepStartedAt, setStepStartedAt] = useState(() => Date.now());
+    const [now, setNow] = useState(() => Date.now());
+    const previousIndexRef = useRef(currentIndex);
 
     useEffect(() => {
-        if (vinCheck.status !== 'pending' || attempts >= MAXX_ATTEMPTS) return;
+        if (previousIndexRef.current !== currentIndex) {
+            previousIndexRef.current = currentIndex;
+            setStepStartedAt(Date.now());
+        }
+    }, [currentIndex]);
+
+    useEffect(() => {
+        const tick = setInterval(() => setNow(Date.now()), 100);
+        return () => clearInterval(tick);
+    }, []);
+
+    const elapsedInStep = now - stepStartedAt;
+    const activeProgress = PROGRESS_CAP * (1 - Math.exp(-elapsedInStep / PROGRESS_TIME_CONSTANT_MS));
+
+    useEffect(() => {
+        if (vinCheck.status !== 'pending' || attempts >= MAX_ATTEMPTS) return;
 
         const interval = setInterval(() => {
             setAttempts((prev) => prev + 1);
@@ -91,6 +132,9 @@ export default function LoadingReport() {
                                     <div className="flex items-center justify-between text-sm">
                                         <span className={isPending ? 'text-slate-400' : 'font-semibold text-[#151c27]'}>
                                             {step.label}
+                                            {isActive && (
+                                                <span className="inline-block w-4 text-left">{DOT_FRAMES[dotFrame]}</span>
+                                            )}
                                         </span>
                                         <span
                                             className={
@@ -106,7 +150,15 @@ export default function LoadingReport() {
                                     </div>
                                     {isActive && (
                                         <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-slate-100">
-                                            <div className="h-full w-1/2 animate-pulse rounded-full bg-[#bb001a]" />
+                                            <div
+                                                className="h-full rounded-full bg-[#bb001a] transition-[width] duration-150 ease-linear"
+                                                style={{ width: `${activeProgress}%` }}
+                                            />
+                                        </div>
+                                    )}
+                                    {isDone && (
+                                        <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-slate-100">
+                                            <div className="h-full w-full rounded-full bg-green-500" />
                                         </div>
                                     )}
                                 </div>

@@ -7,10 +7,9 @@ use Inertia\Inertia;
 
 class PageController extends Controller
 {
-    public function home() {
-
-        $username = 'Haydaru';
-        return Inertia::render('home', ['username' => $username]);
+    public function home() 
+    {
+        return Inertia::render('home');
     }
 
     public function support()

@@ -1,10 +1,10 @@
 import {Head, usePage} from '@inertiajs/react';
-import GuestHero from '@/components/home/guest-hero';
-import UserDashboard from '@/components/home/user-dashboard';
+import UserDashboard, { type RecentReport} from '@/components/home/user-dashboard';
 import BaseLayout from '@/layouts/base-layout';
-import { ReactNode } from 'react';
+import { ReactNode} from 'react';
 
-type SharedProps = {
+
+type DasbhoardPageProps = {
     auth: {
         user: {
             name: string;
@@ -12,15 +12,17 @@ type SharedProps = {
             is_premium: boolean;
         } | null;
     };
+    recentReports: RecentReport[];
+    recentSearches: string[];
 };
 
 function Dashboard() {
-    const { auth } = usePage<SharedProps>().props;
+    const { auth, recentReports, recentSearches } = usePage<DasbhoardPageProps>().props;
 
     return (
         <>
             <Head title="UK Vehicle History Check"/>
-            {auth.user ? <UserDashboard user={auth.user} /> : <GuestHero />}
+            <UserDashboard user={auth.user} recentReports={recentReports} recentSearches={recentSearches}/> 
         </>
     );
 }

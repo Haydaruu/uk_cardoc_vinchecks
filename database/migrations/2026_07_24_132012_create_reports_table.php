@@ -15,6 +15,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('user_id')->nullable()->constrained()->cascadeOnDelete();
             $table->foreignId('vin_check_id')->nullable()->constrained('vin_checks')->cascadeOnDelete();
+            $table->foreignId('vehicle_id')->constrained()->cascadeOnDelete();
             $table->string('vin')->nullable();
             $table->json('report_data')->nullable();
             $table->enum('report_type', ['basic', 'premium', 'full'])->nullable();

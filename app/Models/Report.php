@@ -3,12 +3,14 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Vehicle;
 
 class Report extends Model
 {
     protected $fillable = [
         'user_id',
         'vin_check_id',
+        'vehicle_id',
         'vin',
         'report_data',
         'report_type',
@@ -33,5 +35,10 @@ class Report extends Model
     public function vinCheck()
     {
         return $this->belongsTo(VinCheck::class, 'vin_check_id');
+    }
+
+    public function Vehicle()
+    {
+         return $this->belongsTo(Vehicle::class);
     }
 }

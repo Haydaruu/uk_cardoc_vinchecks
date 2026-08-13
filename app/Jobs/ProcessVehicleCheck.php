@@ -23,7 +23,7 @@ class ProcessVehicleCheck implements ShouldQueue
     public int $backoff = 5;
     public function __construct(
         private int $vinCheckId,
-        private ?int $upgradeReportId = null,
+        private ?int $existingReportId = null,
     ){}
 
     public function handle(VehicleDataProviderInterface $provider): void
@@ -40,44 +40,81 @@ class ProcessVehicleCheck implements ShouldQueue
             $historyData= [];
             $actualReportType= 'basic';
 
+
             if ($isPremium) {
                 $vinCheck->update(['stage' => 'verifying_history']);
+                
+                $premiumData = [];
 
-                try{
-                    $historyData = $provider->getHistoryCheck($regNumber);
-                    $actualReportType = 'premium';
+                try {
+                    $fullDataResponse = $provider->getFullVehicleData($regNumber);
+                    $premiumData['ColourChangeDetails'] = $fullDataResponse['VehicleHistory']['ColourChangeDetails'] ?? null;
+                    $premiumData['ColourChangeList'] = $fullDataResponse['VehicleHistory']['ColourChangeList'] ?? null;
                 } catch (\Throwable $e) {
-                    Log::warning('Premium history check failed', [
+                    Log::warning("Premium data point 'ukvehicledata' failed", [
                         'vin_check_id' => $vinCheck->id,
                         'error' => $e->getMessage(),
                     ]);
                 }
-                
-                $premiumData = [];
 
-                foreach ([
-                    'history' => fn () => $provider->getHistoryCheck($regNumber),
-                    'mileage' => fn () => $provider->getMileageHistory($regNumber),
-                    'image' => fn () => $provider->getVehicleImage($regNumber),
-                    'valuation' => fn () => $provider->getVehicleValuation($regNumber),
-                ] as $key => $call) {
-                    try {
-                        $premiumData[$key] = $call();
-                    } catch (\Throwable $e) {
-                        Log::warning("Premium data point '{$key}' failed", [
-                            'vin_check_id' => $vinCheck->id,
-                            'error' => $e->getMessage(),
-                        ]);
-                        $premiumData[$key] = null; // ditandai gagal, bukan bikin seluruh proses berhenti
-                    }
+                try {
+                    $historyResponse = $provider->getHistoryCheck($regNumber);
+                    $premiumData['VehicleRegistration'] = $historyResponse['VehicleRegistration'] ?? null;
+                    $premiumData['VehicleHistory'] = $historyResponse['VehicleHistory'] ?? null;
+                    $premiumData['Dimensions'] = $historyResponse['Dimensions'] ?? null; 
+                } catch (\Throwable $e) {
+                    Log::warning("Premium data point 'carhistorycheck' failed", [
+                        'vin_check_id' => $vinCheck->id,
+                        'error' => $e->getMessage(),
+                    ]);
                 }
 
-                $historyData = array_filter($premiumData); // buang yang null
-                $actualReportType = !empty($premiumData['history']) ? 'premium' : 'basic';
+                try{
+                    $mileageResponse = $provider->getMileageHistory($regNumber);
+                    $premiumData['summary'] = $mileageResponse['summary'] ?? null;
+                } catch (\Throwable $e){
+                    Log::warning("Premium data point 'mileage' failed", [
+                        'vin_check_id' => $vinCheck->id,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+
+                try{
+                    $imageResponse = $provider->getVehicleImage($regNumber);
+                    $premiumData['VehicleImages'] = $imageResponse['VehicleImages'] ?? null;
+                } catch (\Throwable $e){
+                    Log::warning("Premium data point 'vehicleimage' failed", [
+                        'vin_check_id' => $vinCheck->id,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+
+                try {
+                    $valuationResponse = $provider->getVehicleValuation($regNumber);
+                    $premiumData['ValuationList'] = $valuationResponse['ValuationList'] ?? null;
+                } catch (\Throwable $e) {
+                    Log::warning("Premium data point 'vehiclevaluation' failed", [
+                        'vin_check_id' => $vinCheck->id,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+
+                try {
+                    $motResponse = $provider->getMotHistory($regNumber);
+                    $premiumData['motHistory'] = $motResponse['motHistory'] ?? null;
+                    $premiumData['motHistorySummary'] = $motResponse['motHistorySummary'] ?? null;
+                } catch (\Throwable $e) {
+                    Log::warning("Premium data point 'mot' failed", [
+                        'vin_check_id' => $vinCheck->id,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+
+                $historyData = array_filter($premiumData, fn ($v) => $v !== null && $v !== []);
+                $actualReportType = !empty($historyData) ? 'premium' : 'basic';
             }
 
             $vinCheck->update(['stage' => 'finalizing']);
-
             $mergeData = array_merge($registrationData, $historyData);
 
             $vehicle = Vehicle::updateOrCreate(
@@ -85,44 +122,48 @@ class ProcessVehicleCheck implements ShouldQueue
                 $this->mapApiDataToVehicle($mergeData),
             );
 
-            DB::Transaction(function () use ($vinCheck, $vehicle, $isPremium, $mergeData, $actualReportType) {
-                    if ($this->upgradeReportId) {
-                        Report::where('id', $this->upgradeReportId)->update([
+            DB::transaction(function () use ($vinCheck, $vehicle, $isPremium, $actualReportType, $mergeData) {
+                if ($this->existingReportId) {
+                    $report = Report::findOrFail($this->existingReportId);
+                    $report->update([
+                        'vehicle_id' => $vehicle->id,
                         'report_data' => $mergeData,
-                        'report_type' => $actualReportType,
+                        'report_type' => $isPremium ? 'premium' : 'basic',
+                        'vin_check_id' => $vinCheck->id,
                     ]);
-                    $report = Report::find($this->upgradeReportId);
                 } else {
                     $report = Report::create([
-                    'user_id' => $vinCheck->user_id,
-                    'vehicle_id' => $vehicle->id,
-                    'vin_check_id' => $vinCheck->id,
-                    'vin' => $vehicle->vin,
-                    'report_data' => $mergeData,
-                    'report_type' => $actualReportType,
-                    'generated_at' => now(),
-                ]);
-            }
+                        'user_id' => $vinCheck->user_id,
+                        'vehicle_id' => $vehicle->id,
+                        'vin_check_id' => $vinCheck->id,
+                        'vin' => $vehicle->vin,
+                        'report_data' => $mergeData,
+                        'report_type' => $isPremium ? 'premium' : 'basic',
+                        'generated_at' => now(),
+                    ]);
+                }
+
                 if ($actualReportType === 'premium' && $isPremium && $vinCheck->user_id) {
                     $user = $vinCheck->user;
                     $subscription = $user->activeSubscription();
 
-                    if($subscription) {
+                    if ($subscription) {
                         $subscription->increment('reports_used');
                     } else {
                         $newBalance = $user->credits - 1;
                         $user->update(['credits' => $newBalance]);
 
-                    CreditTransaction::create([
-                        'user_id' => $user->id,
-                        'type' => 'usage',
-                        'amount' => -1,
-                        'balance_after' => $newBalance,
-                        'reference_id' => (string) $report->id,
-                        'description' => "Vehicle check: {$vinCheck->registration_number}",
-                    ]);
+                        CreditTransaction::create([
+                            'user_id' => $user->id,
+                            'type' => 'usage',
+                            'amount' => -1,
+                            'balance_after' => $newBalance,
+                            'reference_id' => (string) $report->id,
+                            'description' => "Vehicle check: {$vinCheck->registration_number}",
+                        ]);
+                    }
                 }
-            }
+
                 $vinCheck->update(['stage' => 'completed', 'status' => 'success']);
             });
 
@@ -158,6 +199,8 @@ class ProcessVehicleCheck implements ShouldQueue
             'mot_expiry_date' => $apiData['mot']['motDueDate'] ?? null,
             'outstanding_finance' => !empty($apiData['financeRecord']),
             'write_off_category' => $apiData['writeoff'][0]['status'] ?? null,
+            'vin'=> $apiData['VehicleRegistration']['Vin'] ?? $apiData['vin'] ?? 'NOT FOUND',
+            'image_url' => $apiData['VehicleImages']['ImageDetailsList'][0]['ImageUrl'] ?? 'NOT FOUND',
             'raw_api_response' => $apiData,
             'last_refreshed_at' => now(),
         ];

@@ -21,6 +21,7 @@ class Vehicle extends Model
         'year_of_manufacture',
         'outstanding_finance',
         'write_off_category',
+        'image_url',
         'last_refreshed_at',
         'raw_api_response',
     ];

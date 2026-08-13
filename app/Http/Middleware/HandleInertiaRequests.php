@@ -48,6 +48,9 @@ class HandleInertiaRequests extends Middleware
                     'is_premium' => $request->user()->is_premium,
                 ] : null,
             ],
+            'flash' => [
+                'modal' => fn () => $request->session()->get('modal'),
+            ],
         ];
     }
 }

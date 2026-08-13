@@ -147,7 +147,7 @@ class VehicleDataServices implements VehicleDataProviderInterface
 
     public function getVehicleValuation(string $vrm): array
     {
-        return $this->fetch('vehiclevaluations', $vrm);
+        return $this->fetch('vehiclevaluation', $vrm);
     }
 
     public function performCheck(string $vrm, string $tier = 'basic'): array

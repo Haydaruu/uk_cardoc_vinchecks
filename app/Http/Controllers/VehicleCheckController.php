@@ -25,19 +25,24 @@ class VehicleCheckController extends Controller
         $user = $request->user();
         $regNumber = $request->validated('registration_number');
 
-        if (!$user) {
-            $key = 'guest-check:' . $request->ip();
+        $isPremiumEligible = $user && $user->canPerformCheck();
+
+        if (!$isPremiumEligible) {
+            $key = $user
+                ? 'free-check:user' . $user->id
+                : 'free-check:ip' . $request->ip();
             if (RateLimiter::tooManyAttempts($key, maxAttempts: 3)) {
-                return back()->withErrors(['registration_number' => 'Batas cek gratis harian tercapai.']);
+                return back()->withErrors(['registration_number' => $user 
+                ? 'Batas cek gratis harian tercapai.'. 'Upgrade akun untuk cek lebih lanjut.'
+                : 'Batas cek gratis harian tercapai. Silakan login untuk cek lebih lanjut.']);
             }
             RateLimiter::hit($key, decaySeconds: 86400);
         }
-        // TIDAK ADA LAGI cek credit di sini — basic check itu gratis buat siapa aja
 
         $vinCheck = VinCheck::create([
             'user_id' => $user?->id,
             'registration_number' => $regNumber,
-            'check_type' => 'free',
+            'check_type' => $isPremiumEligible ? 'premium' : 'free', 
             'ip_address' => $request->ip(),
             'status' => 'pending',
             'stage' => 'queued',
@@ -74,20 +79,25 @@ class VehicleCheckController extends Controller
             return back()->with('modal', 'login_required');
         }
 
+        if ($report->report_type === 'premium'){
+            return redirect()->route('page.my-report.show', $report->id);
+        }
+
         if (!$user->canPerformCheck()) {
             return back()->with('modal', 'credits_exhausted');
         }
 
-        $vinCheck = VinCheck::create([
-            'user_id' => $user->id,
-            'registration_number' => $report->vinCheck->registration_number,
+
+        $vinCheck = $report->vinCheck;
+
+        $vinCheck->update([
+            'user_id' => $vinCheck->user_id ?? $user->id,
             'check_type' => 'premium',
-            'ip_address' => $request->ip(),
             'status' => 'pending',
             'stage' => 'queued',
         ]);
 
-        ProcessVehicleCheck::dispatch($vinCheck->id, upgradeReportId: $report->id);
+        ProcessVehicleCheck::dispatch($vinCheck->id,  $report->id);
 
         return redirect()->route('vehicle-check.loading', $vinCheck->id);
     }
