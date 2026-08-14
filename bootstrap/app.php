@@ -16,6 +16,11 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
+    ->withMiddleware(function (Middleware $middleware) {
+        $middleware->validateCsrfTokens(except: [
+            'stripe/webhook',
+        ]);
+    })
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->web(append: [
             HandleInertiaRequests::class,
@@ -26,7 +31,6 @@ return Application::configure(basePath: dirname(__DIR__))
             'role' => EnsureUserHasRole::class,
             'redirect.home.auth' => RedirectIfAuthenticated::class
         ]);
-        
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

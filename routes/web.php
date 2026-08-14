@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\VehicleCheckController;
 use App\Http\Controllers\Auth\GoogleAuthController;
+use App\Http\Controllers\StripeWebhookController;
 use App\Http\Controllers\ReportController;
 use Inertia\Inertia;
 
@@ -33,6 +34,10 @@ Route::middleware('guest')->group(function () {
 //iki auth Loading Check
 Route::post('/vehicle-check', [VehicleCheckController::class, 'store'])->name('vehicle-check.store');
 Route::get('/vehicle-check/{vinCheck}/loading', [VehicleCheckController::class, 'loading'])->name('vehicle-check.loading');
+
+//iki auth webhook Stripe
+Route::post('/stripe/webhook', [StripeWebhookController::class, 'handle'])
+    ->name('stripe.webhook');
 
 
 require __DIR__.'/user.php';

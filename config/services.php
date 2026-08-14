@@ -44,6 +44,12 @@ return [
     'checkcardetails' => [
         'key' => env('CHECKCARDETAILS_API_KEY'),
         'base_url' => env('CHECKCARDETAILS_BASE_URL'),
-    ],  
+    ],
+
+    'stripe' => [
+        'key' => env('STRIPE_KEY'),
+        'secret' => env('STRIPE_SECRET'),
+        'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
+    ],
 
 ];

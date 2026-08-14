@@ -15,7 +15,8 @@
         "laravel/framework": "^13.17",
         "laravel/socialite": "^5.29",
         "laravel/tinker": "^3.0",
-        "laravel/wayfinder": "^0.1.14"
+        "laravel/wayfinder": "^0.1.14",
+        "stripe/stripe-php": "*"
     },
     "require-dev": {
         "fakerphp/faker": "^1.24",

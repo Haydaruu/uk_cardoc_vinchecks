@@ -26,7 +26,7 @@ class ProcessVehicleCheck implements ShouldQueue
         private ?int $existingReportId = null,
     ){}
 
-    public function handle(VehicleDataProviderInterface $provider, CreditServices $creditService): void
+    public function handle(VehicleDataProviderInterface $provider, CreditService $creditService): void
     {
         $vinCheck = VinCheck::findOrFail($this->vinCheckId);
         $isPremium = $vinCheck->check_type === 'premium';
