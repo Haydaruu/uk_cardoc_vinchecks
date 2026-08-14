@@ -20,8 +20,7 @@ return new class extends Migration
             $table->date('start_date')->nullable();
             $table->date('end_date')->nullable();
             $table->enum('status', ['active', 'expired', 'cancelled', 'pending'])->default('pending');
-            $table->integer('reports_used')->default(0);
-            $table->integer('reports_limit')->nullable();
+            $table->unsignedInteger('monthly_credits')->nullable();
             $table->timestamp('cancelled_at')->nullable();
             $table->timestamps(); // created_at & updated_at
         });

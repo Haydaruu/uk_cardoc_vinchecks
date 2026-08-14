@@ -15,8 +15,7 @@ class Subscription extends Model
         'start_date',
         'end_date',
         'status',
-        'reports_used',
-        'reports_limit',
+        'monthly_credits',
         'cancelled_at',
     ];
 

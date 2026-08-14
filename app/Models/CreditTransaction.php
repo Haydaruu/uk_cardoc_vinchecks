@@ -13,6 +13,7 @@ class CreditTransaction extends Model
         'amount',
         'balance_after',
         'reference_id',
+        'idempotency_key',
         'description',
     ];
 
@@ -23,7 +24,7 @@ class CreditTransaction extends Model
 
     public function User () 
     {
-        return $this->belogsTo(User::class);
+        return $this->belongsTo(User::class);
     }
 
     public function scopePurchase($query)

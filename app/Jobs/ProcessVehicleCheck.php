@@ -2,7 +2,7 @@
 
 namespace App\Jobs;
 
-use App\Models\CreditTransaction;
+use App\Services\CreditService;
 use App\Models\Report;
 use App\Models\Vehicle;
 use App\Models\VinCheck;
@@ -26,7 +26,7 @@ class ProcessVehicleCheck implements ShouldQueue
         private ?int $existingReportId = null,
     ){}
 
-    public function handle(VehicleDataProviderInterface $provider): void
+    public function handle(VehicleDataProviderInterface $provider, CreditServices $creditService): void
     {
         $vinCheck = VinCheck::findOrFail($this->vinCheckId);
         $isPremium = $vinCheck->check_type === 'premium';
@@ -144,24 +144,11 @@ class ProcessVehicleCheck implements ShouldQueue
                 }
 
                 if ($actualReportType === 'premium' && $isPremium && $vinCheck->user_id) {
-                    $user = $vinCheck->user;
-                    $subscription = $user->activeSubscription();
-
-                    if ($subscription) {
-                        $subscription->increment('reports_used');
-                    } else {
-                        $newBalance = $user->credits - 1;
-                        $user->update(['credits' => $newBalance]);
-
-                        CreditTransaction::create([
-                            'user_id' => $user->id,
-                            'type' => 'usage',
-                            'amount' => -1,
-                            'balance_after' => $newBalance,
-                            'reference_id' => (string) $report->id,
-                            'description' => "Vehicle check: {$vinCheck->registration_number}",
-                        ]);
-                    }
+                    $creditService->consume(
+                        user: $vinCheck->user,
+                        referenceId: (string) $report->id,
+                        description: "Vehicle check: {$vinCheck->registration_number}",
+                    );
                 }
 
                 $vinCheck->update(['stage' => 'completed', 'status' => 'success']);

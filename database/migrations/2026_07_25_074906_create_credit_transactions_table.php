@@ -14,10 +14,11 @@ return new class extends Migration
         Schema::create('credit_transactions', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
-            $table->enum('type', ['purchase', 'usage', 'refund', 'bonus']);
+            $table->enum('type', ['purchase','subscription', 'usage', 'refund', 'bonus']);
             $table->integer('amount');
             $table->integer('balance_after');
             $table->string('reference_id')->nullable();
+            $table->string('idempotency_key')->nullable()->unique();
             $table->text('description')->nullable();
             $table->timestamps();
         });

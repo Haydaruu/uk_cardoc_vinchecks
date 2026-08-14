@@ -83,6 +83,6 @@ class User extends Authenticatable implements MustVerifyEmail
 
     public function canPerformCheck(): bool
     {
-        return $this->activeSubscription() !== null || $this->credits > 0;
+        return $this->credits > 0;
     }
 }

@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Log;
 use App\Contracts\VehicleDataProviderInterface;
 
 
-class VehicleDataServices implements VehicleDataProviderInterface
+class VehicleDataService implements VehicleDataProviderInterface
 {
     /**
      * Create a new class instance.
