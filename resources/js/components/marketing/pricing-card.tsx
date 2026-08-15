@@ -1,17 +1,16 @@
+// pricing-card.tsx
 import { Link } from '@inertiajs/react';
-import { Check, X } from 'lucide-react';
-
-type PricingFeature = {
-    label: string;
-    included: boolean;
-};
+import { Check } from 'lucide-react';
 
 type PricingCardProps = {
     tier: string;
     title: string;
-    price: string;
-    period?: string;
-    features: PricingFeature[];
+    pricePerReport: string;
+    originalPricePerReport?: string;
+    totalPrice: string;
+    originalTotalPrice?: string;
+    discountLabel?: string;
+    bullets: string[];
     ctaLabel: string;
     ctaHref: string;
     highlighted?: boolean;
@@ -21,9 +20,12 @@ type PricingCardProps = {
 export default function PricingCard({
     tier,
     title,
-    price,
-    period = '/per report',
-    features,
+    pricePerReport,
+    originalPricePerReport,
+    totalPrice,
+    originalTotalPrice,
+    discountLabel,
+    bullets,
     ctaLabel,
     ctaHref,
     highlighted = false,
@@ -54,29 +56,37 @@ export default function PricingCard({
                 <h3 className="mt-2 text-2xl font-black tracking-tight text-primary-container">
                     {title}
                 </h3>
-                <div className="mt-4 flex items-baseline gap-1">
+
+                <div className="mt-4 flex items-baseline gap-2">
                     <span className="text-4xl font-black tracking-tight text-primary-container">
-                        {price}
+                        {pricePerReport}
                     </span>
-                    <span className="text-sm text-slate-400">{period}</span>
+                    <span className="text-sm text-slate-400">/ per report</span>
                 </div>
+
+                <div className="mt-2 flex items-center gap-2">
+                    <span className="text-sm font-semibold text-slate-600">
+                        Total price {totalPrice}
+                    </span>
+                    {originalTotalPrice && (
+                        <span className="text-sm text-slate-300 line-through">
+                            {originalTotalPrice}
+                        </span>
+                    )}
+                </div>
+
+                {discountLabel && (
+                    <span className="mt-3 inline-block rounded-sm bg-secondary/10 px-2.5 py-1 text-[11px] font-bold text-secondary">
+                        {discountLabel}
+                    </span>
+                )}
             </div>
 
-            <ul className="mt-8 flex-1 space-y-3">
-                {features.map((feature) => (
-                    <li key={feature.label} className="flex items-start gap-3">
-                        {feature.included ? (
-                            <Check size={16} className="mt-0.5 shrink-0 text-secondary" />
-                        ) : (
-                            <X size={16} className="mt-0.5 shrink-0 text-slate-300" />
-                        )}
-                        <span
-                            className={`text-sm ${
-                                feature.included ? 'text-slate-600' : 'text-slate-300'
-                            }`}
-                        >
-                            {feature.label}
-                        </span>
+            <ul className="mt-8 flex-1 space-y-3 border-t border-slate-100 pt-6">
+                {bullets.map((bullet) => (
+                    <li key={bullet} className="flex items-start gap-3">
+                        <Check size={16} className="mt-0.5 shrink-0 text-secondary" />
+                        <span className="text-sm text-slate-600">{bullet}</span>
                     </li>
                 ))}
             </ul>

@@ -17,8 +17,8 @@ class ReportController extends Controller
         }
 
         $component = $report->report_type === 'premium'
-            ? 'my-report/full-report'
-            : 'my-report/show';
+            ? 'report/full-report'
+            : 'report/show';
     
         
         return Inertia::render($component, [

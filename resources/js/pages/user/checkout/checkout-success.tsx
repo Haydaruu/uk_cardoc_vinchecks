@@ -22,7 +22,7 @@ export default function CheckoutSuccess({ order }: CheckoutSuccessProps) {
         <>
             <Head title="Payment Successful" />
 
-            <div className="flex min-h-screen flex-col bg-background font-body-md text-on-background">
+            <div className="flex min-h-screen flex items-center justify-center py bg-background font-body-md text-on-background">
                 {/* Main */}
                 <main className="bg-pattern relative px-gutter py-section-padding">
                     <div className="absolute left-1/4 top-1/4 -z-10 size-96 rounded-full bg-primary-fixed-dim/20 blur-3xl mix-blend-multiply" />

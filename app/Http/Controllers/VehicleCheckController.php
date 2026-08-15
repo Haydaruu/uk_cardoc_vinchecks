@@ -34,7 +34,7 @@ class VehicleCheckController extends Controller
             if (RateLimiter::tooManyAttempts($key, maxAttempts: 3)) {
                 return back()->withErrors(['registration_number' => $user 
                 ? 'Batas cek gratis harian tercapai.'. 'Upgrade akun untuk cek lebih lanjut.'
-                : 'Batas cek gratis harian tercapai. Silakan login untuk cek lebih lanjut.']);
+                : 'The daily limit for free checks has been reached.']);
             }
             RateLimiter::hit($key, decaySeconds: 86400);
         }

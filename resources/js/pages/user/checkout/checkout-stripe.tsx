@@ -9,17 +9,12 @@ import BaseLayout from '@/layouts/base-layout';
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_KEY);
 
 type CheckoutProps = {
-    report: {
-        id: number;
-        registrationNumber: string;
-        make: string;
-        model: string;
-    };
-    priceId: string;
-    amountDisplay:string;
+    plan: string;
+    label: string;
+    amountDisplay: string;
 };
 
-export default function Checkout({ report, priceId, amountDisplay} : CheckoutProps) {
+export default function Checkout({ plan, label, amountDisplay} : CheckoutProps) {
     const [clientSecret, setClientSecret] = useState<string | null>(null);
     const [initError, setInitError] = useState<string | null>(null);
     
@@ -32,7 +27,7 @@ export default function Checkout({ report, priceId, amountDisplay} : CheckoutPro
                 document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')
                     ?.content ?? '',
             },
-            body: JSON.stringify({ price_id: priceId, report_id: report.id}),
+            body: JSON.stringify({ plan }),
         })
 
         .then((res) => res.json())
@@ -41,12 +36,11 @@ export default function Checkout({ report, priceId, amountDisplay} : CheckoutPro
             else setInitError(data.message ?? 'Gagal memulai pembayaran.');
         })
         .catch(() => setInitError('Tidak bisa terhubung ke server pembayaran'));
-    }, [priceId, report.id]);
+    }, [plan]);
 
     return (
          <>
             <Head title="Secure Checkout" />
- 
             <main className="mx-auto max-w-7xl px-8 py-section-padding">
                 <div className="grid grid-cols-1 gap-12 lg:grid-cols-12">
                     {/* Left Column: Payment */}
@@ -54,11 +48,9 @@ export default function Checkout({ report, priceId, amountDisplay} : CheckoutPro
                         <section>
                             <h1 className="font-h2 text-h2 mb-2 text-primary">Secure Checkout</h1>
                             <p className="font-body-lg mb-8 text-on-surface-variant">
-                                Complete your purchase to unlock the full history of vehicle{' '}
-                                <span className="font-bold text-primary">{report.registrationNumber}</span>.
+                                Complete your purchase of <span className="font-bold text-primary">{label}</span>.
                             </p>
  
-                            {/* Payment method strip */}
                             <div className="mb-8 grid grid-cols-2 gap-4">
                                 <div className="flex items-center justify-center gap-2 rounded-lg bg-black py-4 text-white">
                                     <ShieldCheck className="size-4" />
@@ -117,27 +109,13 @@ export default function Checkout({ report, priceId, amountDisplay} : CheckoutPro
                             <h3 className="font-h3 text-h3 mb-6 text-primary">Order Summary</h3>
                             <div className="mb-6 space-y-4">
                                 <div className="flex items-start justify-between">
-                                    <div>
-                                        <p className="font-bold text-primary">Premium Full Vehicle Report</p>
-                                        <p className="text-sm text-slate-500">
-                                            Reg: {report.registrationNumber} ({report.make} {report.model})
-                                        </p>
-                                    </div>
+                                    <p className="font-bold text-primary">{label}</p>
                                     <span className="font-bold text-primary">{amountDisplay}</span>
                                 </div>
                                 <div className="sovereign-line" />
-                                <div className="space-y-2">
-                                    {[
-                                        'Outstanding Finance Check',
-                                        'Write-off & Salvage History',
-                                        'Mileage Anomaly Detection',
-                                        'Police Stolen Record Search',
-                                    ].map((item) => (
-                                        <div key={item} className="flex items-center gap-2 text-sm text-slate-600">
-                                            <CheckCircle2 className="size-4 text-green-600" />
-                                            {item}
-                                        </div>
-                                    ))}
+                                <div className="flex items-center gap-2 text-sm text-slate-600">
+                                    <CheckCircle2 className="size-4 text-green-600" />
+                                    Credits never expire — use them anytime to unlock a Full Report
                                 </div>
                             </div>
                             <div className="mb-6 rounded bg-surface-container-low p-4">
@@ -148,7 +126,7 @@ export default function Checkout({ report, priceId, amountDisplay} : CheckoutPro
                             </div>
                             <div className="flex items-center gap-3 text-xs text-slate-500">
                                 <ShieldCheck className="size-4 shrink-0" />
-                                Your report will be available for download immediately after payment.
+                                Your credits will be available immediately after payment.
                             </div>
                         </div>
  

@@ -16,10 +16,10 @@ Route::get('/', [PageController::class, 'home'])
 
 Route::get('/support', [PageController::class, 'support'])->name('page.support');
 Route::get('/pricing', [PageController::class, 'pricing'])->name('page.pricing');
-Route::get('/my-report', [PageController::class, 'myReport'])->name('page.my-report');
+Route::get('/about-us', function(){return Inertia::render('about-us'); })->name('page.about-us');
 
 //iki Auth Report
-Route::get('/my-report/{report}', [ReportController::class, 'show'])->name('page.my-report.show');
+Route::get('/report/{report}', [ReportController::class, 'show'])->name('page.my-report.show');
 Route::post('/reports/{report}/unlock', [VehicleCheckController::class, 'unlock'])->name('report.unlock');
 
 //Iki auth Google

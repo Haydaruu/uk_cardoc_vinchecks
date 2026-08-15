@@ -180,7 +180,7 @@ export default function UserDashboard({ user, recentReports = [], recentSearches
                         {recentReports.map((report) => (
                             <a
                                 key={report.id}
-                                href={`/my-report/${report.id}`}
+                                href={`/report/${report.id}`}
                                 className={`group overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition-all hover:shadow-md border-l-4 ${
                                     report.status === 'alert' ? 'border-l-secondary' : 'border-l-[#22c55e]'
                                 }`}

@@ -1,296 +1,209 @@
-import { Head } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
+import { useState, FormEvent } from 'react';
+import { Search, ArrowRight, SearchX, Car } from 'lucide-react';
 import BaseLayout from '@/layouts/base-layout';
-import {
-    BarChart3,
-    Car,
-    CheckCircle,
-    Download,
-    FileText,
-    Key,
-    Share2,
-    Shield,
-    ShieldCheck,
-    TrendingUp,
-} from 'lucide-react';
 
-const specifications = [
-    { label: 'Make', value: 'BMW' },
-    { label: 'Model', value: '3 Series 320d M Sport' },
-    { label: 'Body Type', value: 'Saloon' },
-    { label: 'Colour', value: 'Grey' },
-    { label: 'Date of First Reg', value: '14 Oct 2021' },
-    { label: 'Fuel Type', value: 'Diesel' },
-    { label: 'Transmission', value: '6 Speed Manual' },
-    { label: 'CO2 Emissions', value: '128 g/km' },
-    { label: 'Engine Number', value: 'B47D20A' },
-];
+type ReportRow = {
+    id: number;
+    reportType: 'basic' | 'premium' | 'full';
+    registrationNumber: string;
+    make: string;
+    model: string;
+    imageUrl: string | null;
+    checkedOn: string;
+    financeRecord: boolean | null;
+    writeOffRecord: boolean | null;
+};
 
-const mileageHistory = [
-    { date: '14/10/2024', miles: '32,451 miles' },
-    { date: '12/10/2023', miles: '28,102 miles' },
-    { date: '10/10/2022', miles: '19,840 miles' },
-];
+type PaginationLink = {
+    url: string | null;
+    label: string;
+    active: boolean;
+};
 
-const motHistory = [
-    { date: '14 Oct 2024', result: 'PASS' },
-    { date: '12 Oct 2023', result: 'PASS' },
-];
+type MyReportProps = {
+    reports: ReportRow[];
+    links: PaginationLink[];
+    search: string;
+    totalReports: number;
+    premiumReports: number;
+};
 
-const badges = ['ULEZ Compliant', 'Manual', 'Diesel', 'Euro 6'];
+export default function MyReport({ reports, links, search, totalReports, premiumReports }: MyReportProps) {
+    const [query, setQuery] = useState(search);
 
-function MyReport() {
+    function handleSearch(e: FormEvent) {
+        e.preventDefault();
+        router.get('/my-report', { q: query }, { preserveState: true, replace: true });
+    }
+
     return (
         <>
-            <Head title="Vehicle Report" />
+            <Head title="My Reports" />
 
-            <div className="bg-slate-50 py-10">
-                <div className="mx-auto max-w-[1200px] space-y-6 px-6 md:px-10">
-                    {/* Hero Card */}
-                    <div className="overflow-hidden rounded-sm border border-slate-200 bg-white shadow-sm">
-                        <div className="grid md:grid-cols-[340px_1fr]">
-                            <div className="relative h-56 md:h-auto">
-                                <img
-                                    src="https://images.unsplash.com/photo-1555215695-3004980ad54e?w=800&q=80"
-                                    alt="BMW 3 Series 320d M Sport"
-                                    className="h-full w-full object-cover"
-                                />
-                            </div>
-                            <div className="relative p-8">
-                                <div className="flex flex-wrap items-start justify-between gap-4">
-                                    <div>
-                                        <span className="inline-block rounded-sm bg-surface-container px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-primary-container">
-                                            Report ID: UKC-9283-XJ
-                                        </span>
-                                        <h1 className="mt-4 text-2xl font-black tracking-tight text-primary-container md:text-3xl">
-                                            BMW 3 SERIES 320d M Sport
-                                        </h1>
-                                        <p className="mt-2 text-sm text-slate-500">
-                                            Year: 2021 • Reg: GY71 XJN • Engine: 1995cc
-                                        </p>
-                                        <div className="mt-4 flex flex-wrap gap-2">
-                                            {badges.map((badge) => (
-                                                <span
-                                                    key={badge}
-                                                    className="rounded-sm border border-slate-200 bg-slate-50 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-slate-600"
-                                                >
-                                                    {badge}
-                                                </span>
-                                            ))}
-                                        </div>
-                                    </div>
-                                    <div className="rounded-sm border-2 border-green-500 bg-green-50 px-5 py-4 text-center">
-                                        <CheckCircle
-                                            size={28}
-                                            className="mx-auto text-green-600"
-                                        />
-                                        <p className="mt-2 text-sm font-black text-green-600">
-                                            CLEAN REPORT
-                                        </p>
-                                        <p className="mt-1 text-[10px] text-slate-400">
-                                            Validated 14 Oct 2024
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
+            <main className="mx-auto max-w-5xl px-6 pb-20 pt-12">
+                <header className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+                    <div>
+                        <h1 className="text-3xl font-black tracking-tight text-primary">Your Report History</h1>
+                        <p className="mt-2 text-sm text-slate-500">
+                            Every vehicle you've checked, all in one place.
+                        </p>
+                    </div>
+                    <div className="flex gap-6">
+                        <div className="text-right">
+                            <p className="text-2xl font-black text-primary">{totalReports}</p>
+                            <p className="text-xs uppercase tracking-widest text-slate-400">Total Reports</p>
+                        </div>
+                        <div className="text-right">
+                            <p className="text-2xl font-black text-primary">{premiumReports}</p>
+                            <p className="text-xs uppercase tracking-widest text-slate-400">Premium Unlocked</p>
                         </div>
                     </div>
+                </header>
 
-                    {/* Specs + Finance */}
-                    <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
-                        <div className="rounded-sm border border-slate-200 bg-white p-8 shadow-sm">
-                            <div className="mb-6 flex items-center gap-3">
-                                <Car size={20} className="text-primary-container" />
-                                <h2 className="text-lg font-bold text-primary-container">
-                                    Vehicle Specifications
-                                </h2>
-                            </div>
-                            <div className="grid gap-6 sm:grid-cols-3">
-                                {specifications.map((spec) => (
-                                    <div key={spec.label}>
-                                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                                            {spec.label}
-                                        </p>
-                                        <p className="mt-1 text-sm font-bold text-primary-container">
-                                            {spec.value}
-                                        </p>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
+                <form onSubmit={handleSearch} className="relative mb-6">
+                    <Search className="absolute left-4 top-1/2 size-5 -translate-y-1/2 text-slate-400" />
+                    <input
+                        type="text"
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                        placeholder="Search by registration (e.g. AB12 CDE)"
+                        className="h-14 w-full rounded-lg border border-slate-200 bg-white pl-12 pr-28 font-mono text-lg shadow-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary-container"
+                    />
+                    <button
+                        type="submit"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 rounded bg-primary-container px-4 py-2 text-sm font-bold text-white transition-transform active:scale-95"
+                    >
+                        Search
+                    </button>
+                </form>
 
-                        <div className="rounded-sm border border-slate-200 bg-white p-8 text-center shadow-sm">
-                            <div className="mb-6 flex items-center gap-3">
-                                <Shield size={20} className="text-primary-container" />
-                                <h2 className="text-lg font-bold text-primary-container">
-                                    Finance Status
-                                </h2>
-                            </div>
-                            <ShieldCheck size={40} className="mx-auto text-green-600" />
-                            <p className="mt-4 text-sm font-black text-green-600">
-                                No Finance Recorded
-                            </p>
-                            <p className="mt-2 text-xs leading-relaxed text-slate-500">
-                                No outstanding finance agreements were found against this vehicle
-                                at the time of this report.
-                            </p>
-                        </div>
+                <div className="sovereign-line mb-6" />
+
+                {reports.length === 0 ? (
+                    <EmptyState hasSearch={!!search} />
+                ) : (
+                    <div className="space-y-4">
+                        {reports.map((report) => (
+                            <ReportRowCard key={report.id} report={report} />
+                        ))}
                     </div>
+                )}
 
-                    {/* Mileage + MOT */}
-                    <div className="grid gap-6 md:grid-cols-2">
-                        <div className="rounded-sm border border-slate-200 bg-white p-8 shadow-sm">
-                            <div className="mb-6 flex items-center gap-3">
-                                <TrendingUp size={20} className="text-primary-container" />
-                                <h2 className="text-lg font-bold text-primary-container">
-                                    Mileage History
-                                </h2>
-                            </div>
-                            <div className="space-y-4">
-                                {mileageHistory.map((entry) => (
-                                    <div
-                                        key={entry.date}
-                                        className="flex items-center justify-between border-b border-slate-100 pb-4 last:border-0 last:pb-0"
-                                    >
-                                        <span className="text-sm text-slate-500">
-                                            {entry.date}
-                                        </span>
-                                        <div className="flex items-center gap-3">
-                                            <span className="text-sm font-bold text-primary-container">
-                                                {entry.miles}
-                                            </span>
-                                            <span className="flex items-center gap-1 rounded-sm bg-green-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-green-600">
-                                                <TrendingUp size={10} />
-                                                Valid
-                                            </span>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                            <div className="mt-6 flex items-center gap-2 rounded-sm bg-slate-50 px-4 py-3">
-                                <BarChart3 size={16} className="text-slate-400" />
-                                <p className="text-xs text-slate-500">
-                                    No mileage discrepancies detected across recorded entries.
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="rounded-sm border border-slate-200 bg-white p-8 shadow-sm">
-                            <div className="mb-6 flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <FileText size={20} className="text-primary-container" />
-                                    <h2 className="text-lg font-bold text-primary-container">
-                                        MOT Status
-                                    </h2>
-                                </div>
-                                <span className="rounded-sm bg-green-50 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-green-600">
-                                    Pass
-                                </span>
-                            </div>
-                            <div className="space-y-2">
-                                <p className="text-sm text-slate-500">
-                                    <span className="font-semibold text-primary-container">
-                                        Expiry Date:
-                                    </span>{' '}
-                                    14 Oct 2025
-                                </p>
-                                <p className="text-sm text-slate-500">
-                                    <span className="font-semibold text-primary-container">
-                                        Days Remaining:
-                                    </span>{' '}
-                                    364 Days
-                                </p>
-                            </div>
-                            <div className="mt-6 space-y-3 border-t border-slate-100 pt-6">
-                                {motHistory.map((entry) => (
-                                    <div
-                                        key={entry.date}
-                                        className="flex items-center justify-between"
-                                    >
-                                        <span className="text-sm text-slate-500">
-                                            {entry.date}
-                                        </span>
-                                        <span className="text-sm font-black text-green-600">
-                                            {entry.result}
-                                        </span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
+                {links.length > 3 && (
+                    <div className="mt-8 flex flex-wrap items-center justify-center gap-2">
+                        {links.map((link, i) => (
+                            <Link
+                                key={i}
+                                href={link.url ?? '#'}
+                                preserveState
+                                className={`rounded px-3 py-2 text-sm font-semibold transition-colors ${
+                                    link.active
+                                        ? 'bg-secondary text-white'
+                                        : link.url
+                                          ? 'text-slate-600 hover:bg-slate-100'
+                                          : 'cursor-not-allowed text-slate-300'
+                                }`}
+                                dangerouslySetInnerHTML={{ __html: link.label }}
+                            />
+                        ))}
                     </div>
-
-                    {/* Bottom Status Cards */}
-                    <div className="grid gap-6 md:grid-cols-3">
-                        {[
-                            {
-                                icon: Shield,
-                                title: 'Stolen Records',
-                                status: 'Not Recorded as Stolen',
-                                sub: 'Police data check OK',
-                            },
-                            {
-                                icon: Car,
-                                title: 'Salvage & Write-off',
-                                status: 'No Category Recorded',
-                                sub: 'MIAFTR registry check OK',
-                            },
-                            {
-                                icon: Key,
-                                title: 'Owner History',
-                                status: '1 Previous Owner',
-                                sub: 'Current since Oct 2023',
-                            },
-                        ].map((card) => {
-                            const Icon = card.icon;
-
-                            return (
-                                <div
-                                    key={card.title}
-                                    className="rounded-sm border border-slate-200 bg-white p-8 text-center shadow-sm"
-                                >
-                                    <div className="mb-4 flex items-center justify-center gap-2">
-                                        <Icon size={18} className="text-primary-container" />
-                                        <h3 className="text-sm font-bold text-primary-container">
-                                            {card.title}
-                                        </h3>
-                                    </div>
-                                    <ShieldCheck
-                                        size={32}
-                                        className="mx-auto text-green-600"
-                                    />
-                                    <p className="mt-3 text-sm font-black text-green-600">
-                                        {card.status}
-                                    </p>
-                                    <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                                        {card.sub}
-                                    </p>
-                                </div>
-                            );
-                        })}
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div className="flex flex-col items-center justify-center gap-4 pt-4 sm:flex-row">
-                        <button
-                            type="button"
-                            className="flex items-center gap-2 rounded-sm border border-slate-800 px-8 py-3.5 text-[11px] font-bold uppercase tracking-widest text-slate-800 transition-colors hover:bg-slate-50"
-                        >
-                            <Download size={16} />
-                            Download PDF Report
-                        </button>
-                        <button
-                            type="button"
-                            className="flex items-center gap-2 rounded-sm bg-secondary px-8 py-3.5 text-[11px] font-bold uppercase tracking-widest text-white transition-colors hover:bg-secondary-container"
-                        >
-                            <Share2 size={16} />
-                            Share Report Link
-                        </button>
-                    </div>
-                </div>
-            </div>
+                )}
+            </main>
         </>
     );
 }
 
-MyReport.layout = (page: React.ReactNode) => <BaseLayout>{page}</BaseLayout>;
+function ReportRowCard({ report }: { report: ReportRow }) {
+    return (
+        <div className="group rounded-lg border border-slate-200 bg-white p-4 shadow-[0px_4px_20px_rgba(0,32,91,0.04)] transition-all duration-300 hover:border-primary-container hover:shadow-[0px_8px_30px_rgba(0,32,91,0.08)] md:p-6">
+            <div className="flex flex-col items-start gap-6 md:flex-row md:items-center">
+                <div className="relative h-32 w-full flex-shrink-0 overflow-hidden rounded-lg bg-slate-100 md:w-48">
+                    {report.imageUrl ? (
+                        <img src={report.imageUrl} alt={report.make} className="h-full w-full object-cover" />
+                    ) : (
+                        <div className="flex h-full w-full items-center justify-center">
+                            <Car className="size-10 text-slate-300" />
+                        </div>
+                    )}
+                </div>
 
-export default MyReport;
+                <div className="grid flex-grow grid-cols-2 items-center gap-6 lg:grid-cols-4">
+                    <div>
+                        <span className="mb-1 block text-[10px] uppercase text-slate-400">Number Plate</span>
+                        <div className="flex h-10 w-32 items-center justify-center rounded-sm border border-yellow-600/30 bg-gradient-to-b from-yellow-400 to-yellow-500 shadow-sm">
+                            <span className="font-mono text-xl font-bold tracking-widest text-black">
+                                {report.registrationNumber}
+                            </span>
+                        </div>
+                    </div>
+                    <div>
+                        <span className="mb-1 block text-[10px] uppercase text-slate-400">Make &amp; Model</span>
+                        <h3 className="text-lg font-bold text-primary">{report.make}</h3>
+                        {report.model && <p className="text-sm text-slate-500">{report.model}</p>}
+                    </div>
+                    <div>
+                        <span className="mb-1 block text-[10px] uppercase text-slate-400">Checked on</span>
+                        <p className="font-semibold text-primary">{report.checkedOn}</p>
+                        {report.reportType === 'premium' && (
+                            <div className="mt-1 flex gap-1">
+                                <Tag positive={!report.financeRecord} label={report.financeRecord ? 'Finance' : 'No Finance'} />
+                                <Tag positive={!report.writeOffRecord} label={report.writeOffRecord ? 'Write-off' : 'Clear'} />
+                            </div>
+                        )}
+                        {report.reportType === 'basic' && (
+                            <span className="mt-1 inline-block rounded bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase text-slate-500">
+                                Basic
+                            </span>
+                        )}
+                    </div>
+                    <div className="col-span-2 flex justify-end lg:col-span-1">
+                        <Link
+                            href={`/my-report/${report.id}`}
+                            className="flex w-full items-center justify-center gap-2 rounded bg-primary-container px-6 py-3 text-sm font-bold text-white shadow-sm transition-all hover:bg-primary group-hover:translate-x-1 lg:w-auto"
+                        >
+                            View Report
+                            <ArrowRight className="size-4" />
+                        </Link>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function Tag({ label, positive }: { label: string; positive: boolean }) {
+    return (
+        <span
+            className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase ${
+                positive ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
+            }`}
+        >
+            {label}
+        </span>
+    );
+}
+
+function EmptyState({ hasSearch }: { hasSearch: boolean }) {
+    return (
+        <div className="mt-4 flex flex-col items-center rounded-xl border border-dashed border-slate-300 bg-slate-50 p-12 text-center">
+            <SearchX className="mb-4 size-10 text-slate-400" />
+            <h4 className="mb-2 text-lg font-bold text-primary">
+                {hasSearch ? "Can't find that registration" : "You haven't checked any vehicles yet"}
+            </h4>
+            <p className="mx-auto mb-6 max-w-md text-sm text-slate-500">
+                {hasSearch
+                    ? 'Try a different registration number, or start a new check from the dashboard.'
+                    : 'Run your first vehicle check from the dashboard to see it appear here.'}
+            </p>
+            <Link
+                href="/dashboard"
+                className="rounded border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-primary transition-colors hover:bg-slate-50"
+            >
+                Go to Dashboard
+            </Link>
+        </div>
+    );
+}
+
+MyReport.layout = (page: React.ReactNode) => <BaseLayout>{page}</BaseLayout>;

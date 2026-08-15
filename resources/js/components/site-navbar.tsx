@@ -6,14 +6,14 @@ import ProfileDropdown from '@/components/profile-dropdown-menu';
 const GuestNavItems = [
     { label: 'About Us', href: '/about-us' },
     { label: 'Pricing', href: '/pricing' },
-    { label: 'Help', href: '/help' },
+    { label: 'Support', href: '/support' },
     
 ] as const;
 
 const UserNavItems = [
     { label: 'About Us', href: '/about-us' },
     { label: 'Pricing', href: '/pricing'},
-    { label: 'Help', href: '/help'},
+    { label: 'Support', href: '/support'},
     { label: 'My Report', href: '/my-report'},
 ] as const;
 

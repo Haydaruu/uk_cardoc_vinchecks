@@ -14,49 +14,44 @@ function Pricing() {
     const { props } = usePage<PageProps>();
     const isLoggedIn = !!props.auth.user;
 
-    const loggedInHref = '/';
     const pricingPlans = [
         {
-            tier: 'Entry Level',
-            title: 'Basic',
-            price: '£4.99',
-            features: [
-                { label: 'MOT History & Status', included: true },
-                { label: 'Basic Vehicle Specifications', included: true },
-                { label: 'Tax Status', included: true },
-                { label: 'Mileage Discrepancy Check', included: false },
+            tier: 'Single Report',
+            title: '1 Credit',
+            pricePerReport: '£19.99',
+            totalPrice: '£19.99',
+            bullets: [
+                "You'll get 5 premium reports",
+                'Full premium vehicle report',
             ],
-            ctaLabel: 'Get Basic Check',
-            ctaHref: register.url(),
+            ctaLabel: 'Get 1 Credit',
+            ctaHref: isLoggedIn ? '/checkout?plan=1-credit' : register.url(),
         },
         {
-            tier: 'Comprehensive',
-            title: 'Get 5 Credit',
-            price: '£69.99',
-            features: [
-                { label: 'Outstanding Finance', included: true },
-                { label: 'Market Valuations', included: true },
-                { label: 'Written-off Record (VIC)', included: true },
-                { label: 'Import/Export Status', included: true },
-                { label: 'Everything in Standard', included: true },
+            tier: 'Best Value',
+            title: '5 Credits',
+            pricePerReport: '£14.00',
+            totalPrice: '£69.99',
+            bullets: [
+                "You'll get 5 premium reports",
+                'Full premium vehicle report',
             ],
             ctaLabel: 'Get 5 Credits',
-            ctaHref: isLoggedIn ? '/checkout?plan=5-credit' : register.url(),
+            ctaHref: isLoggedIn ? '/checkout?plan=5-credits' : register.url(),
             highlighted: true,
             badge: 'Most Popular',
         },
         {
-            tier: 'Standard Check',
-            title: 'Standard',
-            price: '£9.99',
-            features: [
-                { label: 'Mileage Anomaly Detection', included: true },
-                { label: 'Recorded Stolen (Police)', included: true },
-                { label: 'Number Plate Changes', included: true },
-                { label: 'Outstanding Finance', included: false },
+            tier: 'Bulk Pack',
+            title: '10 Credits',
+            pricePerReport: '£12.00',
+            totalPrice: '£119.99',
+            bullets: [
+                "You'll get 10 premium reports",
+                'Full premium vehicle report',
             ],
-            ctaLabel: 'Get Standard Check',
-            ctaHref: isLoggedIn ? loggedInHref : register.url(),
+            ctaLabel: 'Get 10 Credits',
+            ctaHref: isLoggedIn ? '/checkout?plan=10-credits' : register.url(),
         },
     ];
 
@@ -74,8 +69,8 @@ function Pricing() {
                         Precision vehicle history for total peace of mind.
                     </h1>
                     <p className="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-slate-500">
-                        Detailed reports sourced directly from DVLA, HPI, and VOSA databases
-                        with British engineering precision.
+                        Buy credits in bulk and save — every credit unlocks one full premium
+                        report sourced directly from DVLA, HPI, and VOSA databases.
                     </p>
                 </div>
             </section>
@@ -87,9 +82,12 @@ function Pricing() {
                         <PricingCard key={plan.title} {...plan} />
                     ))}
                 </div>
+                <p className="mt-8 text-center text-xs text-slate-400">
+                    VAT may apply. Credits never expire.
+                </p>
             </section>
 
-            {/* Trust Section */}
+            {/* Trust Section — tidak berubah */}
             <section className="border-t border-slate-100 bg-white py-16">
                 <div className="mx-auto grid max-w-[1200px] gap-6 px-6 md:grid-cols-3 md:px-10">
                     <div className="rounded-sm bg-primary-container p-8 text-white">
@@ -132,7 +130,7 @@ function Pricing() {
                 </div>
             </section>
 
-            {/* Visual Feature */}
+            {/* Visual Feature — tidak berubah */}
             <section className="relative overflow-hidden">
                 <div
                     className="absolute inset-0 bg-cover bg-center"

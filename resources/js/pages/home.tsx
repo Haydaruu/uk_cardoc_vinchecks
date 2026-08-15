@@ -48,30 +48,30 @@ function Home() {
                     </p>
 
                     {/* Search bar */}
-                    <div className="flex flex-col sm:flex-row gap-0 max-w-xl shadow-lg shadow-slate-200/60">
-                        <form onSubmit={handleCheck} className="flex flex-col sm:flex-row gap-0 max-w-xl shadow-lg shadow-slate-200/60">
-                            <div className="relative flex-1">
+                    <form onSubmit={handleCheck} className="flex max-w-xl flex-col items-start gap-0 sm:flex-row">
+                        <div className="w-full flex-1">
+                            <div className="relative">
                                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
                                 <input
                                     type="text"
                                     value={data.registration_number}
                                     onChange={(e) => setData('registration_number', e.target.value)}
                                     placeholder="Enter Registration (e.g. AB12 CDE) or VIN"
-                                    className="w-full pl-11 pr-4 py-4 border border-slate-200 sm:border-r-0 sm:rounded-l-sm rounded-sm text-sm text-slate-700 placeholder:text-slate-300 focus:outline-none focus:border-secondary bg-white"
+                                    className="w-full pl-11 pr-4 py-4 border border-slate-200 sm:border-r-0 sm:rounded-l-sm rounded-sm text-sm text-slate-700 placeholder:text-slate-300 focus:outline-none focus:border-secondary bg-white shadow-lg shadow-slate-200/60"
                                 />
-                                {errors.registration_number && (
-                                    <p className="mt-1 text-xs text-red-600">{errors.registration_number}</p>
-                                )}
                             </div>
-                            <button
-                                type="submit"
-                                disabled={processing}
-                                className="bg-secondary text-white font-bold uppercase tracking-wider text-sm px-8 py-4 sm:rounded-r-sm hover:bg-red-700 transition-colors whitespace-nowrap flex items-center gap-2"
-                            >
-                                {processing ? 'Checking...' : 'CHECK NOW'} <ArrowRight size={15} />
-                            </button>
-                        </form>
-                    </div>
+                        </div>
+                        <button
+                            type="submit"
+                            disabled={processing}
+                            className="bg-secondary text-white font-bold uppercase tracking-wider text-sm px-8 py-4 sm:rounded-r-sm hover:bg-red-700 transition-colors whitespace-nowrap flex items-center justify-center gap-2 shadow-lg shadow-slate-200/60"
+                        >
+                            {processing ? 'Checking...' : 'CHECK NOW'} <ArrowRight size={15} />
+                        </button>
+                    </form>
+                    {errors.registration_number && (
+                        <p className="mt-2 max-w-xl text-xs text-red-600">{errors.registration_number}</p>
+                    )}
 
                     {/* trust badges */}
                     <div className="flex flex-wrap gap-5 mt-6">

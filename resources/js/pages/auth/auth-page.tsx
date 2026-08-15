@@ -15,7 +15,7 @@ export default function AuthPage({ initialTab = 'login' }: Props) {
             {/* Gunakan min-h-screen di tingkat tertinggi */}
             <div className="flex min-h-screen w-full bg-white">
                 {/* PANEL KIRI - Gunakan md (768px) bukan lg (1024px) */}
-                <div className="hidden md:block md:w-1/2 relative min-h-screen">
+                <div className="hidden md:block md:w-1/2 sticky top-0 h-screen overflow-hidden">
                     <AuthLayoutLeftPanel />
                 </div>
 
@@ -59,7 +59,7 @@ export default function AuthPage({ initialTab = 'login' }: Props) {
                     {/* Footer - Sesuaikan dengan desain asli */}
                     <div className="w-full max-w-md mx-auto p-6 text-center">
                         <p className="text-[11px] text-slate-400 uppercase tracking-widest font-semibold">
-                            © 2024 UKcardoc Ltd. Registered in England & Wales.
+                            © 2026 UKcardoc Ltd. Registered in England & Wales.
                         </p>
                     </div>
                 </div>

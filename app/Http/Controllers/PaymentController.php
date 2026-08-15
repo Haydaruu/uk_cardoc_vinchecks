@@ -34,29 +34,29 @@ class PaymentController extends Controller
 
         $plan = config("credit_plans.{$request->plan}");
 
-        if(!$plan || $plan['type'] !== 'one_time') {
-            return response()->json(['message' => 'Plan tidak Valid'], 422);
+        if (!$plan || $plan['type'] !== 'one_time') {
+            return response()->json(['message' => 'Plan tidak valid.'], 422);
         }
 
         $user = $request->user();
         $stripe = new StripeClient(config('services.stripe.secret'));
 
-        try {
+        try { 
             $price = $stripe->prices->retrieve($plan['price_id']);
         } catch (ApiErrorException $e) {
-            return response()->json(['message' => 'Gagal Mengambil harga dari Stripe'], 422);
+            return response()->json(['message' => 'Gagal mengambil harga dari Stripe.'], 422);
         }
 
         $paymentIntent = $stripe->paymentIntents->create([
             'amount' => $price->unit_amount,
             'currency' => $price->currency,
-            'automatic_payment_methods' => ['enabled' => true ],
+            'automatic_payment_methods' => ['enabled' => true],
             'metadata' => [
                 'user_id' => $user->id,
-                'credits' => $credits,
+                'credits' => $plan['credits'],
                 'price_id' => $price->id,
-                'product_name' => $price->product->name,
-                'report_id' => $request->report_id,
+                'product_name' => $plan['label'],
+                'plan' => $request->plan,
             ],
         ]);
 

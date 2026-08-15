@@ -24,7 +24,7 @@ export default function SiteFooter() {
                             UKCARDOC
                         </p>
                         <p className="mt-4 max-w-sm text-[10px] font-medium uppercase leading-relaxed tracking-wider text-slate-400">
-                            © 2024 UKCARDOC. Vehicle data sourced from DVLA, HPI, and VOSA.
+                            © 2026 UKCARDOC. Vehicle data sourced from DVLA, HPI, and VOSA.
                             Built with British precision.
                         </p>
                     </div>

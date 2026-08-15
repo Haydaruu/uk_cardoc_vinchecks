@@ -1,6 +1,6 @@
 export default function AuthLayoutLeftPanel() {
     return (
-        <div className="relative hidden h-full min-h-svh flex-col justify-between bg-primary p-12 text-white lg:flex">
+        <div className="relative hidden h-full flex-col justify-between bg-primary p-12 text-white lg:flex">
             {/* Background car image */}
             <img
                 src="/images/auth/bg_login_register.webp"

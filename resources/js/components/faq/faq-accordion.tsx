@@ -1,5 +1,4 @@
-import { Collapsible, CollapsibleContent, CollapsibleTrigger, } from '@/components/ui/collapsible';
-import { ChevronDown } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useState } from 'react';
 
 type FaqItem = {
@@ -15,7 +14,7 @@ export default function FaqAccordion({ items }: FaqAccordionProps) {
     const [openIndex, setOpenIndex] = useState(0);
 
     return (
-        <div className="space-y-3">
+        <div className="space-y-4">
             {items.map((item, index) => {
                 const isOpen = openIndex === index;
 
@@ -25,23 +24,22 @@ export default function FaqAccordion({ items }: FaqAccordionProps) {
                         open={isOpen}
                         onOpenChange={(open) => setOpenIndex(open ? index : -1)}
                     >
-                        <div className="overflow-hidden rounded-sm border border-slate-200 bg-white">
-                            <CollapsibleTrigger className="flex w-full items-center justify-between px-6 py-5 text-left">
-                                <span className="pr-4 text-sm font-semibold text-primary-container">
+                        <div className="dashboard-shadow overflow-hidden rounded-lg border border-slate-200 bg-white">
+                            <CollapsibleTrigger className="flex w-full items-center justify-between p-6 text-left transition-colors hover:bg-slate-50">
+                                <span className="text-body-lg pr-4 font-semibold text-primary-container">
                                     {item.question}
                                 </span>
-                                <ChevronDown
-                                    size={18}
-                                    className={`shrink-0 text-slate-400 transition-transform ${
+                                <span
+                                    className={`material-symbols-outlined shrink-0 text-on-surface-variant transition-transform duration-300 ${
                                         isOpen ? 'rotate-180' : ''
                                     }`}
-                                />
+                                >
+                                    expand_more
+                                </span>
                             </CollapsibleTrigger>
                             <CollapsibleContent>
-                                <div className="border-t border-slate-100 px-6 py-4">
-                                    <p className="text-sm leading-relaxed text-slate-500">
-                                        {item.answer}
-                                    </p>
+                                <div className="text-body-md px-6 pb-6 text-on-surface-variant">
+                                    {item.answer}
                                 </div>
                             </CollapsibleContent>
                         </div>
