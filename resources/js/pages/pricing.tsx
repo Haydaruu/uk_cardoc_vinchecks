@@ -1,55 +1,65 @@
-import { Head } from '@inertiajs/react';
+import { Head, usePage } from '@inertiajs/react';
 import PricingCard from '@/components/marketing/pricing-card';
 import BaseLayout from '@/layouts/base-layout';
 import { register } from '@/routes';
 import { Check, Shield } from 'lucide-react';
 
-const pricingPlans = [
-    {
-        tier: 'Entry Level',
-        title: 'Basic',
-        price: '£4.99',
-        features: [
-            { label: 'MOT History & Status', included: true },
-            { label: 'Basic Vehicle Specifications', included: true },
-            { label: 'Tax Status', included: true },
-            { label: 'Mileage Discrepancy Check', included: false },
-        ],
-        ctaLabel: 'Get Basic Check',
-        ctaHref: register.url(),
-    },
-    {
-        tier: 'Comprehensive',
-        title: 'Full Check',
-        price: '£19.99',
-        features: [
-            { label: 'Outstanding Finance', included: true },
-            { label: 'Market Valuations', included: true },
-            { label: 'Written-off Record (VIC)', included: true },
-            { label: 'Import/Export Status', included: true },
-            { label: 'Everything in Standard', included: true },
-        ],
-        ctaLabel: 'Get Full Report',
-        ctaHref: register.url(),
-        highlighted: true,
-        badge: 'Most Popular',
-    },
-    {
-        tier: 'Standard Check',
-        title: 'Standard',
-        price: '£9.99',
-        features: [
-            { label: 'Mileage Anomaly Detection', included: true },
-            { label: 'Recorded Stolen (Police)', included: true },
-            { label: 'Number Plate Changes', included: true },
-            { label: 'Outstanding Finance', included: false },
-        ],
-        ctaLabel: 'Get Standard Check',
-        ctaHref: register.url(),
-    },
-];
+type PageProps = {
+    auth: {
+        user: { id: number; role: string; name: string; email: string; credits: number; is_premium: boolean } | null;
+    };
+};
 
 function Pricing() {
+    const { props } = usePage<PageProps>();
+    const isLoggedIn = !!props.auth.user;
+
+    const loggedInHref = '/';
+    const pricingPlans = [
+        {
+            tier: 'Entry Level',
+            title: 'Basic',
+            price: '£4.99',
+            features: [
+                { label: 'MOT History & Status', included: true },
+                { label: 'Basic Vehicle Specifications', included: true },
+                { label: 'Tax Status', included: true },
+                { label: 'Mileage Discrepancy Check', included: false },
+            ],
+            ctaLabel: 'Get Basic Check',
+            ctaHref: register.url(),
+        },
+        {
+            tier: 'Comprehensive',
+            title: 'Get 5 Credit',
+            price: '£69.99',
+            features: [
+                { label: 'Outstanding Finance', included: true },
+                { label: 'Market Valuations', included: true },
+                { label: 'Written-off Record (VIC)', included: true },
+                { label: 'Import/Export Status', included: true },
+                { label: 'Everything in Standard', included: true },
+            ],
+            ctaLabel: 'Get 5 Credits',
+            ctaHref: isLoggedIn ? '/checkout?plan=5-credit' : register.url(),
+            highlighted: true,
+            badge: 'Most Popular',
+        },
+        {
+            tier: 'Standard Check',
+            title: 'Standard',
+            price: '£9.99',
+            features: [
+                { label: 'Mileage Anomaly Detection', included: true },
+                { label: 'Recorded Stolen (Police)', included: true },
+                { label: 'Number Plate Changes', included: true },
+                { label: 'Outstanding Finance', included: false },
+            ],
+            ctaLabel: 'Get Standard Check',
+            ctaHref: isLoggedIn ? loggedInHref : register.url(),
+        },
+    ];
+
     return (
         <>
             <Head title="Pricing" />

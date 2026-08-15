@@ -50,6 +50,7 @@ return [
         'key' => env('STRIPE_KEY'),
         'secret' => env('STRIPE_SECRET'),
         'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
+        'report_price_id' => env('STRIPE_REPORT_PRICE_ID')
     ],
 
 ];

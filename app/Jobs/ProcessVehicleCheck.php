@@ -122,7 +122,7 @@ class ProcessVehicleCheck implements ShouldQueue
                 $this->mapApiDataToVehicle($mergeData),
             );
 
-            DB::transaction(function () use ($vinCheck, $vehicle, $isPremium, $actualReportType, $mergeData) {
+            DB::transaction(function () use ($vinCheck, $vehicle, $isPremium, $actualReportType, $mergeData, $creditService) {
                 if ($this->existingReportId) {
                     $report = Report::findOrFail($this->existingReportId);
                     $report->update([

@@ -13,7 +13,7 @@ class CreditService
     /**
      * Add credits to a user's balance.
      */
-    public function grant(
+    public function grantCredits(
         User $user,
         int $amount,
         string $type,

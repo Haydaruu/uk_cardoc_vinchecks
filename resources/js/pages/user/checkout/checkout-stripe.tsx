@@ -1,5 +1,6 @@
 import { Head } from '@inertiajs/react';
 import { useState, useEffect, FormEvent } from 'react';
+import { createIntent } from '@/routes/checkout';
 import { Elements, PaymentElement, useStripe, useElements, } from '@stripe/react-stripe-js';
 import { loadStripe } from '@stripe/stripe-js';
 import { Lock, ShieldCheck, ShieldAlert, CheckCircle2, Check } from 'lucide-react';
@@ -14,7 +15,7 @@ type CheckoutProps = {
         make: string;
         model: string;
     };
-    priceId: number;
+    priceId: string;
     amountDisplay:string;
 };
 
@@ -23,7 +24,7 @@ export default function Checkout({ report, priceId, amountDisplay} : CheckoutPro
     const [initError, setInitError] = useState<string | null>(null);
     
     useEffect(() =>{
-        fetch(route('checkout.create-intent'), {
+        fetch(createIntent.url(), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

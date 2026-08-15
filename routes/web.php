@@ -4,7 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\VehicleCheckController;
 use App\Http\Controllers\Auth\GoogleAuthController;
-use App\Http\Controllers\StripeWebhookController;
+use App\Http\Controllers\Webhook\StripeWebhookController;
 use App\Http\Controllers\ReportController;
 use Inertia\Inertia;
 
