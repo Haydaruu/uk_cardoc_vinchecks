@@ -18,13 +18,11 @@ return new class extends Migration
             $table->string('phone_number')->nullable();
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
-            $table->string('password');
-            $table->string('google_id')->nullable()->unique();
-            $table->text('avatar')->nullable();
-            $table->enum('provider', ['google','local'])->default('local');
+            $table->string('password')->nullable();
+            $table->enum('register_provider', ['google','microsoft','local'])->default('local');
             $table->unsignedInteger('credits')->default(0);
             $table->timestamp('last_login_at')->nullable();
-            $table->timestamp('deleted_at')->nullable();
+            $table->softDeletes();
             $table->rememberToken();
             $table->timestamps(); //created_at & updated_at
         });

@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\VehicleCheckController;
 use App\Http\Controllers\Auth\GoogleAuthController;
+use App\Http\Controllers\Auth\MicrosoftAuthController;
 use App\Http\Controllers\Webhook\StripeWebhookController;
 use App\Http\Controllers\ReportController;
 use Inertia\Inertia;
@@ -26,6 +27,11 @@ Route::post('/reports/{report}/unlock', [VehicleCheckController::class, 'unlock'
 Route::middleware('guest')->group(function () {
     Route::get('/auth-page', function(){ return Inertia::render('auth/auth-page'); })->name('authPage');
     Route::prefix('auth/google')->name('google.')->controller(GoogleAuthController::class)->group(function () {
+        Route::get('/redirect', 'redirect')->name('redirect');
+        Route::get('/callback', 'callback')->name('callback');
+    });
+    Route::get('/auth-page', function(){ return Inertia::render('auth/auth-page'); })->name('authPage');
+    Route::prefix('auth/microsoft')->name('microsoft.')->controller(MicrosoftAuthController::class)->group(function (){
         Route::get('/redirect', 'redirect')->name('redirect');
         Route::get('/callback', 'callback')->name('callback');
     });

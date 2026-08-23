@@ -14,6 +14,7 @@ use App\Models\Subscription;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+
 /**
  * @property int $id
  * @property string $name
@@ -24,7 +25,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
-#[Fillable(['name', 'role', 'email', 'phone_number', 'password', 'credits','google_id','avatar','provider', 'last_login_at', 'email_verified_at'])]
+#[Fillable(['name', 'role', 'email', 'phone_number', 'password', 'credits','register_provider', 'last_login_at', 'email_verified_at'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable implements MustVerifyEmail
 {
@@ -84,5 +85,10 @@ class User extends Authenticatable implements MustVerifyEmail
     public function canPerformCheck(): bool
     {
         return $this->credits > 0;
+    }
+
+    public function socialAccounts(): HasMany
+    {
+        return $this->hasMany(SocialAccount::class);
     }
 }
