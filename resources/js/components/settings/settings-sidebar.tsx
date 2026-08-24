@@ -12,6 +12,7 @@ import {
 import { logout } from '@/routes';
 
 
+
 type AuthUser = {
     id: number;
     role: string;
@@ -20,6 +21,9 @@ type AuthUser = {
     avatar: string | null;
     credits: number;
     is_premium: boolean;
+    email_verified_at: string | null;
+    created_at: string;
+    updated_at: string;
 };
 
 type PageProps = {
@@ -57,7 +61,6 @@ export default function SettingsSidebar() {
         .join('')
         .toUpperCase();
 
-    const creditLabel = `${user.credits} ${user.credits === 1 ? 'Credit' : 'Credits'}`;
     const checkLabel = `${user.credits} vehicle check${user.credits === 1 ? '' : 's'} available`;
 
     return (
@@ -109,11 +112,13 @@ export default function SettingsSidebar() {
 
             <div className="flex-1 space-y-1 overflow-y-auto">
                 {NAV_ITEMS.map((item) => {
-                    const isActive = url === item.href;
+                    const currentPath = url.split('?')[0];
+                    const isActive = currentPath === item.href || currentPath.startsWith(`${item.href}/`);
                     const Icon = item.icon;
 
                     return (
                         <Link
+                            aria-current={isActive ? 'page' : undefined}
                             key={item.href}
                             href={item.href}
                             className={
@@ -130,12 +135,14 @@ export default function SettingsSidebar() {
             </div>
 
             <div className="mt-auto space-y-2 border-t border-outline-variant pt-4">
+            {!user.is_premium && (
                 <Link
                     href="/pricing"
                     className="font-label-sm text-label-sm block w-full rounded bg-primary px-4 py-2 text-center text-on-primary shadow-sm transition-colors hover:bg-primary-container"
                 >
                     Upgrade Plan
                 </Link>
+                )}
                 <Link
                     href={logout.url()}
                     method="post"

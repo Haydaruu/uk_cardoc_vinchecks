@@ -6,7 +6,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\ReportController;
-use App\Http\Models\User;
+use App\Http\Controllers\Settings\SettingsController;
 use Inertia\Inertia;
 
 Route::middleware(['auth', 'verified'])->group(function (){
@@ -28,4 +28,17 @@ Route::middleware('auth')->group(function (){
 
     Route::get('/checkout/success', [PaymentController::class, 'success'])
         ->name('checkout.success');
+});
+
+//Route Settings
+Route::middleware(['auth', 'verified'])->prefix('settings')->name('settings.')->group(function () {
+    //Page Profile
+    Route::get('/profile', [SettingsController::class, 'profile'])->name('profile');
+    Route::patch('/profile', [SettingsController::class, 'updateProfile'])->name('profile.update');
+
+    Route::get('/security', [SettingsController::class, 'security'])->name('security');
+    Route::get('/connected-accounts', [SettingsController::class, 'connectedAccounts'])->name('connected-accounts');
+    Route::get('/purchase-history', [SettingsController::class, 'purchaseHistory'])->name('purchase-history');
+    Route::get('/subscription', [SettingsController::class, 'susbscription'])->name('subscription');
+    Route::get('/help', [SettingsController::class, 'help'])->name('help');
 });

@@ -28,7 +28,7 @@ export default function ProfileDropdownMenu({ name }: { name: string }) {
 
                 <DropdownMenuItem asChild>
                     <Link
-                        href="/settings"
+                        href="/settings/profile"
                         className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-on-surface hover:bg-surface-container focus:bg-surface-container"
                     >
                         <Settings size={16} className="text-on-surface-variant" /> Settings
