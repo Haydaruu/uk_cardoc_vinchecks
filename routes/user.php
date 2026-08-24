@@ -39,6 +39,6 @@ Route::middleware(['auth', 'verified'])->prefix('settings')->name('settings.')->
     Route::get('/security', [SettingsController::class, 'security'])->name('security');
     Route::get('/connected-accounts', [SettingsController::class, 'connectedAccounts'])->name('connected-accounts');
     Route::get('/purchase-history', [SettingsController::class, 'purchaseHistory'])->name('purchase-history');
-    Route::get('/subscription', [SettingsController::class, 'susbscription'])->name('subscription');
+    Route::get('/subscription', [SettingsController::class, 'subscription'])->name('subscription');
     Route::get('/help', [SettingsController::class, 'help'])->name('help');
 });

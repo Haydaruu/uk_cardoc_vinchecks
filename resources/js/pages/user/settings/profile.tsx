@@ -30,9 +30,20 @@ export default function Profile({ profile } : Props) {
     return (
         <SettingsLayout>
             <div className="p-8">
-                <h1 className="text-4x1 font-bold text-primary">
+                <h1 className="text-4xl font-bold text-primary">
                     Profile
                 </h1>
+
+                <input 
+                    value="{form.data.name}" 
+                    onChange={(e) => 
+                        form.setData('name', e.target.value)
+                    } 
+                />
+
+                {form.errors.name && (
+                    <p>{form.errors.name}</p>
+                )}
             </div>
         </SettingsLayout>
     );

@@ -3,13 +3,14 @@
 namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Settings\UpdateProfileRequest;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class SettingsController extends Controller
 {
-    public function profile(Request $request) : Response
+    public function profile(Request $request): Response
     {
         $user = $request->user();
 
@@ -21,16 +22,21 @@ class SettingsController extends Controller
                 'email_verified_at' => $user->email_verified_at,
                 'avatar' => $user->avatar,
                 'credits' => $user->credits,
-                'created_at' => $user->created_at, 
+                'created_at' => $user->created_at,
             ],
         ]);
     }
 
-    public function updateProfile(updateProfile $request)
+    public function updateProfile(UpdateProfileRequest $request)
     {
-        $request->user()->update($request->validated());
+        $request->user()->update(
+            $request->validated()
+        );
 
-        return back()->with('success', 'Profile updated succesfully.');
+        return back()->with(
+            'success',
+            'Profile updated successfully.'
+        );
     }
 
     public function security(): Response
@@ -48,10 +54,11 @@ class SettingsController extends Controller
         return Inertia::render('user/settings/purchase-history');
     }
 
-    public function susbscription(): Response
+    public function subscription(): Response
     {
         return Inertia::render('user/settings/subscription');
     }
+
     public function help(): Response
     {
         return Inertia::render('user/settings/help');

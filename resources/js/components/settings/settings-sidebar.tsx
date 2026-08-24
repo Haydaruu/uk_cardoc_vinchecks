@@ -10,26 +10,11 @@ import {
     LogOut,
 } from 'lucide-react';
 import { logout } from '@/routes';
+import type { Auth } from '@/types';
 
-
-
-type AuthUser = {
-    id: number;
-    role: string;
-    name: string;
-    email: string;
-    avatar: string | null;
-    credits: number;
-    is_premium: boolean;
-    email_verified_at: string | null;
-    created_at: string;
-    updated_at: string;
-};
 
 type PageProps = {
-    auth: {
-        user: AuthUser | null;
-    };
+    auth: Auth;
 };
 
 type NavItem = {
