@@ -7,6 +7,7 @@ use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\Settings\SettingsController;
+use App\Http\Controllers\Settings\SecurityController;
 use Inertia\Inertia;
 
 Route::middleware(['auth', 'verified'])->group(function (){
@@ -36,7 +37,11 @@ Route::middleware(['auth', 'verified'])->prefix('settings')->name('settings.')->
     Route::get('/profile', [SettingsController::class, 'profile'])->name('profile');
     Route::patch('/profile', [SettingsController::class, 'updateProfile'])->name('profile.update');
 
+    //Page Security
     Route::get('/security', [SettingsController::class, 'security'])->name('security');
+    Route::put('/security/password', [SecurityController::class, 'updatePassword'])->name('security.password.update');
+    Route::delete('/security/sessions/{sessionKey}', [securityController::class, 'destroySession'])->name('security.sessions.destroy');
+
     Route::get('/connected-accounts', [SettingsController::class, 'connectedAccounts'])->name('connected-accounts');
     Route::get('/purchase-history', [SettingsController::class, 'purchaseHistory'])->name('purchase-history');
     Route::get('/subscription', [SettingsController::class, 'subscription'])->name('subscription');
