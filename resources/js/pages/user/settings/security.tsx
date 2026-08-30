@@ -41,6 +41,10 @@ export default function Security({security}: Props) {
         password: '',
         password_confirmation: '',
     });
+    const deleteForm = useForm({
+        current_password: '',
+        confirmation: '',
+    });
     const submit = (e: React.FormEvent) => {
         e.preventDefault();
 
@@ -51,6 +55,10 @@ export default function Security({security}: Props) {
             onSuccess: () => {
                 form.reset();
             },
+        });
+
+        deleteForm.delete('/settings/security/account', {
+            preserveScroll: true,
         });
     };
 
@@ -269,7 +277,7 @@ export default function Security({security}: Props) {
                                 */}
                                 <button
                                     type="button"
-                                    disabled
+                                    disabled={deleteForm.data.confirmation !== 'DELETE'}    
                                     title="Account deletion will be enabled after the deletion flow is finalized."
                                     className="w-full cursor-not-allowed rounded border border-error py-3 text-label-sm font-semibold text-error opacity-60"
                                 >

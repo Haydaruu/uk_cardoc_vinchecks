@@ -3,7 +3,10 @@
 namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Settings\DeleteAccountRequest;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rules\password;
@@ -69,7 +72,7 @@ class SecurityController extends Controller
             abort(404);
         }
 
-        if($matchedSession === $request->session()->getId()) {
+        if($matchedSession->id === $request->session()->getId()) {
             return back()->with(
                 'error',
                 'You Cannot sign out your current session from here.'
@@ -82,9 +85,54 @@ class SecurityController extends Controller
             ->delete();
         
         return back()->with(
-            'succes',
+            'success',
             'Session signed out successfully.'
         );
+    }
+
+    public function destroyAccount(DeleteAccountRequest $request)
+    {
+        $user = $request->user();
+        $originalEmail = $user->email;
+
+        if ($user->is_premium) {
+            return back()->withErrors([
+                'account' =>
+                    'Please cancel your active susbscription before deleting your account.',
+            ]);
+        }
+        DB::transaction(function () use (
+            $user,
+            $originalEmail,
+        ) {
+            DB::table('password_reset_tokens')
+                ->where('email', $originalEmail)
+                ->delete();
+            
+                $user->socialAccounts()->delete();
+
+            $user->forceFill([
+                'name' => 'Deleted Account',
+                'email' => null,
+                'phone_number' => null,
+                'password' => null,
+                'credits' => 0,
+                'remember_token' => null,
+            ])->save();
+
+            DB::table('sessions')
+                ->where('user_id', $user->id)
+                ->delete();
+
+        });
+
+        Auth::guard('web')->logout();
+
+        $request->session()->invalidate();
+
+        $request->session()->regenerateToken();
+
+        return redirect('/');
     }
 }
 

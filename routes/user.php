@@ -41,6 +41,7 @@ Route::middleware(['auth', 'verified'])->prefix('settings')->name('settings.')->
     Route::get('/security', [SettingsController::class, 'security'])->name('security');
     Route::put('/security/password', [SecurityController::class, 'updatePassword'])->name('security.password.update');
     Route::delete('/security/sessions/{sessionKey}', [securityController::class, 'destroySession'])->name('security.sessions.destroy');
+    Route::delete('/security/account', [SecurityController::class, 'destroyAccount'])->name('security.account.destroy');
 
     Route::get('/connected-accounts', [SettingsController::class, 'connectedAccounts'])->name('connected-accounts');
     Route::get('/purchase-history', [SettingsController::class, 'purchaseHistory'])->name('purchase-history');
