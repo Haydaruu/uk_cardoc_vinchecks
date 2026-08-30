@@ -98,7 +98,7 @@ class SecurityController extends Controller
         if ($user->is_premium) {
             return back()->withErrors([
                 'account' =>
-                    'Please cancel your active susbscription before deleting your account.',
+                    'Please cancel your active subscription before deleting your account.',
             ]);
         }
         DB::transaction(function () use (
@@ -113,12 +113,15 @@ class SecurityController extends Controller
 
             $user->forceFill([
                 'name' => 'Deleted Account',
-                'email' => null,
+                'email' => 'deleted_'.$user->id.'_'.Str::uuid().'@deleted.invalid',
                 'phone_number' => null,
                 'password' => null,
                 'credits' => 0,
                 'remember_token' => null,
+                'email_verified_at' => null,
             ])->save();
+
+            $user->delete();
 
             DB::table('sessions')
                 ->where('user_id', $user->id)

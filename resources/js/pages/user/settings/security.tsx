@@ -1,5 +1,6 @@
 import SettingsLayout from "@/layouts/settings/settings-layout";
 import { useForm, usePage, router } from "@inertiajs/react";
+import { useState } from "react";
 import {
     KeyRound,
     MonitorSmartphone,
@@ -27,24 +28,32 @@ type Props = {
 }
 
 type SharedProps = {
-    flash? : {
-        success? : string | null;
-        error? : string | null;
+    flash?: {
+        success?: string | null;
+        error?: string | null;
+    };
+
+    errors?: {
+        account?: string;
     };
 };
 
+export default function Security({ security }: Props) {
+    const { flash, errors } = usePage<SharedProps>().props;
 
-export default function Security({security}: Props) {
-    const { flash } = usePage<SharedProps>().props;
     const form = useForm({
         current_password: '',
         password: '',
         password_confirmation: '',
     });
+
     const deleteForm = useForm({
         current_password: '',
         confirmation: '',
     });
+
+    const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+
     const submit = (e: React.FormEvent) => {
         e.preventDefault();
 
@@ -56,10 +65,29 @@ export default function Security({security}: Props) {
                 form.reset();
             },
         });
+    };
+
+    const submitDeleteAccount = (e: React.FormEvent) => {
+        e.preventDefault();
 
         deleteForm.delete('/settings/security/account', {
             preserveScroll: true,
+
+            onSuccess: () => {
+                setDeleteModalOpen(false);
+                deleteForm.reset();
+            },
         });
+    };
+
+    const closeDeleteModal = () => {
+        if (deleteForm.processing) {
+            return;
+        }
+
+        setDeleteModalOpen(false);
+        deleteForm.reset();
+        deleteForm.clearErrors();
     };
 
     const revokeSession = (key:string) => {
@@ -270,19 +298,142 @@ export default function Security({security}: Props) {
                                     going back. Please be certain.
                                 </p>
 
-                                {/*
-                                    Delete-account backend flow belum kita
-                                    finalisasi. Jangan bikin tombol palsu seolah
-                                    bekerja.
-                                */}
                                 <button
                                     type="button"
-                                    disabled={deleteForm.data.confirmation !== 'DELETE'}    
-                                    title="Account deletion will be enabled after the deletion flow is finalized."
-                                    className="w-full cursor-not-allowed rounded border border-error py-3 text-label-sm font-semibold text-error opacity-60"
+                                    onClick={() => setDeleteModalOpen(true)}
+                                    className="w-full rounded border border-error py-3 text-label-sm font-semibold text-error transition-colors hover:bg-error hover:text-on-error"
                                 >
                                     Delete Account
                                 </button>
+                                 
+                                   {deleteModalOpen && (
+                                        <div
+                                            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+                                            onClick={closeDeleteModal}
+                                        >
+                                            <div
+                                                className="w-full max-w-md rounded-lg border border-outline-variant bg-surface-container-lowest p-6 shadow-xl"
+                                                onClick={(e) => e.stopPropagation()}
+                                            >
+                                                <div className="mb-5 flex items-start gap-3">
+                                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-error-container">
+                                                        <TriangleAlert className="h-5 w-5 text-error" />
+                                                    </div>
+
+                                                    <div>
+                                                        <h2 className="text-xl font-semibold text-primary">
+                                                            Delete Account
+                                                        </h2>
+
+                                                        <p className="mt-1 text-sm leading-relaxed text-on-surface-variant">
+                                                            This action will permanently deactivate your account
+                                                            and sign you out from all devices.
+                                                        </p>
+                                                    </div>
+                                                </div>
+
+                                                <form
+                                                    onSubmit={submitDeleteAccount}
+                                                    className="space-y-5"
+                                                >
+                                                    {security.has_password && (
+                                                        <div>
+                                                            <label
+                                                                htmlFor="delete_current_password"
+                                                                className="mb-2 block text-label-sm font-semibold text-on-surface-variant"
+                                                            >
+                                                                Current Password
+                                                            </label>
+
+                                                            <input
+                                                                id="delete_current_password"
+                                                                type="password"
+                                                                autoComplete="current-password"
+                                                                value={deleteForm.data.current_password}
+                                                                onChange={(e) =>
+                                                                    deleteForm.setData(
+                                                                        'current_password',
+                                                                        e.target.value,
+                                                                    )
+                                                                }
+                                                                className="w-full rounded border border-outline-variant bg-surface p-3 text-body-md outline-none focus:border-error focus:ring-1 focus:ring-error"
+                                                            />
+
+                                                            {deleteForm.errors.current_password && (
+                                                                <p className="mt-2 text-sm text-error">
+                                                                    {deleteForm.errors.current_password}
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                    )}
+
+                                                    <div>
+                                                        <label
+                                                            htmlFor="delete_confirmation"
+                                                            className="mb-2 block text-label-sm font-semibold text-on-surface-variant"
+                                                        >
+                                                            Type DELETE to confirm
+                                                        </label>
+
+                                                        <input
+                                                            id="delete_confirmation"
+                                                            type="text"
+                                                            value={deleteForm.data.confirmation}
+                                                            onChange={(e) =>
+                                                                deleteForm.setData(
+                                                                    'confirmation',
+                                                                    e.target.value,
+                                                                )
+                                                            }
+                                                            placeholder="DELETE"
+                                                            autoComplete="off"
+                                                            className="w-full rounded border border-outline-variant bg-surface p-3 text-body-md outline-none focus:border-error focus:ring-1 focus:ring-error"
+                                                        />
+
+                                                        {deleteForm.errors.confirmation && (
+                                                            <p className="mt-2 text-sm text-error">
+                                                                {deleteForm.errors.confirmation}
+                                                            </p>
+                                                        )}
+                                                    </div>
+
+                                                    {errors?.account && (
+                                                        <div className="border border-error-container bg-error-container/30 px-4 py-3 text-sm text-error">
+                                                            {errors.account}
+                                                        </div>
+                                                    )}
+
+                                                    <div className="flex gap-3 pt-2">
+                                                        <button
+                                                            type="button"
+                                                            onClick={closeDeleteModal}
+                                                            disabled={deleteForm.processing}
+                                                            className="flex-1 rounded border border-outline-variant px-4 py-3 text-sm font-semibold text-primary transition-colors hover:bg-surface-container-low disabled:opacity-50"
+                                                        >
+                                                            Cancel
+                                                        </button>
+
+                                                        <button
+                                                            type="submit"
+                                                            disabled={
+                                                                deleteForm.processing ||
+                                                                deleteForm.data.confirmation !== 'DELETE' ||
+                                                                (
+                                                                    security.has_password &&
+                                                                    !deleteForm.data.current_password
+                                                                )
+                                                            }
+                                                            className="flex-1 rounded bg-error px-4 py-3 text-sm font-semibold text-on-error transition-opacity disabled:cursor-not-allowed disabled:opacity-50"
+                                                        >
+                                                            {deleteForm.processing
+                                                                ? 'Deleting...'
+                                                                : 'Delete Account'}
+                                                        </button>
+                                                    </div>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    )}
                             </section>
                         </div>
 

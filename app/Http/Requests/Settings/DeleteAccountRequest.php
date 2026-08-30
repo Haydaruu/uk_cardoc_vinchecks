@@ -23,11 +23,11 @@ class DeleteAccountRequest extends FormRequest
     public function rules(): array
     {
         $rules = [
-            'confirmation' => ['required', 'stirng', 'in:DELETE'],
+            'confirmation' => ['required', 'string', 'in:DELETE'],
         ];
 
         if(! is_null($this->user()->password)) {
-            $rules['cureent_password'] = [
+            $rules['current_password'] = [
                 'required',
                 'current_password:web',
             ];
