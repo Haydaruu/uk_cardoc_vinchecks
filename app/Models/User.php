@@ -26,7 +26,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
-#[Fillable(['name', 'role', 'email', 'phone_number', 'password', 'credits','register_provider', 'last_login_at', 'email_verified_at'])]
+#[Fillable(['name', 'role', 'email', 'phone_number', 'password', 'credits','register_provider', 'last_login_at', 'email_verified_at','stripe_customer_id'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable implements MustVerifyEmail
 {
@@ -74,10 +74,6 @@ class User extends Authenticatable implements MustVerifyEmail
             ->where(function ($query) {
                 $query->whereNull('end_date')
                     ->orWhere('end_date', '>=', now());
-            })
-            ->where(function ($query){
-                $query->whereNull('reports_limit')
-                    ->orWhereColumn('reports_used', '<', 'reports_limit');
             })
             ->latest()
             ->first();

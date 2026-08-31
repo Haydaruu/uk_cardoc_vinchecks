@@ -11,8 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('transactions', function (Blueprint $table) {
-            $table->unique('payment_gateway_ref');
+        Schema::table('users', function (Blueprint $table) {
+            $table->string('stripe_customer_id')->nullable()->unique();
         });
     }
 
@@ -21,10 +21,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('transactions', function (Blueprint $table) {
-            $table->dropUnique(
-                'payment_gateway_ref_unique'
-            );
+        Schema::table('users', function (Blueprint $table) {
+            $table->dropUnique('stripe_customer_id_unique');
         });
     }
 };

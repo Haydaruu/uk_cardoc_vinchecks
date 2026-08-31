@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('transactions', function (Blueprint $table) {
-            $table->unique('payment_gateway_ref');
+            $table->string('category')->nullable()->after('type');
         });
     }
 
@@ -22,9 +22,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('transactions', function (Blueprint $table) {
-            $table->dropUnique(
-                'payment_gateway_ref_unique'
-            );
+            $table->dropColumn('category');
         });
     }
 };

@@ -9,6 +9,7 @@ use App\Http\Controllers\ReportController;
 use App\Http\Controllers\Settings\SettingsController;
 use App\Http\Controllers\Settings\SecurityController;
 use App\Http\Controllers\Settings\ConnectedAccountController;
+use App\Http\Controllers\Settings\SubscriptionController;
 use Inertia\Inertia;
 
 Route::middleware(['auth', 'verified'])->group(function (){
@@ -49,10 +50,12 @@ Route::middleware(['auth', 'verified'])->prefix('settings')->name('settings.')->
     Route::get('/connected-accounts/{provider}/redirect', [ConnectedAccountController::class, 'redirect'])->name('connected-accounts.redirect');
     Route::get('/connected-accounts/{provider}/callback', [ConnectedAccountController::class, 'callback'])->name('connected-accounts.callback');
     Route::delete('/connected-accounts/{provider}', [ConnectedAccountController::class, 'destroy'])->name('connected-accounts.destroy');
-
-
-
+    //Page Purchase History
     Route::get('/purchase-history', [SettingsController::class, 'purchaseHistory'])->name('purchase-history');
+
+    //page Subscription
     Route::get('/subscription', [SettingsController::class, 'subscription'])->name('subscription');
+    Route::post('/subscription/checkout', [SubscriptionController::class, 'checkout'])->name('subscription.checkout');
+    
     Route::get('/help', [SettingsController::class, 'help'])->name('help');
 });
