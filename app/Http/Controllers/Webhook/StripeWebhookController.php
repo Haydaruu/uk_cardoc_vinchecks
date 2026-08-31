@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Webhook;
 use App\Models\User;
 use App\Http\Controllers\Controller;
 use App\Services\CreditService;
+use App\Models\Transaction;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Stripe\Webhook;
@@ -44,6 +45,7 @@ class StripeWebhookController extends Controller
             $user = User::find($userId);
 
             if($user) {
+
                 $creditService->grantCredits(
                     user : $user,
                     amount : $credit,
@@ -52,9 +54,28 @@ class StripeWebhookController extends Controller
                     description : "Stripe purchase : {$intent->id}",
                     idempotencyKey : $intent->id
                 );
+
+               Transaction::updateOrCreate(
+                    [
+                        'payment_gateway_ref' => $intent->id,
+                    ],
+                    [
+                        'user_id' => $user->id,
+                        'invoice_id' =>
+                        'UKC-' . strtoupper(substr($intent->id, 3, 8)),
+                        'currency' => strtoupper($intent->currency),
+                        'amount' => $intent->amount / 100,
+                        'type' => 'payment',
+                        'description' =>
+                            $intent->metadata->product_name
+                            ?? 'Credit purchase',
+                        'status' => 'success',
+                        'paid_at' => now(),
+                    ]
+                );
             }
         }
-
-        return response()->json(['received' => true]);
+            
+        return response()->json(['received' => true,]);
     }   
 }

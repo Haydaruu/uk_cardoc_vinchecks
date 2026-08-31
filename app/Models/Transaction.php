@@ -22,6 +22,7 @@ class Transaction extends Model
 
     protected $casts = [
         'amount' => 'decimal:2',
+        'paid_at' => 'datetime',
         'refunded_at' => 'datetime',
     ];
 

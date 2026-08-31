@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\UpdateProfileRequest;
+use App\Models\Transaction;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -83,14 +84,105 @@ class SettingsController extends Controller
         ]);
     }
 
-    public function connectedAccounts(): Response
+    public function connectedAccounts(Request $request): Response
     {
-        return Inertia::render('user/settings/connected-accounts');
+        $user = $request->user();
+
+        $accounts = $user->socialAccounts()
+            ->get()
+            ->keyBy('provider');
+
+        $hasPassword = ! is_null($user->password);
+
+        $loginMethods = $accounts->count() + ($hasPassword ? 1 : 0);
+
+        return Inertia::render('user/settings/connected-accounts', [
+            'connectedAccounts' => [
+                'has_password' => $hasPassword,
+
+                'google' => [
+                    'connected' => $accounts->has('google'),
+                    'email' => $accounts->get('google')?->provider_email,
+                    'can_disconnect' => $accounts->has('google') && $loginMethods > 1,
+                ],
+
+                 'microsoft' => [
+                    'connected' => $accounts->has('microsoft'),
+                    'email' => $accounts->get('microsoft')?->provider_email,
+                    'can_disconnect' => $accounts->has('microsoft') && $loginMethods > 1,
+                ],
+            ],
+        ]);
     }
 
-    public function purchaseHistory(): Response
+    public function purchaseHistory(Request $request): Response
     {
-        return Inertia::render('user/settings/purchase-history');
+        $user = $request->user();
+
+        $search = $request->string('search')->toString();
+        $period = $request->string('preiod', 'all')->toString();
+        $status = $request->string('status', 'all')->toString();
+
+        $baseQuery = Transaction::query()
+            ->where('user_id', $user->id);
+
+        $totalSpent = (clone $baseQuery)
+            ->where('status', 'success')
+            ->where('type', 'payment')
+            ->sum('amount');
+
+        $creditPurchases = $totalSpent;
+        
+        $transaction = $baseQuery
+            ->when($search, function ($query, $search) {
+                $query->where(function ($query) use ($search) {
+                    $query
+                        ->where('invoice_id', 'like', "%{$search}%")
+                        ->orWhere('description', 'like', "%{$search}%");
+                });
+            })
+            ->when($status !== 'all', function ($query) use ($status) {
+                $query->where('status', $status);
+            })
+            ->when($period === '30', function ($query) {
+                $query->where('paid_at', '>=', now()->subDays(30));
+            })
+            ->when($period === '90', function ($query) {
+                $query->where('paid_at', '>=', now()->subDays(90));
+            })
+            ->when($period === 'year', function ($query) {
+                $query->whereYear('paid_at', now()->year);
+            })
+            ->latest('paid_at')
+            ->paginate(10)
+            ->withQueryString()
+            ->through(fn ($transaction) => [
+                'id' => $transaction->id,
+                'invoice_id' => $transaction->invoice_id,
+                'description' => $transaction->description,
+                'amount' => $transaction->amount,
+                'currency' => $transaction->currency,
+                'type' => $transaction->type,
+                'status' => $transaction->status,
+                'payment_method' => $transaction->payment_method,
+                'paid_at' => $transaction->paid_at,
+            ]);
+
+        return Inertia::render('user/settings/purchase-history',[ 
+            'transactions' => $transaction, 
+            
+            'summary' => [
+                'total_spent' => $totalSpent,
+                'credit_purchases' => $creditPurchases,
+                'subscription_payments' => 0,
+            ],
+
+            'filters' => [
+                'search' => $search,
+                'period' => $period,
+                'status' => $status,
+            ],
+        ]);
     }
 
     public function subscription(): Response

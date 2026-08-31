@@ -8,6 +8,7 @@ use App\Http\Controllers\PageController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\Settings\SettingsController;
 use App\Http\Controllers\Settings\SecurityController;
+use App\Http\Controllers\Settings\ConnectedAccountController;
 use Inertia\Inertia;
 
 Route::middleware(['auth', 'verified'])->group(function (){
@@ -43,7 +44,14 @@ Route::middleware(['auth', 'verified'])->prefix('settings')->name('settings.')->
     Route::delete('/security/sessions/{sessionKey}', [securityController::class, 'destroySession'])->name('security.sessions.destroy');
     Route::delete('/security/account', [SecurityController::class, 'destroyAccount'])->name('security.account.destroy');
 
+    //Page Connected Accounts
     Route::get('/connected-accounts', [SettingsController::class, 'connectedAccounts'])->name('connected-accounts');
+    Route::get('/connected-accounts/{provider}/redirect', [ConnectedAccountController::class, 'redirect'])->name('connected-accounts.redirect');
+    Route::get('/connected-accounts/{provider}/callback', [ConnectedAccountController::class, 'callback'])->name('connected-accounts.callback');
+    Route::delete('/connected-accounts/{provider}', [ConnectedAccountController::class, 'destroy'])->name('connected-accounts.destroy');
+
+
+
     Route::get('/purchase-history', [SettingsController::class, 'purchaseHistory'])->name('purchase-history');
     Route::get('/subscription', [SettingsController::class, 'subscription'])->name('subscription');
     Route::get('/help', [SettingsController::class, 'help'])->name('help');
