@@ -20,7 +20,12 @@ class SubscriptionController extends Controller
             abort(422, 'Invalid subscription plan. ');
         }
 
-        if( $user->activeSubscription()) {
+        $existingSubscription = $user->subscriptions()
+            ->whereIn('status', ['active', 'pending'])
+            ->latest()
+            ->first();
+        
+        if( $existingSubscription ) {
             return back()->with(
                 'error',
                 ' You already have an active subscription. '
@@ -81,6 +86,26 @@ class SubscriptionController extends Controller
 
     public function cancel(Request $request)
     {
-        
+        $user = $request->user();
+        $subscription = $user->activeSubscription();
+
+        if(! $subscription || ! $subscription->stripe_subscription_id) {
+            return back()->with(
+                'error',
+                'No active subscription found.'
+            );
+        }
+        $stripe = new StripeClient(config('services.stripe.secret'));
+
+        $stripe->subscriptions->update($subscription->stripe_subscription_id, 
+            [
+                'cancel_at_period_end' => true
+            ]
+        );
+
+        return back()->with(
+            'success',
+            'Your subscription will be cancelled at the end of the current billing period.'
+        );
     }
 }

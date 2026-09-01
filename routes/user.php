@@ -56,6 +56,7 @@ Route::middleware(['auth', 'verified'])->prefix('settings')->name('settings.')->
     //page Subscription
     Route::get('/subscription', [SettingsController::class, 'subscription'])->name('subscription');
     Route::post('/subscription/checkout', [SubscriptionController::class, 'checkout'])->name('subscription.checkout');
+    Route::delete('/subscription', [SubscriptionController::class, 'cancel'])->name('subscription.cancel');
     
     Route::get('/help', [SettingsController::class, 'help'])->name('help');
 });

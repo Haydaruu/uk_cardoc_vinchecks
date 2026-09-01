@@ -163,6 +163,7 @@ class SettingsController extends Controller
                 'amount' => $transaction->amount,
                 'currency' => $transaction->currency,
                 'type' => $transaction->type,
+                'category' => $transaction->category,
                 'status' => $transaction->status,
                 'payment_method' => $transaction->payment_method,
                 'paid_at' => $transaction->paid_at,
@@ -185,9 +186,54 @@ class SettingsController extends Controller
         ]);
     }
 
-    public function subscription(): Response
+    public function subscription(Request $request): Response
     {
-        return Inertia::render('user/settings/subscription');
+        $user = $request->user();
+
+        $subscription = $user->subscriptions()->latest()->first();
+
+        $plan = config('credit_plans.premium-monthly');
+
+        $recentInvoices = Transaction::query()
+            ->where('user_id', $user->id)
+            ->where('category', 'subscription')
+            ->where('status', 'success')
+            ->latest('paid_at')
+            ->limit(5)
+            ->get()
+            ->map(fn ($transaction) => [
+                'id' => $transaction->id,
+                'invoice_id' => $transaction->invoice_id,
+                'amount' => $transaction->amount,
+                'currency' => $transaction->currency,
+                'status' => $transaction->status,
+                'paid_at' => $transaction->paid_at,
+                'description' => $transaction->description,
+            ]);
+
+        return Inertia::render('user/settings/subscription',[
+            'subscription' => $subscription
+                ?[
+                    'plan_name' => $subscription->plan_name,
+                    'price' => $subscription->price,
+                    'status' => $subscription->status,
+                    'monthly_credits' => $subscription->monthly_credits,
+                    'payment_method' => $subscription->payment_method,
+                    'start_date' => $subscription->start_date,
+                    'current_period_end' => $subscription->current_period_end,
+                    'cancel_at_period_end' => $subscription->cancel_at_period_end,
+                    'cancelled_at' => $subscription->cancelled_at,
+                ]
+                : null,
+
+            'plan' => [
+                'name' => 'Premium Membership',
+                'price' => '£19.99',
+                'monthly_credits' => 20,
+            ],
+
+            'recentInvoices' => $recentInvoices,
+        ]);
     }
 
     public function help(): Response

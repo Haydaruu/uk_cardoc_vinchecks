@@ -150,18 +150,69 @@ class StripeWebhookController extends Controller
                     $subscription = Subscription::where('stripe_subscription_id', $stripeSubscriptionId)->first();
 
                     if(! $subscription) {
-                        Log::warning('Subscription not found for paid invoice', [
-                            'invoice_id' => $invoice->id,
-                            'stripe_subscription_id' => $stripeSubscriptionId,
-                        ]);
+                        $stripe = new StripeClient(config('services.stripe.secret'));
+                    
 
-                        break;
+                        $stripeSubscription = $stripe->subscriptions->retrieve($stripeSubscriptionId);
+
+                        $userId = $stripeSubscription->metadata->user_id ?? null;
+                        $planSlug = $stripeSubscription->metadata->plan ?? null;
+
+                        if(! $userId || !$planSlug) {
+                            Log::warning('Cannot recover subscription from stripe',
+                                [
+                                    'stripe_subscription_id' => $stripeSubscription,
+                                    'invoice_id' => $invoice->id,
+                                ]
+                            );
+
+                            break;
+                        }
+
+                        $user = User::find($userId);
+                        $plan = config("credit_plans.{$planSlug}");
+
+                        if (!$user || !$plan) {
+                            break;
+                        }
+
+                        $item = $stripeSubscription->items->data[0] ?? null;
+
+                        $currentPeriodEnd = $item?->current_period_end;
+
+                        $subscription = Subscription::updateOrCreate(
+                            [
+                                'stripe_subscription_id' => $stripeSubscription-> id,
+                            ],
+                            [
+                                'user_id' => $user->id,
+                                'plan_name' => $planSlug,
+                                'price' => 19.99,
+                                'stripe_price_id' => $item?->price->id,
+                                'status' => $this->mapSubscriptionStatus($stripeSubscription->status),
+                                'monthly_credits' => $plan['credits'],
+                                'start_date' => now(),
+                                'current_period_end' =>
+                                    $currentPeriodEnd
+                                        ? date('Y-m-d H:i:s', $currentPeriodEnd)
+                                        : null,
+                                'cancel_at_period_end' =>
+                                    (bool)$stripeSubscription->cancel_at_period_end,
+                            ]
+
+                        );
                     }
 
                     $user = $subscription->user;
 
                     if (!$user) {
                         break;
+                    }
+
+                    if ($subscription->status !== 'active') {
+                        $subscription->update([
+                            'status' => 'active',
+                        ]);
                     }
 
                     $credits = (int) $subscription->monthly_credits;
@@ -242,7 +293,29 @@ class StripeWebhookController extends Controller
                 break;
                 
             case 'invoice.payment_failed':
-                // nanti sync status / warning
+                $invoice = $event->data->object;
+
+                $stripeSubscriptionId = $invoice->parent?->subscription_details->subscription ?? $invoice->subscription ?? null;
+
+                if(! $stripeSubscriptionId) {
+                    break;
+                }
+
+                $subscription = Subscription::where('stripe_subscription_id', $stripeSubscriptionId)->first();
+
+                if(! $subscription) {
+                    break;
+                }
+
+                $subscription->update([
+                    'status' => 'pending',
+                ]);
+
+                Log::warning('Subscription invoice payment failed', [
+                    'subscription_id' => $subscription->id,
+                    'invoice_id' => $invoice->id,
+                ]);
+
                 break;
         }
             

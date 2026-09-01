@@ -12,6 +12,7 @@ class Transaction extends Model
         'currency',
         'amount',
         'type',
+        'category',
         'payment_method',
         'payment_gateway_ref',
         'description',
