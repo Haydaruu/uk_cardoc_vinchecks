@@ -71,12 +71,7 @@ export default function Profile({ profile } : ProfileProps) {
     return (
         <SettingsLayout>
             <div
-                className="
-                    min-h-screen
-                    bg-[linear-gradient(45deg,rgba(0,13,47,0.02)_25%,transparent_25%,transparent_75%,rgba(0,13,47,0.02)_75%,rgba(0,13,47,0.02)_100%)]
-                "
-                style={{ backgroundSize: '20px 20px' }}
-            >
+                className="min-h-screen bg-surface">
                 <div className="mx-auto max-w-container-max px-margin-mobile py-10 md:px-gutter lg:py-section-padding">
                     {/* Page Header */}
                     <header className="mb-10 lg:mb-12">

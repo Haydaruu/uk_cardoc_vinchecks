@@ -21,7 +21,7 @@ function Pricing() {
             pricePerReport: '£19.99',
             totalPrice: '£19.99',
             bullets: [
-                "You'll get 5 premium reports",
+                "You'll get 1 credit for a premium report",
                 'Full premium vehicle report',
             ],
             ctaLabel: 'Get 1 Credit',
@@ -33,7 +33,7 @@ function Pricing() {
             pricePerReport: '£14.00',
             totalPrice: '£69.99',
             bullets: [
-                "You'll get 5 premium reports",
+                "You'll get 5 credits for premium reports",
                 'Full premium vehicle report',
             ],
             ctaLabel: 'Get 5 Credits',
@@ -42,16 +42,16 @@ function Pricing() {
             badge: 'Most Popular',
         },
         {
-            tier: 'Bulk Pack',
-            title: '10 Credits',
-            pricePerReport: '£12.00',
-            totalPrice: '£119.99',
+            tier: 'Regular Pack',
+            title: '3 Credits',
+            pricePerReport: '£18.00',
+            totalPrice: '£53.99',
             bullets: [
-                "You'll get 10 premium reports",
+                "You'll get 3 3redits for premium reports",
                 'Full premium vehicle report',
             ],
-            ctaLabel: 'Get 10 Credits',
-            ctaHref: isLoggedIn ? '/checkout?plan=10-credits' : register.url(),
+            ctaLabel: 'Get 3 Credits',
+            ctaHref: isLoggedIn ? '/checkout?plan=3-credits' : register.url(),
         },
     ];
 
