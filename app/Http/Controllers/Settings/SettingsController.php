@@ -192,6 +192,16 @@ class SettingsController extends Controller
 
         $subscription = $user->subscriptions()->latest()->first();
 
+        $currentPlan = $subscription ? config("credit_plans.{$subscription->plan_name}") : null;
+        $availablePlans = collect(config('credit_plans'))->filter(fn ($plan) => $plan['type'] === 'subscription')
+        ->map(fn ($plan, $slug) => [
+            'slug' => $slug,
+            'name' => $plan['label'],
+            'price' => $plan['amount_display'],
+            'monthly_credits' => $plan['credits'],
+        ])
+        ->values();
+
         $plan = config('credit_plans.premium-monthly');
 
         $recentInvoices = Transaction::query()
@@ -226,11 +236,15 @@ class SettingsController extends Controller
                 ]
                 : null,
 
-            'plan' => [
-                'name' => 'Premium Membership',
-                'price' => '£19.99',
-                'monthly_credits' => 20,
-            ],
+            'plan' => $currentPlan
+                ?[
+                    'name' => $currentPlan['label'],
+                    'price' => $currentPlan['amount_display'],
+                    'monthly_credits' => $currentPlan['credits'],
+                ]
+                : null,
+
+            'availablePlans' => $availablePlans,
 
             'recentInvoices' => $recentInvoices,
         ]);

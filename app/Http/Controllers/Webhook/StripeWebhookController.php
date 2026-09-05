@@ -105,6 +105,7 @@ class StripeWebhookController extends Controller
                 $item = $stripeSubscription->items->data[0] ?? null;
 
                 $priceId = $item?->price->id;
+                $priceAmount = $item?->price?->unit_amount ? $item->price->unit_amount /100 : 0; 
                 $currentPeriodEnd = $item?->current_period_end;
 
                 $status = $this->mapSubscriptionStatus($stripeSubscription->status);
@@ -116,7 +117,7 @@ class StripeWebhookController extends Controller
                     [
                         'user_id' => $user->id,
                         'plan_name' => $planSlug,
-                        'price' => 19.99,
+                        'price' => $priceAmount,
                         'stripe_price_id' => $priceId,
                         'status' => $status,
                         'monthly_credits' => $plan['credits'],
@@ -177,6 +178,9 @@ class StripeWebhookController extends Controller
                         }
 
                         $item = $stripeSubscription->items->data[0] ?? null;
+                        $priceId = $item?->price->id;
+
+                        $priceAmount = $item?->price?->unit_amount ? $item->price->unit_amount /100 : 0;
 
                         $currentPeriodEnd = $item?->current_period_end;
 
@@ -187,8 +191,8 @@ class StripeWebhookController extends Controller
                             [
                                 'user_id' => $user->id,
                                 'plan_name' => $planSlug,
-                                'price' => 19.99,
-                                'stripe_price_id' => $item?->price->id,
+                                'price' => $priceAmount,
+                                'stripe_price_id' => $priceId,
                                 'status' => $this->mapSubscriptionStatus($stripeSubscription->status),
                                 'monthly_credits' => $plan['credits'],
                                 'start_date' => now(),
@@ -240,6 +244,8 @@ class StripeWebhookController extends Controller
                         description: "Subscription payment: {$invoice->id}",
                     );
 
+                    $planConfig = config("credit_plans.{$subscription->plan_name}");
+
                     Transaction::updateOrCreate(
                         [
                             'payment_gateway_ref' => $invoice->id,
@@ -251,7 +257,7 @@ class StripeWebhookController extends Controller
                             'amount' => $invoice->amount_paid /100,
                             'type' => 'payment',
                             'category' => 'subscription',
-                            'description' => $subscription->plan_name === 'premium-monthly' ? 'Premium Membership' : $subscription->plan_name,
+                            'description' => $planConfig['label']  ?? $subscription->plan_name,
                             'status' => 'success',
                             'paid_at' => now(),
                         ],
@@ -326,7 +332,7 @@ class StripeWebhookController extends Controller
     {
         return match ($status){
             'active', 
-            'training' => 'active',
+            'trialing' => 'active',
 
             'canceled' => 'cancelled',
             'incomplete_expired' => 'expired',
@@ -335,7 +341,7 @@ class StripeWebhookController extends Controller
             'unpaid',
             'pause' => 'pending',
 
-            'default' => 'pending',
+            default => 'pending',
         };
     }
 }

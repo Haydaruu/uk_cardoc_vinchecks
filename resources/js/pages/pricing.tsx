@@ -28,6 +28,7 @@ type PageProps = {
 };
 
 type MembershipPlan = {
+    slug: string;
     tier: string;
     name: string;
     price: string;
@@ -50,7 +51,7 @@ function Pricing() {
     const [isSubscribing, setIsSubscribing] =
         useState(false);
 
-    const subscribe = () => {
+    const subscribe = (plan: string) => {
         if (!isLoggedIn) {
             router.visit(register.url());
             return;
@@ -58,7 +59,7 @@ function Pricing() {
 
         router.post(
             '/settings/subscription/checkout',
-            {},
+            { plan },
             {
                 onStart: () => setIsSubscribing(true),
                 onFinish: () => setIsSubscribing(false),
@@ -117,6 +118,7 @@ function Pricing() {
 
     const membershipPlans: MembershipPlan[] = [
         {
+            slug: 'premium-monthly',
             tier: 'Monthly Plan',
             name: 'Premium',
             price: '£39.99',
@@ -132,6 +134,7 @@ function Pricing() {
         },
 
         {
+            slug: 'premium-plus-monthly',
             tier: 'Best Value',
             name: 'Premium Plus',
             price: '£59.99',
@@ -149,6 +152,7 @@ function Pricing() {
         },
 
         {
+            slug: 'premium-max-monthly',
             tier: 'Power User',
             name: 'Premium Max',
             price: '£89.99',
@@ -342,11 +346,11 @@ function Pricing() {
                                     </ul>
 
                                     {/* CTA */}
-                                    {plan.available ? (
+                                    
                                         <button
                                             type="button"
                                             disabled={isSubscribing}
-                                            onClick={subscribe}
+                                            onClick={() => subscribe(plan.slug)}
                                             className={`mt-8 rounded-sm py-3.5 text-center text-[11px] font-bold uppercase tracking-widest transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
                                                 plan.highlighted
                                                     ? 'bg-secondary text-white hover:bg-secondary-container'
@@ -359,15 +363,6 @@ function Pricing() {
                                                 ? 'Subscribe'
                                                 : 'Create Account'}
                                         </button>
-                                    ) : (
-                                        <button
-                                            type="button"
-                                            disabled
-                                            className="mt-8 cursor-not-allowed rounded-sm border border-slate-200 bg-slate-50 py-3.5 text-center text-[11px] font-bold uppercase tracking-widest text-slate-400"
-                                        >
-                                            Coming Soon
-                                        </button>
-                                    )}
                                 </div>
                             ))}
                         </div>
