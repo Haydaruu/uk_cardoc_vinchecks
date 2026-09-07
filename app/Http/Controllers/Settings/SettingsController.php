@@ -193,6 +193,7 @@ class SettingsController extends Controller
         $subscription = $user->subscriptions()->latest()->first();
 
         $currentPlan = $subscription ? config("credit_plans.{$subscription->plan_name}") : null;
+        $pendingPlan = $subscription ? config("credit_plans.{$subscription->pending_plan_name}") : null;
         $availablePlans = collect(config('credit_plans'))->filter(fn ($plan) => $plan['type'] === 'subscription')
         ->map(fn ($plan, $slug) => [
             'slug' => $slug,
@@ -233,6 +234,16 @@ class SettingsController extends Controller
                     'current_period_end' => $subscription->current_period_end,
                     'cancel_at_period_end' => $subscription->cancel_at_period_end,
                     'cancelled_at' => $subscription->cancelled_at,
+                ]
+                : null,
+
+            'scheduled_change' => $pendingPlan
+                ?[
+                    'slug' => $subscription->pending_plan_name,
+                    'name' => $pendingPlan['label'],
+                    'price' => $pendingPlan['amount_display'],
+                    'monthly_credits' => $pendingPlan['credits'],
+                    'efective_at' => $subscription->pending_plan_effective_at,
                 ]
                 : null,
 

@@ -22,6 +22,12 @@ class Subscription extends Model
         'stripe_price_id',
         'cancel_at_period_end',
         'current_period_end',
+
+        'pending_plan_name',
+        'pending_stripe_price_id',
+        'pending_price',
+        'pending_monthly_credits',
+        'pending_plan_effective_at'
     ];
 
     protected $casts = [
@@ -31,6 +37,8 @@ class Subscription extends Model
         'cancelled_at' => 'datetime',
         'current_period_end' => 'datetime',
         'cancel_at_period_end' => 'boolean',
+        'pending_price' => 'decimal:2',
+        'pending_plan_effective_at' => 'datetime',
     ];
 
 

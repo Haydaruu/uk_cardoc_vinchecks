@@ -1,7 +1,9 @@
 import SettingsLayout from '@/layouts/settings/settings-layout';
 import { Head, router } from '@inertiajs/react';
 import {
+    ArrowRight,
     CheckCircle2,
+    Clock3,
     CreditCard,
     Download,
     ShieldCheck,
@@ -16,6 +18,14 @@ type AvailablePlan = {
     monthly_credits: number;
 };
 
+type ScheduledChange = {
+    slug: string;
+    name: string;
+    price: string;
+    monthly_credits: number;
+    effective_at: string | null;
+};
+
 type SubscriptionData = {
     plan_name: string;
     price: string;
@@ -26,6 +36,7 @@ type SubscriptionData = {
     current_period_end: string | null;
     cancel_at_period_end: boolean;
     cancelled_at: string | null;
+    scheduled_change: ScheduledChange | null;
 };
 
 type Invoice = {
@@ -47,7 +58,7 @@ type CurrentPlan = {
 type Props = {
     subscription: SubscriptionData | null;
     plan: CurrentPlan | null;
-    availablePlans: AvailablePlan[];
+    availablePlans?: AvailablePlan[];
     recentInvoices?: Invoice[];
 };
 
@@ -65,10 +76,6 @@ export default function Subscription({
     const [isSubscribing, setIsSubscribing] =
         useState(false);
 
-    /*
-     * Fallback untuk user yang belum punya subscription.
-     * Default ke plan pertama dari backend.
-     */
     const defaultPlan =
         availablePlans[0] ?? null;
 
@@ -143,12 +150,31 @@ export default function Subscription({
         );
     };
 
+    const subscribeToPlan = (planSlug: string) => {
+        setChangingPlan(planSlug);
+
+        router.post(
+            '/settings/subscription/checkout',
+            {
+                plan: planSlug,
+            },
+            {
+                preserveScroll: true,
+
+                onFinish: () => {
+                    setChangingPlan(null);
+                },
+            },
+        );
+    };
+
     return (
         <SettingsLayout>
             <Head title="Subscription" />
 
             <div className="min-h-screen bg-surface">
                 <div className="mx-auto w-full max-w-container-max px-margin-mobile pb-12 md:px-gutter">
+
                     {/* Header */}
                     <header className="mb-12 border-b border-outline-variant pb-6 pt-8">
                         <h1 className="font-h1 text-h1 text-primary">
@@ -156,24 +182,26 @@ export default function Subscription({
                         </h1>
 
                         <p className="mt-2 font-body-lg text-body-lg text-on-surface-variant">
-                            Manage your current plan and billing
-                            preferences.
+                            Manage your current plan and billing preferences.
                         </p>
                     </header>
 
                     <div className="grid grid-cols-1 gap-gutter lg:grid-cols-3">
+
                         {/* Current Plan */}
                         <section className="relative overflow-hidden rounded-xl border border-outline-variant bg-white p-8 shadow-[0_4px_20px_rgba(0,32,91,0.04)] lg:col-span-2">
+
                             <div className="absolute left-0 top-0 h-px w-full bg-outline-variant">
                                 <div className="h-full w-8 bg-secondary" />
                             </div>
 
-                            {subscription &&
-                            displayPlan ? (
+                            {subscription && displayPlan ? (
                                 <div className="flex h-full flex-col justify-between">
+
                                     <div>
-                                        {/* Plan Header */}
+                                        {/* Current Plan Header */}
                                         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+
                                             <div>
                                                 <p className="mb-1 font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant">
                                                     Current Plan
@@ -181,15 +209,11 @@ export default function Subscription({
 
                                                 <div className="flex flex-wrap items-center gap-3">
                                                     <h2 className="font-h2 text-h2 text-primary">
-                                                        {
-                                                            displayPlan.name
-                                                        }
+                                                        {displayPlan.name}
                                                     </h2>
 
                                                     <StatusBadge
-                                                        status={
-                                                            subscription.status
-                                                        }
+                                                        status={subscription.status}
                                                     />
                                                 </div>
                                             </div>
@@ -199,9 +223,7 @@ export default function Subscription({
                                                     £
                                                     {Number(
                                                         subscription.price,
-                                                    ).toFixed(
-                                                        2,
-                                                    )}
+                                                    ).toFixed(2)}
                                                 </p>
 
                                                 <p className="text-sm text-on-surface-variant">
@@ -210,45 +232,115 @@ export default function Subscription({
                                             </div>
                                         </div>
 
-                                        {/* Benefits */}
+                                        {/* Current Plan Benefits */}
                                         <div className="mb-8 space-y-4">
+
                                             <Benefit>
-                                                {
-                                                    subscription.monthly_credits
-                                                }{' '}
-                                                credits every
-                                                month
+                                                {subscription.monthly_credits}{' '}
+                                                credits every month
                                             </Benefit>
 
                                             <Benefit>
-                                                Credits are added
-                                                after every
-                                                successful
-                                                billing cycle
+                                                Credits are added after every
+                                                successful billing cycle
                                             </Benefit>
 
                                             <Benefit>
-                                                Unused credits
-                                                never expire
+                                                Unused credits never expire
                                             </Benefit>
 
                                             <Benefit>
-                                                Unlock full
-                                                vehicle reports
-                                                using your
-                                                credits
+                                                Unlock full vehicle reports
+                                                using your credits
                                             </Benefit>
+
                                         </div>
+
+                                        {/* Scheduled Plan Change */}
+                                        {subscription.scheduled_change && (
+                                            <div className="mb-8 rounded-xl border border-amber-200 bg-amber-50/70 p-5">
+
+                                                <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+
+                                                    <div className="flex items-start gap-3">
+
+                                                        <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-amber-100">
+                                                            <Clock3 className="size-4 text-amber-700" />
+                                                        </div>
+
+                                                        <div>
+                                                            <p className="text-[10px] font-bold uppercase tracking-wider text-amber-700">
+                                                                Plan Change Scheduled
+                                                            </p>
+
+                                                            <div className="mt-2 flex flex-wrap items-center gap-2">
+
+                                                                <span className="font-semibold text-primary">
+                                                                    {displayPlan.name}
+                                                                </span>
+
+                                                                <ArrowRight className="size-4 text-on-surface-variant" />
+
+                                                                <span className="font-semibold text-primary">
+                                                                    {
+                                                                        subscription
+                                                                            .scheduled_change
+                                                                            .name
+                                                                    }
+                                                                </span>
+
+                                                            </div>
+
+                                                            <p className="mt-2 text-xs text-on-surface-variant">
+                                                                Your new plan starts on{' '}
+                                                                <span className="font-semibold text-primary">
+                                                                    {formatDate(
+                                                                        subscription
+                                                                            .scheduled_change
+                                                                            .effective_at,
+                                                                    )}
+                                                                </span>
+                                                            </p>
+                                                        </div>
+
+                                                    </div>
+
+                                                    <div className="sm:text-right">
+
+                                                        <p className="text-lg font-bold text-primary">
+                                                            {
+                                                                subscription
+                                                                    .scheduled_change
+                                                                    .price
+                                                            }
+                                                        </p>
+
+                                                        <p className="mt-1 text-xs text-on-surface-variant">
+                                                            {
+                                                                subscription
+                                                                    .scheduled_change
+                                                                    .monthly_credits
+                                                            }{' '}
+                                                            credits / month
+                                                        </p>
+
+                                                    </div>
+
+                                                </div>
+
+                                            </div>
+                                        )}
                                     </div>
 
                                     {/* Billing / Actions */}
                                     <div className="flex flex-col gap-4 border-t border-outline-variant pt-6 md:flex-row md:items-center md:justify-between">
+
                                         <div className="text-sm text-on-surface-variant">
+
                                             {subscription.cancel_at_period_end ? (
                                                 <>
-                                                    Access
-                                                    available
-                                                    until{' '}
+                                                    Access available until{' '}
+
                                                     <span className="font-semibold text-primary">
                                                         {formatDate(
                                                             subscription.current_period_end,
@@ -258,6 +350,7 @@ export default function Subscription({
                                             ) : (
                                                 <>
                                                     Renews on{' '}
+
                                                     <span className="font-semibold text-primary">
                                                         {formatDate(
                                                             subscription.current_period_end,
@@ -265,26 +358,26 @@ export default function Subscription({
                                                     </span>
                                                 </>
                                             )}
+
                                         </div>
 
                                         {subscription.cancel_at_period_end ? (
                                             <span className="inline-flex rounded bg-surface-container-low px-4 py-2 text-sm font-semibold text-on-surface-variant">
-                                                Cancellation
-                                                scheduled
+                                                Cancellation scheduled
                                             </span>
-                                        ) : subscription.status ===
-                                          'active' ? (
+                                        ) : subscription.status === 'active' ? (
                                             <div className="flex items-center gap-5">
+
                                                 <button
                                                     type="button"
                                                     onClick={() =>
-                                                        setChangePlanOpen(
-                                                            true,
-                                                        )
+                                                        setChangePlanOpen(true)
                                                     }
                                                     className="font-label-sm text-label-sm font-semibold text-primary transition-colors hover:underline"
                                                 >
-                                                    Change Plan
+                                                    {subscription.scheduled_change
+                                                        ? 'Change Scheduled Plan'
+                                                        : 'Change Plan'}
                                                 </button>
 
                                                 <button
@@ -294,28 +387,27 @@ export default function Subscription({
                                                     }
                                                     className="font-label-sm text-label-sm text-secondary transition-colors hover:text-secondary-container"
                                                 >
-                                                    Cancel
-                                                    Subscription
+                                                    Cancel Subscription
                                                 </button>
+
                                             </div>
                                         ) : null}
+
                                     </div>
+
                                 </div>
                             ) : displayPlan ? (
-                                /*
-                                 * User belum mempunyai subscription.
-                                 */
                                 <>
+                                    {/* User doesn't have subscription */}
                                     <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+
                                         <div>
                                             <p className="mb-1 font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant">
                                                 Available Plan
                                             </p>
 
                                             <h2 className="font-h2 text-h2 text-primary">
-                                                {
-                                                    displayPlan.name
-                                                }
+                                                {displayPlan.name}
                                             </h2>
                                         </div>
 
@@ -331,37 +423,35 @@ export default function Subscription({
                                                 per month
                                             </p>
                                         </div>
+
                                     </div>
 
                                     <div className="mb-8 space-y-4">
+
                                         <Benefit>
-                                            {
-                                                displayPlan.monthly_credits
-                                            }{' '}
+                                            {displayPlan.monthly_credits}{' '}
                                             credits every month
                                         </Benefit>
 
                                         <Benefit>
-                                            Automatic monthly
-                                            credit renewal
+                                            Automatic monthly credit renewal
                                         </Benefit>
 
                                         <Benefit>
-                                            Unused credits never
-                                            expire
+                                            Unused credits never expire
                                         </Benefit>
 
                                         <Benefit>
                                             Cancel anytime
                                         </Benefit>
+
                                     </div>
 
                                     <div className="flex flex-wrap items-center gap-4 border-t border-outline-variant pt-6">
+
                                         <button
                                             type="button"
-                                            disabled={
-                                                isSubscribing
-                                            }
+                                            disabled={isSubscribing}
                                             onClick={subscribe}
                                             className="rounded bg-secondary px-6 py-2 font-semibold text-white transition-colors hover:bg-secondary-container disabled:cursor-not-allowed disabled:opacity-60"
                                         >
@@ -370,32 +460,32 @@ export default function Subscription({
                                                 : 'Subscribe'}
                                         </button>
 
-                                        {availablePlans.length >
-                                            1 && (
+                                        {availablePlans.length > 1 && (
                                             <button
                                                 type="button"
                                                 onClick={() =>
-                                                    setChangePlanOpen(
-                                                        true,
-                                                    )
+                                                    setChangePlanOpen(true)
                                                 }
                                                 className="font-semibold text-primary hover:underline"
                                             >
                                                 View other plans
                                             </button>
                                         )}
+
                                     </div>
                                 </>
                             ) : (
                                 <div className="py-12 text-center text-on-surface-variant">
-                                    No subscription plans are
-                                    currently available.
+                                    No subscription plans are currently
+                                    available.
                                 </div>
                             )}
+
                         </section>
 
                         {/* Payment Method */}
                         <section className="relative rounded-xl border border-outline-variant bg-white p-8 shadow-[0_4px_20px_rgba(0,32,91,0.04)]">
+
                             <div className="absolute left-0 top-0 h-px w-full bg-outline-variant">
                                 <div className="h-full w-8 bg-secondary" />
                             </div>
@@ -407,7 +497,9 @@ export default function Subscription({
                             {subscription ? (
                                 <>
                                     <div className="rounded-lg border border-outline-variant p-4">
+
                                         <div className="flex items-center gap-4">
+
                                             <div className="flex h-9 w-12 shrink-0 items-center justify-center rounded border border-outline-variant bg-surface-container-high">
                                                 <CreditCard className="h-5 w-5 text-primary" />
                                             </div>
@@ -419,42 +511,44 @@ export default function Subscription({
                                                 </p>
 
                                                 <p className="text-xs text-on-surface-variant">
-                                                    Billing
-                                                    details are
-                                                    handled
-                                                    securely by
-                                                    Stripe.
+                                                    Billing details are handled
+                                                    securely by Stripe.
                                                 </p>
                                             </div>
+
                                         </div>
+
                                     </div>
 
                                     <div className="mt-6 flex items-start gap-2 text-xs text-on-surface-variant">
+
                                         <ShieldCheck className="h-4 w-4 shrink-0" />
 
                                         <p>
-                                            Payment method
-                                            management will be
+                                            Payment method management will be
                                             available here.
                                         </p>
+
                                     </div>
                                 </>
                             ) : (
                                 <div className="rounded-lg border border-outline-variant bg-surface-bright p-5 text-sm text-on-surface-variant">
-                                    Subscribe to a membership
-                                    plan to manage your billing
-                                    method here.
+                                    Subscribe to a membership plan to manage
+                                    your billing method here.
                                 </div>
                             )}
+
                         </section>
 
                         {/* Recent Invoices */}
                         <section className="relative mt-6 rounded-xl border border-outline-variant bg-white p-8 shadow-[0_4px_20px_rgba(0,32,91,0.04)] lg:col-span-3">
+
                             <div className="absolute left-0 top-0 h-px w-full bg-outline-variant">
                                 <div className="h-full w-8 bg-secondary" />
                             </div>
 
                             <div className="mb-6 flex items-center justify-between">
+
                                 <h2 className="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant">
                                     Recent Invoices
                                 </h2>
@@ -465,12 +559,16 @@ export default function Subscription({
                                 >
                                     View All
                                 </a>
+
                             </div>
 
                             <div className="overflow-x-auto">
+
                                 <table className="w-full border-collapse text-left">
+
                                     <thead>
                                         <tr className="border-b border-outline-variant text-sm text-on-surface-variant">
+
                                             <th className="py-3 font-normal">
                                                 Date
                                             </th>
@@ -486,22 +584,20 @@ export default function Subscription({
                                             <th className="py-3 text-right font-normal">
                                                 Invoice
                                             </th>
+
                                         </tr>
                                     </thead>
 
                                     <tbody>
-                                        {recentInvoices.length >
-                                        0 ? (
+
+                                        {recentInvoices.length > 0 ? (
                                             recentInvoices.map(
-                                                (
-                                                    invoice,
-                                                ) => (
+                                                (invoice) => (
                                                     <tr
-                                                        key={
-                                                            invoice.id
-                                                        }
+                                                        key={invoice.id}
                                                         className="border-b border-outline-variant transition-colors hover:bg-surface-bright"
                                                     >
+
                                                         <td className="py-4">
                                                             {formatDate(
                                                                 invoice.paid_at,
@@ -522,6 +618,7 @@ export default function Subscription({
                                                         </td>
 
                                                         <td className="py-4 text-right">
+
                                                             <button
                                                                 type="button"
                                                                 disabled
@@ -531,29 +628,36 @@ export default function Subscription({
                                                                 <Download className="h-4 w-4" />
                                                                 PDF
                                                             </button>
+
                                                         </td>
+
                                                     </tr>
                                                 ),
                                             )
                                         ) : (
                                             <tr>
+
                                                 <td
-                                                    colSpan={
-                                                        4
-                                                    }
+                                                    colSpan={4}
                                                     className="py-10 text-center text-on-surface-variant"
                                                 >
-                                                    No
-                                                    subscription
-                                                    invoices yet.
+                                                    No subscription invoices
+                                                    yet.
                                                 </td>
+
                                             </tr>
                                         )}
+
                                     </tbody>
+
                                 </table>
+
                             </div>
+
                         </section>
+
                     </div>
+
                 </div>
             </div>
 
@@ -573,8 +677,10 @@ export default function Subscription({
                             event.stopPropagation()
                         }
                     >
+
                         {/* Modal Header */}
                         <div className="mb-8 flex items-start justify-between gap-6">
+
                             <div>
                                 <p className="mb-1 font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant">
                                     Membership
@@ -582,44 +688,54 @@ export default function Subscription({
 
                                 <h2 className="text-2xl font-bold text-primary">
                                     {subscription
-                                        ? 'Change Membership Plan'
+                                        ? subscription.scheduled_change
+                                            ? 'Change Scheduled Plan'
+                                            : 'Change Membership Plan'
                                         : 'Choose Membership Plan'}
                                 </h2>
 
                                 <p className="mt-2 max-w-xl text-sm leading-relaxed text-on-surface-variant">
                                     {subscription
-                                        ? 'Choose the plan you want to use for your next billing cycle. Your existing credits will remain in your account.'
+                                        ? 'Choose the plan you want to use for your next billing cycle. Your current credits will remain in your account.'
                                         : 'Choose the membership plan that works best for you.'}
                                 </p>
                             </div>
 
                             <button
                                 type="button"
-                                disabled={
-                                    changingPlan !== null
-                                }
+                                disabled={changingPlan !== null}
                                 onClick={() =>
-                                    setChangePlanOpen(
-                                        false,
-                                    )
+                                    setChangePlanOpen(false)
                                 }
                                 className="flex size-9 shrink-0 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container-low hover:text-primary disabled:opacity-40"
                             >
                                 <X className="h-5 w-5" />
                             </button>
+
                         </div>
 
                         {/* Plans */}
                         <div className="grid gap-4 md:grid-cols-3">
+
                             {availablePlans.map(
                                 (availablePlan) => {
                                     const isCurrent =
                                         subscription?.plan_name ===
                                         availablePlan.slug;
 
+                                    const isScheduled =
+                                        subscription?.scheduled_change
+                                            ?.slug ===
+                                        availablePlan.slug;
+
                                     const isChanging =
                                         changingPlan ===
                                         availablePlan.slug;
+
+                                    const disabled =
+                                        isCurrent ||
+                                        isScheduled ||
+                                        changingPlan !== null;
 
                                     return (
                                         <button
@@ -627,19 +743,9 @@ export default function Subscription({
                                                 availablePlan.slug
                                             }
                                             type="button"
-                                            disabled={
-                                                isCurrent ||
-                                                changingPlan !==
-                                                    null
-                                            }
+                                            disabled={disabled}
                                             onClick={() => {
-                                                /*
-                                                 * Existing user:
-                                                 * change subscription.
-                                                 */
-                                                if (
-                                                    subscription
-                                                ) {
+                                                if (subscription) {
                                                     changePlan(
                                                         availablePlan.slug,
                                                     );
@@ -647,37 +753,21 @@ export default function Subscription({
                                                     return;
                                                 }
 
-                                                /*
-                                                 * No subscription:
-                                                 * create checkout for
-                                                 * selected plan.
-                                                 */
-                                                setChangingPlan(
+                                                subscribeToPlan(
                                                     availablePlan.slug,
                                                 );
-
-                                                router.post(
-                                                    '/settings/subscription/checkout',
-                                                    {
-                                                        plan: availablePlan.slug,
-                                                    },
-                                                    {
-                                                        onFinish:
-                                                            () => {
-                                                                setChangingPlan(
-                                                                    null,
-                                                                );
-                                                            },
-                                                    },
-                                                );
                                             }}
-                                            className={`relative flex min-h-[190px] flex-col rounded-lg border p-5 text-left transition-all ${
+                                            className={`relative flex min-h-[205px] flex-col rounded-lg border p-5 text-left transition-all ${
                                                 isCurrent
                                                     ? 'border-secondary bg-secondary/5 shadow-sm'
-                                                    : 'border-outline-variant bg-white hover:border-primary hover:shadow-sm'
+                                                    : isScheduled
+                                                      ? 'border-amber-300 bg-amber-50/60 shadow-sm'
+                                                      : 'border-outline-variant bg-white hover:border-primary hover:shadow-sm'
                                             } disabled:cursor-not-allowed`}
                                         >
+
                                             <div className="flex items-start justify-between gap-3">
+
                                                 <p className="font-bold text-primary">
                                                     {
                                                         availablePlan.name
@@ -689,12 +779,17 @@ export default function Subscription({
                                                         Current
                                                     </span>
                                                 )}
+
+                                                {isScheduled && (
+                                                    <span className="rounded-full bg-amber-100 px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-amber-700">
+                                                        Scheduled
+                                                    </span>
+                                                )}
+
                                             </div>
 
                                             <p className="mt-5 text-2xl font-black text-primary">
-                                                {
-                                                    availablePlan.price
-                                                }
+                                                {availablePlan.price}
                                             </p>
 
                                             <p className="mt-1 text-xs text-on-surface-variant">
@@ -702,55 +797,96 @@ export default function Subscription({
                                             </p>
 
                                             <div className="mt-auto border-t border-outline-variant pt-4">
+
                                                 <p className="text-sm font-semibold text-primary">
                                                     {
                                                         availablePlan.monthly_credits
                                                     }{' '}
-                                                    credits /
-                                                    month
+                                                    credits / month
                                                 </p>
 
-                                                {!isCurrent && (
-                                                    <p className="mt-2 text-xs font-medium text-secondary">
-                                                        {isChanging
-                                                            ? 'Updating...'
-                                                            : subscription
-                                                              ? 'Select plan'
-                                                              : 'Subscribe'}
+                                                {!isCurrent &&
+                                                    !isScheduled && (
+                                                        <p className="mt-2 text-xs font-medium text-secondary">
+                                                            {isChanging
+                                                                ? 'Updating...'
+                                                                : subscription
+                                                                  ? 'Select plan'
+                                                                  : 'Subscribe'}
+                                                        </p>
+                                                    )}
+
+                                                {isScheduled && (
+                                                    <p className="mt-2 text-xs font-medium text-amber-700">
+                                                        Starts{' '}
+                                                        {formatDate(
+                                                            subscription
+                                                                ?.scheduled_change
+                                                                ?.effective_at ??
+                                                                null,
+                                                        )}
                                                     </p>
                                                 )}
+
                                             </div>
+
                                         </button>
                                     );
                                 },
                             )}
+
                         </div>
+
+                        {/* Renewal Explanation */}
+                        {subscription && (
+                            <div className="mt-6 rounded-lg bg-surface-container-low p-4">
+
+                                <div className="flex items-start gap-3">
+
+                                    <Clock3 className="mt-0.5 size-4 shrink-0 text-primary" />
+
+                                    <p className="text-xs leading-relaxed text-on-surface-variant">
+                                        Changing your plan does not charge you
+                                        immediately. Your selected plan will be
+                                        used on your next billing date
+                                        {subscription.current_period_end
+                                            ? `, ${formatDate(
+                                                  subscription.current_period_end,
+                                              )}`
+                                            : ''}
+                                        .
+                                    </p>
+
+                                </div>
+
+                            </div>
+                        )}
 
                         {/* Modal Footer */}
                         <div className="mt-8 flex flex-col gap-3 border-t border-outline-variant pt-6 sm:flex-row sm:items-center sm:justify-between">
+
                             <p className="text-xs text-on-surface-variant">
-                                No credits are removed when
-                                changing your membership.
+                                No existing credits are removed when changing
+                                your membership.
                             </p>
 
                             <button
                                 type="button"
-                                disabled={
-                                    changingPlan !== null
-                                }
+                                disabled={changingPlan !== null}
                                 onClick={() =>
-                                    setChangePlanOpen(
-                                        false,
-                                    )
+                                    setChangePlanOpen(false)
                                 }
                                 className="rounded border border-outline-variant px-5 py-2 text-sm font-semibold text-primary transition-colors hover:bg-surface-container-low disabled:opacity-40"
                             >
                                 Close
                             </button>
+
                         </div>
+
                     </div>
                 </div>
             )}
+
         </SettingsLayout>
     );
 }
@@ -762,11 +898,13 @@ function Benefit({
 }) {
     return (
         <div className="flex items-start gap-3">
+
             <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-secondary" />
 
             <span className="text-on-surface">
                 {children}
             </span>
+
         </div>
     );
 }
@@ -803,7 +941,9 @@ function StatusBadge({
     );
 }
 
-function formatDate(value: string | null) {
+function formatDate(
+    value: string | null | undefined,
+) {
     if (!value) {
         return '—';
     }

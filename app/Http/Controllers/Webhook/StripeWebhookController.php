@@ -219,7 +219,11 @@ class StripeWebhookController extends Controller
                         ]);
                     }
 
-                    $credits = (int) $subscription->monthly_credits;
+                    $billingPlanSlug = $subscription->pending_plan_name ?? $subscription->plan_name;
+
+                    $billingPlan = config("credit_plans.{$billingPlanSlug}");
+
+                    $credits = $billingPlan['credits'] ?? $subscription->monthly_credits;
 
                     if ($credits <= 0 ){
                         Log::warning('Subscription has no monthly credits', [
@@ -257,11 +261,26 @@ class StripeWebhookController extends Controller
                             'amount' => $invoice->amount_paid /100,
                             'type' => 'payment',
                             'category' => 'subscription',
-                            'description' => $planConfig['label']  ?? $subscription->plan_name,
+                            'description' => $billingPlan['label']  ?? $billingPlanSlug,
                             'status' => 'success',
                             'paid_at' => now(),
                         ],
                     );
+
+                    if ($subscription->pending_plan_name) {
+                        $subscription->update([
+                            'plan_name' => $subscription->pending_plan_name,
+                            'stripe_price_id' => $subscription->pending_stripe_price_id,
+                            'price' => $subscription->pending_price,
+                            'monthly_credits' => $subscription->pending_monthly_credits,
+                            
+                            'pending_plan_name' => null,
+                            'pending_stripe_price_id' => null,
+                            'pending_price' => null,
+                            'pending_monthly_credits' => null,
+                            'pending_plan_effective_at' => null,
+                        ]);
+                    }
                 break;
             case 'customer.subscription.updated':
                 $stripeSubscription = $event->data->object;

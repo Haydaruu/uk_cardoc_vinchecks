@@ -176,11 +176,16 @@ class SubscriptionController extends Controller
 
         $stripePrice = $stripe->prices->retrieve($plan['price_id']);
 
+        $effectiveAt = $item?->current_period_end ? 
+            date('Y-m-d H:i:s', $item->current_period_end) : 
+            $subscription->current_period_end;
+
         $subscription->update([
-            'plan_name' => $planSlug,
-            'stripe_price_id' => $plan['price_id'],
-            'price' => $stripePrice->unit_amount / 100,
-            'monthly_credits' => $plan['credits'],
+            'pending_plan_name' => $planSlug,
+            'pending_stripe_price_id' => $plan['price_id'],
+            'pending_price' => $stripePrice->unit_amount / 100,
+            'pending_monthly_credits' => $plan['credits'],
+            'pending_plan_effective_at' => $effectiveAt,
         ]);
 
         return back()->with(
