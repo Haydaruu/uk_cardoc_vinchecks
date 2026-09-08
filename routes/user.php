@@ -6,6 +6,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\PayPalController;
 use App\Http\Controllers\Settings\SettingsController;
 use App\Http\Controllers\Settings\SecurityController;
 use App\Http\Controllers\Settings\ConnectedAccountController;
@@ -32,6 +33,14 @@ Route::middleware('auth')->group(function (){
     Route::get('/checkout/success', [PaymentController::class, 'success'])
         ->name('checkout.success');
 });
+
+//Route PayPal
+Route::middleware('auth')->group(function (){
+    Route::post('/checkout/paypal/create-order', [PayPalController::class, 'createOrder'])->name('checkout.paypal.create-order');
+    Route::post('/checkout/paypal/capture', [PayPalController::class, 'capture'])->name('checkout.paypal.capture');
+    Route::post('/checkout/paypal/success', [PayPalController::class, 'success'])->name('checkout.paypal.success');
+});
+
 
 //Route Settings
 Route::middleware(['auth', 'verified'])->prefix('settings')->name('settings.')->group(function () {

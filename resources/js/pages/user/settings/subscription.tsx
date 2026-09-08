@@ -7,6 +7,7 @@ import {
     CreditCard,
     Download,
     ShieldCheck,
+    TriangleAlert,
     X,
 } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
@@ -70,6 +71,10 @@ export default function Subscription({
 }: Props) {
     const [changePlanOpen, setChangePlanOpen] = useState(false);
 
+    const [cancelOpen, setCancelOpen] = useState(false);
+
+    const [isCancelling, setIsCancelling] = useState(false);
+
     const [changingPlan, setChangingPlan] =
         useState<string | null>(null);
 
@@ -115,16 +120,18 @@ export default function Subscription({
     };
 
     const cancelSubscription = () => {
-        const confirmed = window.confirm(
-            'Cancel your subscription at the end of the current billing period?',
-        );
+        setIsCancelling(true);
 
-        if (!confirmed) {
-            return;
-        }
-
-        router.delete('/settings/subscription', {
+        router.delete('/settings/subscription/cancel', {
             preserveScroll: true,
+
+            onSuccess: () => {
+                setCancelOpen(false);
+            },
+
+            onFinish: () => {
+                setIsCancelling(false);
+            },
         });
     };
 
@@ -382,9 +389,7 @@ export default function Subscription({
 
                                                 <button
                                                     type="button"
-                                                    onClick={
-                                                        cancelSubscription
-                                                    }
+                                                    onClick={() => setCancelOpen(true)}
                                                     className="font-label-sm text-label-sm text-secondary transition-colors hover:text-secondary-container"
                                                 >
                                                     Cancel Subscription
@@ -660,7 +665,186 @@ export default function Subscription({
 
                 </div>
             </div>
+            {/* Cancel Subscription Modal */}
+            {cancelOpen && subscription && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+                    onClick={() => {
+                        if (!isCancelling) {
+                            setCancelOpen(false);
+                        }
+                    }}
+                >
+                    <div
+                        className="w-full max-w-md rounded-xl bg-white shadow-xl"
+                        onClick={(event) =>
+                            event.stopPropagation()
+                        }
+                    >
+                        {/* Header */}
+                        <div className="flex items-start justify-between gap-5 border-b border-outline-variant p-6">
 
+                            <div className="flex items-start gap-4">
+
+                                <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-red-50">
+                                    <TriangleAlert className="size-5 text-secondary" />
+                                </div>
+
+                                <div>
+                                    <p className="text-[10px] font-bold uppercase tracking-wider text-secondary">
+                                        Subscription
+                                    </p>
+
+                                    <h2 className="mt-1 text-xl font-bold text-primary">
+                                        Cancel your membership?
+                                    </h2>
+                                </div>
+
+                            </div>
+
+                            <button
+                                type="button"
+                                disabled={isCancelling}
+                                onClick={() =>
+                                    setCancelOpen(false)
+                                }
+                                className="flex size-9 shrink-0 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container-low hover:text-primary disabled:opacity-40"
+                            >
+                                <X className="size-5" />
+                            </button>
+
+                        </div>
+
+                        {/* Content */}
+                        <div className="p-6">
+
+                            <p className="text-sm leading-relaxed text-on-surface-variant">
+                                Your subscription will remain active until
+                                the end of your current billing period.
+                                You will not be charged again after that
+                                date.
+                            </p>
+
+                            {/* Current plan */}
+                            <div className="mt-6 rounded-lg border border-outline-variant bg-surface-bright p-4">
+
+                                <div className="flex items-center justify-between gap-4">
+
+                                    <div>
+                                        <p className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">
+                                            Current Plan
+                                        </p>
+
+                                        <p className="mt-1 font-bold text-primary">
+                                            {displayPlan?.name ??
+                                                subscription.plan_name}
+                                        </p>
+                                    </div>
+
+                                    <div className="text-right">
+
+                                        <p className="font-bold text-primary">
+                                            £
+                                            {Number(
+                                                subscription.price,
+                                            ).toFixed(2)}
+                                        </p>
+
+                                        <p className="text-xs text-on-surface-variant">
+                                            per month
+                                        </p>
+
+                                    </div>
+
+                                </div>
+
+                            </div>
+
+                            {/* End date */}
+                            <div className="mt-4 flex items-start gap-3 rounded-lg bg-surface-container-low p-4">
+
+                                <Clock3 className="mt-0.5 size-4 shrink-0 text-primary" />
+
+                                <div>
+                                    <p className="text-xs font-semibold text-primary">
+                                        Access remains available until
+                                    </p>
+
+                                    <p className="mt-1 text-sm font-bold text-primary">
+                                        {formatDate(
+                                            subscription.current_period_end,
+                                        )}
+                                    </p>
+                                </div>
+
+                            </div>
+
+                            {/* Existing credits */}
+                            <div className="mt-4 flex items-start gap-3">
+
+                                <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-secondary" />
+
+                                <p className="text-xs leading-relaxed text-on-surface-variant">
+                                    Your remaining credits will stay in your
+                                    account even after your membership ends.
+                                </p>
+
+                            </div>
+
+                            {/* Scheduled change warning */}
+                            {subscription.scheduled_change && (
+                                <div className="mt-4 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50/70 p-4">
+
+                                    <Clock3 className="mt-0.5 size-4 shrink-0 text-amber-700" />
+
+                                    <p className="text-xs leading-relaxed text-amber-800">
+                                        Your scheduled change to{' '}
+                                        <span className="font-bold">
+                                            {
+                                                subscription
+                                                    .scheduled_change
+                                                    .name
+                                            }
+                                        </span>{' '}
+                                        will not renew once this
+                                        subscription is cancelled.
+                                    </p>
+
+                                </div>
+                            )}
+
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex flex-col-reverse gap-3 border-t border-outline-variant p-6 sm:flex-row sm:justify-end">
+
+                            <button
+                                type="button"
+                                disabled={isCancelling}
+                                onClick={() =>
+                                    setCancelOpen(false)
+                                }
+                                className="rounded-lg border border-outline-variant px-5 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-surface-container-low disabled:opacity-50"
+                            >
+                                Keep Membership
+                            </button>
+
+                            <button
+                                type="button"
+                                disabled={isCancelling}
+                                onClick={cancelSubscription}
+                                className="rounded-lg bg-secondary px-5 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                                {isCancelling
+                                    ? 'Cancelling...'
+                                    : 'Cancel Membership'}
+                            </button>
+
+                        </div>
+
+                    </div>
+                </div>
+            )}
             {/* Change Plan Modal */}
             {changePlanOpen && (
                 <div

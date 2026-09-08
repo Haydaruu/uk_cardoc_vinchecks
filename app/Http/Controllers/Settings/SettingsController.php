@@ -188,31 +188,44 @@ class SettingsController extends Controller
 
     public function subscription(Request $request): Response
     {
-        $user = $request->user();
+ $user = $request->user();
 
-        $subscription = $user->subscriptions()->latest()->first();
+    $subscription = $user->subscriptions()
+        ->latest()
+        ->first();
 
-        $currentPlan = $subscription ? config("credit_plans.{$subscription->plan_name}") : null;
-        $pendingPlan = $subscription ? config("credit_plans.{$subscription->pending_plan_name}") : null;
-        $availablePlans = collect(config('credit_plans'))->filter(fn ($plan) => $plan['type'] === 'subscription')
-        ->map(fn ($plan, $slug) => [
-            'slug' => $slug,
-            'name' => $plan['label'],
-            'price' => $plan['amount_display'],
-            'monthly_credits' => $plan['credits'],
-        ])
+    $currentPlan = $subscription
+        ? config("credit_plans.{$subscription->plan_name}")
+        : null;
+
+    $pendingPlan = $subscription?->pending_plan_name
+        ? config("credit_plans.{$subscription->pending_plan_name}")
+        : null;
+
+    $availablePlans = collect(config('credit_plans'))
+        ->filter(
+            fn ($plan) =>
+                $plan['type'] === 'subscription'
+        )
+        ->map(
+            fn ($plan, $slug) => [
+                'slug' => $slug,
+                'name' => $plan['label'],
+                'price' => $plan['amount_display'],
+                'monthly_credits' => $plan['credits'],
+            ]
+        )
         ->values();
 
-        $plan = config('credit_plans.premium-monthly');
-
-        $recentInvoices = Transaction::query()
-            ->where('user_id', $user->id)
-            ->where('category', 'subscription')
-            ->where('status', 'success')
-            ->latest('paid_at')
-            ->limit(5)
-            ->get()
-            ->map(fn ($transaction) => [
+    $recentInvoices = Transaction::query()
+        ->where('user_id', $user->id)
+        ->where('category', 'subscription')
+        ->where('status', 'success')
+        ->latest('paid_at')
+        ->limit(5)
+        ->get()
+        ->map(
+            fn ($transaction) => [
                 'id' => $transaction->id,
                 'invoice_id' => $transaction->invoice_id,
                 'amount' => $transaction->amount,
@@ -220,45 +233,87 @@ class SettingsController extends Controller
                 'status' => $transaction->status,
                 'paid_at' => $transaction->paid_at,
                 'description' => $transaction->description,
-            ]);
+            ]
+        );
 
-        return Inertia::render('user/settings/subscription',[
+    return Inertia::render(
+        'user/settings/subscription',
+        [
             'subscription' => $subscription
-                ?[
-                    'plan_name' => $subscription->plan_name,
-                    'price' => $subscription->price,
-                    'status' => $subscription->status,
-                    'monthly_credits' => $subscription->monthly_credits,
-                    'payment_method' => $subscription->payment_method,
-                    'start_date' => $subscription->start_date,
-                    'current_period_end' => $subscription->current_period_end,
-                    'cancel_at_period_end' => $subscription->cancel_at_period_end,
-                    'cancelled_at' => $subscription->cancelled_at,
-                ]
-                : null,
+                ? [
+                    'plan_name' =>
+                        $subscription->plan_name,
 
-            'scheduled_change' => $pendingPlan
-                ?[
-                    'slug' => $subscription->pending_plan_name,
-                    'name' => $pendingPlan['label'],
-                    'price' => $pendingPlan['amount_display'],
-                    'monthly_credits' => $pendingPlan['credits'],
-                    'efective_at' => $subscription->pending_plan_effective_at,
+                    'price' =>
+                        $subscription->price,
+
+                    'status' =>
+                        $subscription->status,
+
+                    'monthly_credits' =>
+                        $subscription->monthly_credits,
+
+                    'payment_method' =>
+                        $subscription->payment_method,
+
+                    'start_date' =>
+                        $subscription->start_date,
+
+                    'current_period_end' =>
+                        $subscription->current_period_end,
+
+                    'cancel_at_period_end' =>
+                        $subscription->cancel_at_period_end,
+
+                    'cancelled_at' =>
+                        $subscription->cancelled_at,
+
+                    'scheduled_change' =>
+                        $pendingPlan
+                            ? [
+                                'slug' =>
+                                    $subscription
+                                        ->pending_plan_name,
+
+                                'name' =>
+                                    $pendingPlan['label'],
+
+                                'price' =>
+                                    $pendingPlan[
+                                        'amount_display'
+                                    ],
+
+                                'monthly_credits' =>
+                                    $pendingPlan['credits'],
+
+                                'effective_at' =>
+                                    $subscription
+                                        ->pending_plan_effective_at,
+                            ]
+                            : null,
                 ]
                 : null,
 
             'plan' => $currentPlan
-                ?[
-                    'name' => $currentPlan['label'],
-                    'price' => $currentPlan['amount_display'],
-                    'monthly_credits' => $currentPlan['credits'],
+                ? [
+                    'name' =>
+                        $currentPlan['label'],
+
+                    'price' =>
+                        $currentPlan['amount_display'],
+
+                    'monthly_credits' =>
+                        $currentPlan['credits'],
                 ]
                 : null,
 
-            'availablePlans' => $availablePlans,
+            'availablePlans' =>
+                $availablePlans,
 
-            'recentInvoices' => $recentInvoices,
-        ]);
+            'recentInvoices' =>
+                $recentInvoices,
+        ]
+    );
     }
 
     public function help(): Response

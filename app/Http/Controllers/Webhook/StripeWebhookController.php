@@ -250,6 +250,8 @@ class StripeWebhookController extends Controller
 
                     $planConfig = config("credit_plans.{$subscription->plan_name}");
 
+                    $paidAt = $invoice->status_transitions->paid_at ?? $invocie->created ?? time();
+
                     Transaction::updateOrCreate(
                         [
                             'payment_gateway_ref' => $invoice->id,
@@ -263,7 +265,7 @@ class StripeWebhookController extends Controller
                             'category' => 'subscription',
                             'description' => $billingPlan['label']  ?? $billingPlanSlug,
                             'status' => 'success',
-                            'paid_at' => now(),
+                            'paid_at' => date('Y-m-d H:i:s', $paidAt),
                         ],
                     );
 

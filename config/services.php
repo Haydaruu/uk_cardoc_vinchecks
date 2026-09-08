@@ -58,4 +58,10 @@ return [
         'report_price_id' => env('STRIPE_REPORT_PRICE_ID')
     ],
 
+    'paypal' => [
+        'mode' => env('PAYPAL_MODE', 'sandbox'), // or 'live'
+        'client_id' => env('PAYPAL_CLIENT_ID'),
+        'secret' => env('PAYPAL_SECRET'),
+    ],
+
 ];

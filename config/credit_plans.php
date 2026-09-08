@@ -8,6 +8,8 @@ return [
         'type' => 'one_time',
         'credits' => 1,
         'label' => '1 Credit',
+        'amount_minor' => 1999,
+        'currency' => 'GBP',
         'amount_display' => '£19.99',
     ],
     '3-credits' => [
@@ -15,6 +17,8 @@ return [
         'type' => 'one_time',
         'credits' => 3,
         'label' => '3 Credits',
+        'amount_minor' => 5399,
+        'currency' => 'GBP',
         'amount_display' => '£53.99',
     ],
     '5-credits' => [
@@ -22,6 +26,8 @@ return [
         'type' => 'one_time',
         'credits' => 5,
         'label' => '5 Credits',
+        'amount_minor' => 6999,
+        'currency' => 'GBP',
         'amount_display' => '£69.99',
     ],
 

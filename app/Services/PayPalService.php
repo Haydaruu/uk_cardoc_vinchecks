@@ -1,0 +1,119 @@
+<?php
+
+namespace App\Services;
+use App\Models\User;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
+use RUnTimeException;
+
+class PayPalService
+{
+    private function baseUrl(): string
+    {
+        $mode = config('services.paypal.mode', 'sandbox');
+        return $mode === 'live' ? 'https://api-m.paypal.com' : 'https://api-m.sandbox.paypal.com';
+    }
+
+    private function accessToken(): string
+    {
+        $cachedToken = Cache::get('paypal_access_token');
+
+        if ($cachedToken) {
+            return $cachedToken;
+        }
+
+        $response = Http::asForm()
+            ->withBasicAuth(
+                config('services.paypal.client_id'),
+                config('services.paypal.secret'),
+            )
+            ->post($this->baseUrl() . '/v1/oauth2/token',
+            [
+                'grant_type' => 'client_credentials',
+            
+            ],
+        );
+
+        if ($response->failed()) {
+            throw new RuntimeException('Unable to autheticate with PayPal.');
+        }
+
+        $toke = $response->json();
+        $expiresIn = (int) $response->json('expires_in', 3600);
+
+        if (! $token) {
+            throw new RuntimeException('Paypal access token was not returned.');
+        }
+
+        Cache::put('paypal_access_token', $token, now()->addSeconds(max($expiresIn, 60, 60),),);
+
+        return $token;
+    }
+    public function createOrder(User $user, string $planSlug): array 
+    {
+        if (!$plan || $plan['type'] !== 'one_time') {
+            throw new RuntimeException('Invalid Paypal credit plan.');
+        }
+
+        $amount = number_format($plan['amount_minor'] / 100, 2, '.', '');
+
+        $currency = $plan['currency'];
+
+        $response = Http::withToken($this->accessToken())
+            ->acceptJson()
+            ->withHeaders([ 'PayPal-Request-Id' => (string) Str::uuid(),])
+            ->post($this->baseUrl(). '/v2/checkout/orders',
+                [
+                    'intent' => 'CAPUTRE',
+                    'purchase_units' => [
+                        [
+                            'reference_id' => $planSlug,
+                            'custom_id' => $user->id .'|'. $planSlug,
+                            'invoice_id' => 'UKC-PPL'. strtoupper(Str::random(12)),
+                            'description' => $plan['label'],
+                            'amount' => [
+                                'currency_code' => $currency,
+                                'value' => $amount,
+                            ],
+                        ],
+                    ],
+                ],
+            );
+
+        if ($response->failed()) {
+            throw new RuntimeException('Unable to create PayPal order: '. $response->body());
+        }
+
+        return $response->json();
+    }
+
+    public function getOrder(string $orderId): array
+    {
+        $response = Http::withToken($this->accessToken())
+            ->acceptJson()
+            ->get($this->baseUrl(). "/v2/checkout/orders/{$orderId}");
+
+        if($response->failed()) {
+            throw new RuntimeException('Unable to retrieve PayPal order. ');
+        }
+
+        return $response->json();
+    }
+
+    public function captureOrder(string $orderId,): array
+    {
+        $response = Http::withToken($this->accessToken())
+            ->acceptJson()
+            ->withHeader([
+                'PayPal-Request-Id' => 'capture-'. $orderId,
+            ])
+            ->post($this->baseUrl()."/v2/checkout/orders/{$orderId}/capture",[],);
+
+        if($response->failde()) {
+            throw new RuntimeException('Unable to capture PayPal order: '. $response->body());
+        }
+
+        return $response->json();
+    }
+}
