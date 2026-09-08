@@ -31,6 +31,7 @@
     "dependencies": {
         "@inertiajs/react": "^3.0.0",
         "@inertiajs/vite": "^3.0.0",
+        "@paypal/react-paypal-js": "^10.4.0",
         "@radix-ui/themes": "^3.3.0",
         "@stripe/react-stripe-js": "^6.8.1",
         "@stripe/stripe-js": "^9.13.0",

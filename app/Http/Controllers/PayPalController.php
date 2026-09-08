@@ -22,7 +22,7 @@ class PayPalController extends Controller
 
         $plan = config("credit_plans.{$planSlug}");
 
-        if(! $plan || $plan['type'] !== 'one-time') {
+        if(! $plan || $plan['type'] !== 'one_time') {
             return response()->json([
                 'message' => 'Invalid credit plan.',
             ], 422);
@@ -31,7 +31,7 @@ class PayPalController extends Controller
         try{
             $order = $payPalService->createOrder($request->user(),$planSlug,);
         } catch (RuntimeException $e) {
-            report(e);
+            report($e);
 
             return  response()->json([
                 'message' => 'Unable to create PayPal order.',
@@ -63,7 +63,7 @@ class PayPalController extends Controller
             }
 
             $planSlug = $purchaseUnit['reference_id'] ?? null;
-            $customId = $purchaseUnit['custome_id'] ?? null;
+            $customId = $purchaseUnit['custom_id'] ?? null;
 
             [$orderUserId, $customPlanSlug] = array_pad(explode('|', (string) $customId,2),2,null);
 
@@ -81,7 +81,7 @@ class PayPalController extends Controller
                 ],422);
             }
 
-            if(($order['status'] ?? null === 'COMPLETED')) {
+            if(($order['status'] ?? null) === 'COMPLETED') {
                 $capturedOrder = $order;
             } else {
                 $capturedOrder = $payPalService->captureOrder($orderId);
@@ -95,7 +95,7 @@ class PayPalController extends Controller
                 ],502);
             }
 
-            if(($capturedOrder['status'] ?? null !== ' COMPLETED')) {
+            if(($capturedOrder['status'] ?? null) !== 'COMPLETED') {
                 return response()->json([
                     'message' => 'PayPal payment has not completed.',
                 ], 422);
@@ -187,17 +187,19 @@ class PayPalController extends Controller
             return redirect('/')->with('modal', 'payment_failed');
         }
 
-        if ($order['status'] ?? null !== 'COMPLETED') {
+        if (($order['status'] ?? null) !== 'COMPLETED') {
             return redirect('/')->with('modal', 'payment_failed');
         }
 
         $purchaseUnit = $order['purchase_units'][0] ?? null;
         $planSlug = $purchaseUnit['reference_id'] ?? null;
-        $customId = $purchaseUnit['custom_id'][0] ?? null;
+        $customId = $purchaseUnit['custom_id'] ?? null;
         [$orderUserId, $customPlanSlug] = array_pad(explode('|', (string)$customId,2),2,null);
 
         if ((string) $orderUserId !== (string) $user->id || $planSlug !== $customPlanSlug) {
-            abort(403);
+            return response()->json([
+                'message' => 'PayPal order validation failed. ',
+            ], 403);
         }
 
         $plan = config("credit_plans.{$planSlug}");
@@ -215,13 +217,13 @@ class PayPalController extends Controller
         $captureId = $capture['id'];
         $paidAt = isset($capture['create_time']) ? Carbon::parse($capture['create_time']):now();
 
-        return Inertia::render('user/checkout/checkout-succes',
+        return Inertia::render('user/checkout/checkout-success',
             [
                 'order' => [
                     'number' => 'UKC-PPL-'. strtoupper(substr($captureId, 0,8)),
                     'date' => $paidAt->format('F j, Y'),
                     'item' => $plan['label'],
-                    'amount' => number_format((float)$capture['amount']['value'],[2]),
+                    'amount' => number_format((float)$capture['amount']['value'],2),
                     'currency' => strtoupper($capture['amount']['currency_code']),
                     'cardBrand' => null,
                     'cardLast4' => null,

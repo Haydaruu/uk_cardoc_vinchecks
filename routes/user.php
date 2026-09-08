@@ -38,7 +38,7 @@ Route::middleware('auth')->group(function (){
 Route::middleware('auth')->group(function (){
     Route::post('/checkout/paypal/create-order', [PayPalController::class, 'createOrder'])->name('checkout.paypal.create-order');
     Route::post('/checkout/paypal/capture', [PayPalController::class, 'capture'])->name('checkout.paypal.capture');
-    Route::post('/checkout/paypal/success', [PayPalController::class, 'success'])->name('checkout.paypal.success');
+    Route::get('/checkout/paypal/success', [PayPalController::class, 'success'])->name('checkout.paypal.success');
 });
 
 

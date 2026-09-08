@@ -39,7 +39,7 @@ class PayPalService
             throw new RuntimeException('Unable to autheticate with PayPal.');
         }
 
-        $toke = $response->json();
+        $token = $response->json('acces_token');
         $expiresIn = (int) $response->json('expires_in', 3600);
 
         if (! $token) {
@@ -52,6 +52,9 @@ class PayPalService
     }
     public function createOrder(User $user, string $planSlug): array 
     {
+        $plan = config("credit_plans.{$planSlug}");
+
+
         if (!$plan || $plan['type'] !== 'one_time') {
             throw new RuntimeException('Invalid Paypal credit plan.');
         }
@@ -65,7 +68,7 @@ class PayPalService
             ->withHeaders([ 'PayPal-Request-Id' => (string) Str::uuid(),])
             ->post($this->baseUrl(). '/v2/checkout/orders',
                 [
-                    'intent' => 'CAPUTRE',
+                    'intent' => 'CAPTURE',
                     'purchase_units' => [
                         [
                             'reference_id' => $planSlug,
@@ -105,12 +108,12 @@ class PayPalService
     {
         $response = Http::withToken($this->accessToken())
             ->acceptJson()
-            ->withHeader([
+            ->withHeaders([
                 'PayPal-Request-Id' => 'capture-'. $orderId,
             ])
             ->post($this->baseUrl()."/v2/checkout/orders/{$orderId}/capture",[],);
 
-        if($response->failde()) {
+        if($response->failed()) {
             throw new RuntimeException('Unable to capture PayPal order: '. $response->body());
         }
 

@@ -61,7 +61,7 @@ return [
     'paypal' => [
         'mode' => env('PAYPAL_MODE', 'sandbox'), // or 'live'
         'client_id' => env('PAYPAL_CLIENT_ID'),
-        'secret' => env('PAYPAL_SECRET'),
+        'client_secret' => env('PAYPAL_CLIENT_SECRET'),
     ],
 
 ];
