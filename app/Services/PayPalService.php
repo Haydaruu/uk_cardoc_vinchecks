@@ -5,6 +5,7 @@ use App\Models\User;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
+use Illuminate\Http\Request;
 use RUnTimeException;
 
 class PayPalService
@@ -117,5 +118,49 @@ class PayPalService
         }
 
         return $response->json();
+    }
+
+    public function verifyWebhook(Request $request): bool
+    {
+        $webhookId = config('services.paypal.webhook_id');
+
+        if(! $webhookId) {
+            return false;
+        }
+
+        $transmissionId = $request->header('PAYPAL-TRANSMISSION-ID');
+
+        $transmissionTime = $request->header('PAYPAL-TRANSMISSION-TIME');
+
+        $transmissionSig = $request->header('PAYPAL-TRANSMISSION-SIG');
+
+        $certUrl = $request->header('PAYPAL-CERT-URL');
+
+        $authAlgo = $request->header('PAYPAL-AUTH-ALGO');
+
+        if(! $transmissionId || ! $transmissionTime || ! $transmissionSig || ! $certUrl || ! $authAlgo) {
+            return false;
+        }
+
+        $response = Http::withToken($this
+            ->accessToken())
+            ->acceptJson()
+            ->post($this->baseUrl(). '/v1/notifications/verify-webhook-signature',
+                [
+                    'auth_algo' => $authAlgo,
+                    'cert_url' => $certUrl,
+                    'transmission_id' => $transmissionId,
+                    'transmission_sig' => $transmissionSig,
+                    'transmission_time' => $transmissionTime,
+                    'webhook_id' => $webhookId,
+                    'webhook_event' => $request->json()->all(),
+                ]
+            );
+
+        if ($response->failed()){
+            return false;
+        }
+
+        return $response->json('verification_status') === 'SUCCESS';
     }
 }

@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Services\CreditService;
 use App\Services\PayPalService;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Log;
 
 class PayPalWebhookController extends Controller
 {
@@ -43,7 +44,7 @@ class PayPalWebhookController extends Controller
 
         $captureId = $capture['id'] ?? null;
 
-        $orderId = $capture['suplementary_data']['related_ids']['order_id'] ?? null;
+        $orderId = $capture['supplementary_data']['related_ids']['order_id'] ?? null;
 
         if(!$captureId || !$orderId) {
             Log::warning('PayPal webhook missing capture/order ID',
@@ -67,7 +68,7 @@ class PayPalWebhookController extends Controller
             ], 500);
         }
 
-        $purchaseUnit = $order['purchase_unit'][0] ?? null;
+        $purchaseUnit = $order['purchase_units'][0] ?? null;
 
         if(! $purchaseUnit) {
             return response()->json([
@@ -124,7 +125,7 @@ class PayPalWebhookController extends Controller
             amount: (int) $plan['credits'],
             type: 'purchase',
             referenceId: $captureId,
-            idempotecyKey: $captureId,
+            idempotencyKey: $captureId,
             description: "PayPal purchase: {$captureId}",
         );
 
