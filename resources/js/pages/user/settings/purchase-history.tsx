@@ -21,6 +21,7 @@ type Transaction = {
     amount: string;
     currency: string;
     type: 'payment' | 'refund';
+    category: 'credit_purchase' | 'subscription';
     status: 'pending' | 'success' | 'failed' | 'refunded';
     payment_method: string | null;
     paid_at: string | null;
@@ -390,9 +391,7 @@ function TransactionRow({
 
             <td className="px-6 py-4">
                 <span className="inline-flex items-center rounded-full bg-surface-variant px-2.5 py-0.5 text-xs font-medium text-on-surface">
-                    {transaction.type === 'refund'
-                        ? 'Refund'
-                        : 'Credit Purchase'}
+                    {transactionTypeLabel1(transaction)}
                 </span>
             </td>
 
@@ -552,4 +551,15 @@ function formatDate(value: string | null) {
             hour12: false,
         }).format(date),
     };
+}
+
+function transactionTypeLabel1(transaction: Transaction,) {
+    if( transaction.type === 'refund') {
+        return 'Refund';
+    }
+    if(transaction.category === 'subscription') {
+        return 'subscription'
+    }
+
+    return 'Credit Purchase';
 }

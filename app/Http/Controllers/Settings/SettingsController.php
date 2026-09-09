@@ -120,19 +120,29 @@ class SettingsController extends Controller
         $user = $request->user();
 
         $search = $request->string('search')->toString();
-        $period = $request->string('preiod', 'all')->toString();
+
+        $period = $request->string('period', 'all')->toString();
+        
         $status = $request->string('status', 'all')->toString();
 
         $baseQuery = Transaction::query()
             ->where('user_id', $user->id);
 
-        $totalSpent = (clone $baseQuery)
+        $successfulPayments = (clone $baseQuery)
             ->where('status', 'success')
-            ->where('type', 'payment')
+            ->where('type', 'payment');
+
+        $totalSpent = (clone $successfulPayments)
             ->sum('amount');
 
-        $creditPurchases = $totalSpent;
+        $creditPurchases = (clone $successfulPayments)
+            ->where('category', 'credit_purchase')
+            ->sum('amount');
         
+        $subscriptionPayments = (clone $successfulPayments)
+            ->where('category', 'subscription')
+            ->sum('amount');
+
         $transaction = $baseQuery
             ->when($search, function ($query, $search) {
                 $query->where(function ($query) use ($search) {
@@ -175,7 +185,7 @@ class SettingsController extends Controller
             'summary' => [
                 'total_spent' => $totalSpent,
                 'credit_purchases' => $creditPurchases,
-                'subscription_payments' => 0,
+                'subscription_payments' => $subscriptionPayments,
             ],
 
             'filters' => [

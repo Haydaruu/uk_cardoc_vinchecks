@@ -26,7 +26,7 @@ class PayPalService
         $response = Http::asForm()
             ->withBasicAuth(
                 config('services.paypal.client_id'),
-                config('services.paypal.secret'),
+                config('services.paypal.client_secret'),
             )
             ->post($this->baseUrl() . '/v1/oauth2/token',
             [
@@ -39,14 +39,14 @@ class PayPalService
             throw new RuntimeException('Unable to autheticate with PayPal.');
         }
 
-        $token = $response->json('acces_token');
+        $token = $response->json('access_token');
         $expiresIn = (int) $response->json('expires_in', 3600);
 
         if (! $token) {
             throw new RuntimeException('Paypal access token was not returned.');
         }
 
-        Cache::put('paypal_access_token', $token, now()->addSeconds(max($expiresIn, 60, 60),),);
+        Cache::put('paypal_access_token', $token, now()->addSeconds(max($expiresIn - 60, 60),),);
 
         return $token;
     }
@@ -108,10 +108,9 @@ class PayPalService
     {
         $response = Http::withToken($this->accessToken())
             ->acceptJson()
-            ->withHeaders([
-                'PayPal-Request-Id' => 'capture-'. $orderId,
-            ])
-            ->post($this->baseUrl()."/v2/checkout/orders/{$orderId}/capture",[],);
+            ->withHeaders(['PayPal-Request-Id' => 'capture-'. $orderId,])
+            ->withBody('{}', 'application/json')
+            ->send('POST',$this->baseUrl()."/v2/checkout/orders/{$orderId}/capture",[],);
 
         if($response->failed()) {
             throw new RuntimeException('Unable to capture PayPal order: '. $response->body());

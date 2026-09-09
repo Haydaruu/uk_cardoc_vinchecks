@@ -26,7 +26,7 @@ class PaymentController extends Controller
             'amountDisplay' => $plan['amount_display'],
 
             'paypalClientId' => config('services.paypal.client_id'),
-            'paypalEnviroment' => config('services.paypal.mode') === 'live' ? 'production' : 'sandbox',
+            'paypalEnvironment' => config('services.paypal.mode') === 'live' ? 'production' : 'sandbox',
         ]);
     }
     public function createOneTimeIntent(Request $request)

@@ -67,10 +67,10 @@ class PayPalController extends Controller
 
             [$orderUserId, $customPlanSlug] = array_pad(explode('|', (string) $customId,2),2,null);
 
-            if((string) $orderUserId !== (string) $user->id){
+            if((string) $orderUserId !== (string) $user->id || $planSlug !== $customPlanSlug){
                 return response()->json([
-                    'message' => 'PayPal order plan mismacth.'
-                ], 422);
+                    'message' => 'PayPal order validation failed'
+                ], 403);
             }
 
             $plan = config("credit_plans.{$planSlug}");
@@ -197,9 +197,7 @@ class PayPalController extends Controller
         [$orderUserId, $customPlanSlug] = array_pad(explode('|', (string)$customId,2),2,null);
 
         if ((string) $orderUserId !== (string) $user->id || $planSlug !== $customPlanSlug) {
-            return response()->json([
-                'message' => 'PayPal order validation failed. ',
-            ], 403);
+            abort(403);
         }
 
         $plan = config("credit_plans.{$planSlug}");

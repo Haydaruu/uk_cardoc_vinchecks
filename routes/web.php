@@ -6,6 +6,7 @@ use App\Http\Controllers\VehicleCheckController;
 use App\Http\Controllers\Auth\GoogleAuthController;
 use App\Http\Controllers\Auth\MicrosoftAuthController;
 use App\Http\Controllers\Webhook\StripeWebhookController;
+use App\Http\Controllers\Webhook\PayPalWebhookController;
 use App\Http\Controllers\ReportController;
 use Inertia\Inertia;
 
@@ -41,9 +42,9 @@ Route::middleware('guest')->group(function () {
 Route::post('/vehicle-check', [VehicleCheckController::class, 'store'])->name('vehicle-check.store');
 Route::get('/vehicle-check/{vinCheck}/loading', [VehicleCheckController::class, 'loading'])->name('vehicle-check.loading');
 
-//iki auth webhook Stripe
-Route::post('/stripe/webhook', [StripeWebhookController::class, 'handle'])
-    ->name('stripe.webhook');
+//iki auth webhook Stripe dan PayPal
+Route::post('/stripe/webhook', [StripeWebhookController::class, 'handle'])->name('stripe.webhook');
+Route::post('/paypal/webhook', [PayPalWebhookController::class, 'handle'])->name('paypal.webhook');
 
 
 require __DIR__.'/user.php';

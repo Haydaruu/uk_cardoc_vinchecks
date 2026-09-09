@@ -24,14 +24,9 @@ Route::middleware(['auth', 'verified'])->group(function (){
 //Route Stripe
 
 Route::middleware('auth')->group(function (){
-    Route::get('/checkout', [PaymentController::class, 'show'])
-        ->name('checkout.show');
-
-    Route::post('/checkout/create-intent', [PaymentController::class, 'createOneTimeIntent'])
-        ->name('checkout.create-intent');
-
-    Route::get('/checkout/success', [PaymentController::class, 'success'])
-        ->name('checkout.success');
+    Route::get('/checkout', [PaymentController::class, 'show'])->name('checkout.show');
+    Route::post('/checkout/create-intent', [PaymentController::class, 'createOneTimeIntent'])->name('checkout.create-intent');
+    Route::get('/checkout/success', [PaymentController::class, 'success'])->name('checkout.success');
 });
 
 //Route PayPal
