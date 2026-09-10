@@ -37,6 +37,8 @@ class HandleInertiaRequests extends Middleware
     {
         $user = $request->user();
 
+        $activeSubscription = $user?->activeSubscription();
+
         return [
             ...parent::share($request),
             'auth' => [
@@ -47,7 +49,8 @@ class HandleInertiaRequests extends Middleware
                     'email' => $user->email,
                     'avatar' => $user->avatar,
                     'credits' => $user->credits,
-                    'is_premium' => $user->is_premium,
+                    'is_premium' => $activeSubscription !== null,
+                    'subscription_plan' => $activeSubscription?->plan_name,
                 ] : null,
             ],
             'flash' => [

@@ -13,14 +13,16 @@ class CheckoutController extends Controller
         $planSlug = $request->query('plan');
         $plan = config("credit_plans.{$planSlug}");
 
-        if(!$plan || $plan['type'] !== 'one_time') {
+        if(!$plan ) {
             return redirect()->route('page.pricing');
         }
 
-        return Inertia::render('user/checkout/checkout-stripe', [
+        return Inertia::render('user/checkout/checkout', [
             'plan' => $planSlug,
+            'planType' => $plan['type'],
             'label' => $plan['label'],
             'amountDisplay' => $plan['amount_display'],
+            'credits' => $plan['credits'],
 
             'paypalClientId' => config('services.paypal.client_id'),
             'paypalEnvironment' => config('services.paypal.mode') === 'live' ? 'production' : 'sandbox',

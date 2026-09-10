@@ -1,10 +1,19 @@
-import {Head, usePage} from '@inertiajs/react';
-import UserDashboard, { type RecentReport} from '@/components/home/user-dashboard';
+import {
+    Head,
+    usePage,
+} from '@inertiajs/react';
+
+import UserDashboard, {
+    type RecentReport,
+} from '@/components/home/user-dashboard';
+
 import BaseLayout from '@/layouts/base-layout';
-import { ReactNode} from 'react';
 
+import {
+    type ReactNode,
+} from 'react';
 
-type DasbhoardPageProps = {
+type DashboardPageProps = {
     auth: {
         user: {
             name: string;
@@ -12,21 +21,58 @@ type DasbhoardPageProps = {
             is_premium: boolean;
         } | null;
     };
-    recentReports: RecentReport[];
-    recentSearches: string[];
+
+    recentReports:
+        RecentReport[];
+
+    recentSearches:
+        string[];
 };
 
 function Dashboard() {
-    const { auth, recentReports, recentSearches } = usePage<DasbhoardPageProps>().props;
+    const {
+        auth,
+        recentReports,
+        recentSearches,
+    } =
+        usePage<DashboardPageProps>()
+            .props;
+
+    /*
+     * Route dashboard memang
+     * protected oleh auth,
+     * tapi type shared Inertia
+     * tetap mengizinkan null.
+     */
+    if (!auth.user) {
+        return null;
+    }
 
     return (
         <>
-            <Head title="UK Vehicle History Check"/>
-            <UserDashboard user={auth.user} recentReports={recentReports} recentSearches={recentSearches}/> 
+            <Head title="UK Vehicle History Check" />
+
+            <UserDashboard
+                user={
+                    auth.user
+                }
+                recentReports={
+                    recentReports
+                }
+                recentSearches={
+                    recentSearches
+                }
+            />
         </>
     );
 }
 
-Dashboard.layout = (page: ReactNode) => <BaseLayout>{page}</BaseLayout>;
+Dashboard.layout = (
+    page: ReactNode,
+) => (
+    <BaseLayout>
+        {page}
+    </BaseLayout>
+);
 
 export default Dashboard;

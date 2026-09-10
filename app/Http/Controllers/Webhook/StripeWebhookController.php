@@ -250,7 +250,7 @@ class StripeWebhookController extends Controller
 
                     $planConfig = config("credit_plans.{$subscription->plan_name}");
 
-                    $paidAt = $invoice->status_transitions->paid_at ?? $invocie->created ?? time();
+                    $paidAt = $invoice->status_transitions->paid_at ?? $invoice->created ?? time();
 
                     Transaction::updateOrCreate(
                         [
@@ -360,7 +360,7 @@ class StripeWebhookController extends Controller
             'incomplete',
             'past_due',
             'unpaid',
-            'pause' => 'pending',
+            'paused' => 'pending',
 
             default => 'pending',
         };

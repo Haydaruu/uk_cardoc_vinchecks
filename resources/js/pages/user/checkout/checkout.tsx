@@ -1,19 +1,23 @@
 import BaseLayout from '@/layouts/base-layout';
 import { createIntent } from '@/routes/checkout';
+
 import {
     Elements,
     PaymentElement,
     useElements,
     useStripe,
 } from '@stripe/react-stripe-js';
+
 import { loadStripe } from '@stripe/stripe-js';
 import { Head } from '@inertiajs/react';
+
 import {
     PayPalOneTimePaymentButton,
     PayPalProvider,
     type OnApproveDataOneTimePayments,
     type OnErrorData,
 } from '@paypal/react-paypal-js/sdk-v6';
+
 import {
     CheckCircle2,
     CreditCard,
@@ -22,8 +26,9 @@ import {
     ShieldCheck,
     Wallet,
 } from 'lucide-react';
+
 import {
-    FormEvent,
+    type FormEvent,
     useEffect,
     useState,
 } from 'react';
@@ -36,10 +41,16 @@ type PaymentMethod =
     | 'stripe'
     | 'paypal';
 
+type PlanType =
+    | 'one_time'
+    | 'subscription';
+
 type CheckoutProps = {
     plan: string;
+    planType: PlanType;
     label: string;
     amountDisplay: string;
+    credits: number;
 
     paypalClientId: string | null;
 
@@ -50,8 +61,10 @@ type CheckoutProps = {
 
 export default function Checkout({
     plan,
+    planType,
     label,
     amountDisplay,
+    credits,
     paypalClientId,
     paypalEnvironment,
 }: CheckoutProps) {
@@ -70,6 +83,13 @@ export default function Checkout({
     );
 
     const [
+        subscriptionId,
+        setSubscriptionId,
+    ] = useState<string | null>(
+        null,
+    );
+
+    const [
         initError,
         setInitError,
     ] = useState<string | null>(
@@ -77,10 +97,36 @@ export default function Checkout({
     );
 
     /*
-     * Stripe PaymentIntent.
+     * One-time:
+     * POST /checkout/create-intent
      *
-     * We only need to create it when
-     * Stripe is selected.
+     * Subscription:
+     * POST /checkout/create-subscription-intent
+     */
+    const stripeIntentUrl =
+        planType === 'subscription'
+            ? '/checkout/create-subscription-intent'
+            : createIntent.url();
+
+    /*
+     * Reset Stripe state whenever
+     * selected plan changes.
+     *
+     * Useful when Inertia reuses
+     * this same page component.
+     */
+    useEffect(() => {
+        setClientSecret(null);
+        setSubscriptionId(null);
+        setInitError(null);
+    }, [
+        plan,
+        planType,
+    ]);
+
+    /*
+     * Prepare Stripe payment
+     * only when Card is selected.
      */
     useEffect(() => {
         if (
@@ -94,68 +140,127 @@ export default function Checkout({
             return;
         }
 
-        setInitError(null);
+        let cancelled = false;
 
-        fetch(
-            createIntent.url(),
-            {
-                method: 'POST',
+        const prepareStripePayment =
+            async () => {
+                setInitError(null);
 
-                headers: {
-                    'Content-Type':
-                        'application/json',
+                try {
+                    const response =
+                        await fetch(
+                            stripeIntentUrl,
+                            {
+                                method:
+                                    'POST',
 
-                    'X-CSRF-TOKEN':
-                        getCsrfToken(),
-                },
+                                headers: {
+                                    'Content-Type':
+                                        'application/json',
 
-                body: JSON.stringify({
-                    plan,
-                }),
-            },
-        )
-            .then(async (res) => {
-                const data =
-                    await res.json();
+                                    Accept:
+                                        'application/json',
 
-                if (!res.ok) {
-                    throw new Error(
-                        data.message ??
-                            'Unable to prepare Stripe payment.',
-                    );
-                }
+                                    'X-CSRF-TOKEN':
+                                        getCsrfToken(),
+                                },
 
-                return data;
-            })
-            .then((data) => {
-                if (
-                    data.clientSecret
-                ) {
+                                body: JSON.stringify(
+                                    {
+                                        plan,
+                                    },
+                                ),
+                            },
+                        );
+
+                    const data =
+                        await response.json();
+
+                    if (!response.ok) {
+                        throw new Error(
+                            data.message ??
+                                'Unable to prepare Stripe payment.',
+                        );
+                    }
+
+                    if (
+                        !data.clientSecret
+                    ) {
+                        throw new Error(
+                            data.message ??
+                                'Stripe did not return a payment client secret.',
+                        );
+                    }
+
+                    if (cancelled) {
+                        return;
+                    }
+
+                    /*
+                     * Subscription must also
+                     * return subscriptionId.
+                     */
+                    if (
+                        planType ===
+                        'subscription'
+                    ) {
+                        if (
+                            !data.subscriptionId
+                        ) {
+                            throw new Error(
+                                'Stripe did not return a subscription ID.',
+                            );
+                        }
+
+                        setSubscriptionId(
+                            data.subscriptionId,
+                        );
+                    }
+
                     setClientSecret(
                         data.clientSecret,
                     );
+                } catch (error) {
+                    if (cancelled) {
+                        return;
+                    }
 
-                    return;
+                    setInitError(
+                        error instanceof
+                            Error
+                            ? error.message
+                            : 'Unable to connect to payment server.',
+                    );
                 }
+            };
 
-                setInitError(
-                    data.message ??
-                        'Unable to prepare payment.',
-                );
-            })
-            .catch((error) => {
-                setInitError(
-                    error instanceof
-                        Error
-                        ? error.message
-                        : 'Unable to connect to payment server.',
-                );
-            });
+        prepareStripePayment();
+
+        return () => {
+            cancelled = true;
+        };
     }, [
         plan,
+        planType,
         paymentMethod,
         clientSecret,
+        stripeIntentUrl,
     ]);
+
+    const checkoutDescription =
+        planType === 'subscription'
+            ? `${credits} credits will be added every month. Unused credits never expire.`
+            : 'Credits never expire — use them anytime to unlock a Full Report.';
+
+    const orderBenefit =
+        planType === 'subscription'
+            ? `${credits} credits every month with automatic monthly refill`
+            : 'Credits never expire — use them anytime to unlock a Full Report';
+
+    const availabilityText =
+        planType === 'subscription'
+            ? 'Your membership and monthly credits will become available after the first payment is confirmed.'
+            : 'Your credits will be available immediately after payment.';
 
     return (
         <>
@@ -166,15 +271,14 @@ export default function Checkout({
 
                     {/* Payment */}
                     <div className="space-y-12 lg:col-span-7">
-
                         <section>
+
                             <h1 className="font-h2 text-h2 mb-2 text-primary">
                                 Secure Checkout
                             </h1>
 
                             <p className="font-body-lg mb-8 text-on-surface-variant">
-                                Complete your
-                                purchase of{' '}
+                                {checkoutDescription}{' '}
 
                                 <span className="font-bold text-primary">
                                     {label}
@@ -184,13 +288,14 @@ export default function Checkout({
 
                             {/* Payment Method */}
                             <div className="mb-8">
+
                                 <p className="font-label-sm mb-3 text-xs font-bold uppercase tracking-widest text-on-surface-variant">
                                     Payment Method
                                 </p>
 
                                 <div className="grid grid-cols-2 gap-4">
 
-                                    {/* Stripe */}
+                                    {/* Card */}
                                     <button
                                         type="button"
                                         onClick={() => {
@@ -262,11 +367,13 @@ export default function Checkout({
                                     {!initError &&
                                         !clientSecret && (
                                             <div className="flex items-center gap-3 rounded-lg border border-outline-variant bg-surface-container-low p-4 text-sm text-on-surface-variant">
+
                                                 <div className="size-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
 
                                                 Preparing
                                                 secure card
                                                 payment...
+
                                             </div>
                                         )}
 
@@ -278,28 +385,33 @@ export default function Checkout({
                                             options={{
                                                 clientSecret,
 
-                                                appearance:
-                                                    {
-                                                        variables:
-                                                            {
-                                                                colorPrimary:
-                                                                    '#000d2f',
+                                                appearance: {
+                                                    variables:
+                                                        {
+                                                            colorPrimary:
+                                                                '#000d2f',
 
-                                                                colorDanger:
-                                                                    '#ba1a1a',
+                                                            colorDanger:
+                                                                '#ba1a1a',
 
-                                                                fontFamily:
-                                                                    'Inter, sans-serif',
+                                                            fontFamily:
+                                                                'Inter, sans-serif',
 
-                                                                borderRadius:
-                                                                    '4px',
-                                                            },
-                                                    },
+                                                            borderRadius:
+                                                                '4px',
+                                                        },
+                                                },
                                             }}
                                         >
                                             <StripeCheckoutForm
                                                 amountDisplay={
                                                     amountDisplay
+                                                }
+                                                planType={
+                                                    planType
+                                                }
+                                                subscriptionId={
+                                                    subscriptionId
                                                 }
                                             />
                                         </Elements>
@@ -313,21 +425,18 @@ export default function Checkout({
                                 <div className="space-y-6">
 
                                     <div className="rounded-lg border border-outline-variant bg-surface-container-low p-5">
+
                                         <div className="flex items-start gap-3">
 
                                             <ShieldCheck className="mt-0.5 size-5 shrink-0 text-primary" />
 
                                             <div>
                                                 <p className="font-semibold text-primary">
-                                                    Pay
-                                                    securely
-                                                    with
-                                                    PayPal
+                                                    Pay securely with PayPal
                                                 </p>
 
                                                 <p className="mt-1 text-sm leading-relaxed text-on-surface-variant">
-                                                    You
-                                                    will
+                                                    You will
                                                     complete
                                                     payment
                                                     through
@@ -335,16 +444,28 @@ export default function Checkout({
                                                     UKCarDoc
                                                     never
                                                     receives
-                                                    your
-                                                    PayPal
+                                                    your PayPal
                                                     password.
                                                 </p>
                                             </div>
 
                                         </div>
+
                                     </div>
 
-                                    {!paypalClientId ? (
+                                    {planType ===
+                                    'subscription' ? (
+                                        /*
+                                         * Jangan call PayPal
+                                         * one-time API untuk
+                                         * subscription.
+                                         *
+                                         * PayPal subscription
+                                         * kita implement setelah
+                                         * Stripe subscription selesai.
+                                         */
+                                        <PaymentError message="PayPal membership payments are not available yet. Please use Card for this subscription." />
+                                    ) : !paypalClientId ? (
                                         <PaymentError message="PayPal is not configured correctly." />
                                     ) : (
                                         <PayPalProvider
@@ -371,7 +492,6 @@ export default function Checkout({
                             )}
 
                         </section>
-
                     </div>
 
                     {/* Order Summary */}
@@ -392,23 +512,20 @@ export default function Checkout({
                                     </p>
 
                                     <span className="shrink-0 font-bold text-primary">
-                                        {
-                                            amountDisplay
-                                        }
+                                        {amountDisplay}
                                     </span>
 
                                 </div>
 
                                 <div className="sovereign-line" />
 
-                                <div className="flex items-center gap-2 text-sm text-slate-600">
+                                <div className="flex items-start gap-2 text-sm text-slate-600">
 
-                                    <CheckCircle2 className="size-4 shrink-0 text-green-600" />
+                                    <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-green-600" />
 
-                                    Credits never
-                                    expire — use them
-                                    anytime to unlock a
-                                    Full Report
+                                    <span>
+                                        {orderBenefit}
+                                    </span>
 
                                 </div>
 
@@ -416,31 +533,30 @@ export default function Checkout({
 
                             <div className="mb-6 rounded bg-surface-container-low p-4">
 
-                                <div className="flex items-center justify-between text-primary">
+                                <div className="flex items-center justify-between gap-4 text-primary">
 
                                     <span className="font-bold">
-                                        Total Amount
-                                        Due
+                                        {planType ===
+                                        'subscription'
+                                            ? 'Amount Due Today'
+                                            : 'Total Amount Due'}
                                     </span>
 
-                                    <span className="text-2xl font-black">
-                                        {
-                                            amountDisplay
-                                        }
+                                    <span className="shrink-0 text-2xl font-black">
+                                        {amountDisplay}
                                     </span>
 
                                 </div>
 
                             </div>
 
-                            <div className="flex items-center gap-3 text-xs text-slate-500">
+                            <div className="flex items-start gap-3 text-xs text-slate-500">
 
-                                <ShieldCheck className="size-4 shrink-0" />
+                                <ShieldCheck className="mt-0.5 size-4 shrink-0" />
 
-                                Your credits will
-                                be available
-                                immediately after
-                                payment.
+                                <span>
+                                    {availabilityText}
+                                </span>
 
                             </div>
 
@@ -509,6 +625,20 @@ export default function Checkout({
     );
 }
 
+/*
+|--------------------------------------------------------------------------
+| PayPal One-Time Checkout
+|--------------------------------------------------------------------------
+|
+| Untuk sekarang component ini hanya
+| digunakan plan one_time.
+|
+| Subscription PayPal nanti punya
+| flow sendiri menggunakan PayPal
+| Subscriptions API.
+|
+*/
+
 function PayPalCheckout({
     plan,
 }: {
@@ -526,20 +656,11 @@ function PayPalCheckout({
         setIsProcessing,
     ] = useState(false);
 
-    /**
-     * PayPal SDK calls this when
-     * buyer clicks PayPal.
-     *
-     * Server decides the actual
-     * amount and credits.
-     */
     const createPayPalOrder =
         async (): Promise<{
             orderId: string;
         }> => {
-            setErrorMessage(
-                null,
-            );
+            setErrorMessage(null);
 
             const response =
                 await fetch(
@@ -589,24 +710,12 @@ function PayPalCheckout({
             };
         };
 
-    /**
-     * Buyer approved PayPal.
-     *
-     * Capture happens on Laravel,
-     * then CreditService grants
-     * credits.
-     */
     const handleApprove =
         async (
             data: OnApproveDataOneTimePayments,
         ) => {
-            setIsProcessing(
-                true,
-            );
-
-            setErrorMessage(
-                null,
-            );
+            setIsProcessing(true);
+            setErrorMessage(null);
 
             try {
                 const response =
@@ -663,11 +772,6 @@ function PayPalCheckout({
                     );
                 }
 
-                /*
-                 * Normal browser redirect,
-                 * because backend success()
-                 * returns Inertia page.
-                 */
                 window.location.assign(
                     result.redirect,
                 );
@@ -679,9 +783,7 @@ function PayPalCheckout({
                         : 'PayPal payment failed.',
                 );
 
-                setIsProcessing(
-                    false,
-                );
+                setIsProcessing(false);
 
                 throw error;
             }
@@ -763,10 +865,37 @@ function PayPalCheckout({
     );
 }
 
+/*
+|--------------------------------------------------------------------------
+| Stripe Checkout Form
+|--------------------------------------------------------------------------
+|
+| Satu form dipakai untuk:
+|
+| one_time
+| → PaymentIntent
+| → /checkout/success
+|
+| subscription
+| → incomplete Subscription
+| → first invoice confirmation
+| → /checkout/subscription/success
+|
+*/
+
 function StripeCheckoutForm({
     amountDisplay,
+    planType,
+    subscriptionId,
 }: {
     amountDisplay: string;
+
+    planType:
+        | 'one_time'
+        | 'subscription';
+
+    subscriptionId:
+        string | null;
 }) {
     const stripe =
         useStripe();
@@ -807,8 +936,44 @@ function StripeCheckoutForm({
             return;
         }
 
+        /*
+         * Subscription harus punya
+         * subscription ID sebelum
+         * payment bisa dilanjutkan.
+         */
+        if (
+            planType ===
+                'subscription' &&
+            !subscriptionId
+        ) {
+            setErrorMessage(
+                'Subscription could not be identified. Please refresh the page and try again.',
+            );
+
+            return;
+        }
+
         setIsProcessing(true);
         setErrorMessage(null);
+
+        /*
+         * One-time dan subscription
+         * punya success endpoint
+         * berbeda.
+         */
+        const returnUrl =
+            planType ===
+            'subscription'
+                ? `${
+                      window.location
+                          .origin
+                  }/checkout/subscription/success?subscription_id=${encodeURIComponent(
+                      subscriptionId!,
+                  )}`
+                : `${
+                      window.location
+                          .origin
+                  }/checkout/success`;
 
         const { error } =
             await stripe.confirmPayment(
@@ -817,7 +982,7 @@ function StripeCheckoutForm({
 
                     confirmParams: {
                         return_url:
-                            `${window.location.origin}/checkout/success`,
+                            returnUrl,
 
                         payment_method_data:
                             {
@@ -834,6 +999,14 @@ function StripeCheckoutForm({
                                                 postal_code:
                                                     billing.postalCode,
 
+                                                /*
+                                                 * UKCarDoc market.
+                                                 *
+                                                 * Nanti kalau mau
+                                                 * support billing country
+                                                 * dinamis, field ini
+                                                 * bisa dijadikan state.
+                                                 */
                                                 country:
                                                     'GB',
                                             },
@@ -843,15 +1016,20 @@ function StripeCheckoutForm({
                 },
             );
 
+        /*
+         * Jika Stripe harus redirect,
+         * browser akan pindah otomatis.
+         *
+         * Bagian ini biasanya berjalan
+         * kalau payment gagal langsung.
+         */
         if (error) {
             setErrorMessage(
                 error.message ??
                     'Payment failed. Please try again.',
             );
 
-            setIsProcessing(
-                false,
-            );
+            setIsProcessing(false);
         }
     }
 
@@ -863,6 +1041,7 @@ function StripeCheckoutForm({
             className="space-y-8"
         >
 
+            {/* Payment Details */}
             <div>
 
                 <h3 className="font-h3 text-h3 mb-4 text-primary">
@@ -873,12 +1052,14 @@ function StripeCheckoutForm({
 
             </div>
 
+            {/* Billing Address */}
             <div className="space-y-4 pt-2">
 
                 <h3 className="font-h3 text-h3 text-primary">
                     Billing Address
                 </h3>
 
+                {/* Street */}
                 <div>
 
                     <label className="font-label-sm mb-2 block text-primary">
@@ -892,9 +1073,7 @@ function StripeCheckoutForm({
                         value={
                             billing.line1
                         }
-                        onChange={(
-                            e,
-                        ) =>
+                        onChange={(e) =>
                             setBilling(
                                 (
                                     current,
@@ -915,6 +1094,7 @@ function StripeCheckoutForm({
 
                 <div className="grid grid-cols-2 gap-4">
 
+                    {/* City */}
                     <div>
 
                         <label className="font-label-sm mb-2 block text-primary">
@@ -928,9 +1108,7 @@ function StripeCheckoutForm({
                             value={
                                 billing.city
                             }
-                            onChange={(
-                                e,
-                            ) =>
+                            onChange={(e) =>
                                 setBilling(
                                     (
                                         current,
@@ -949,6 +1127,7 @@ function StripeCheckoutForm({
 
                     </div>
 
+                    {/* Postcode */}
                     <div>
 
                         <label className="font-label-sm mb-2 block text-primary">
@@ -962,9 +1141,7 @@ function StripeCheckoutForm({
                             value={
                                 billing.postalCode
                             }
-                            onChange={(
-                                e,
-                            ) =>
+                            onChange={(e) =>
                                 setBilling(
                                     (
                                         current,
@@ -1009,15 +1186,20 @@ function StripeCheckoutForm({
 
                     {isProcessing
                         ? 'Processing...'
-                        : `Pay ${amountDisplay} Now`}
+                        : planType ===
+                            'subscription'
+                          ? `Subscribe ${amountDisplay}`
+                          : `Pay ${amountDisplay} Now`}
                 </button>
 
                 <p className="mt-4 text-center text-xs text-slate-500">
-                    By clicking
-                    &quot;Pay
-                    Now&quot; you
-                    agree to our Terms
-                    of Service and
+                    By clicking{' '}
+                    {planType ===
+                    'subscription'
+                        ? '"Subscribe"'
+                        : '"Pay Now"'}{' '}
+                    you agree to our
+                    Terms of Service and
                     Refund Policy.
                 </p>
 

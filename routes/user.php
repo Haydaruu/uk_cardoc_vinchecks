@@ -27,7 +27,9 @@ Route::middleware(['auth', 'verified'])->group(function (){
 Route::middleware('auth')->group(function (){
     Route::get('/checkout', [CheckoutController::class, 'show'])->name('checkout.show');
     Route::post('/checkout/create-intent', [StripeController::class, 'createOneTimeIntent'])->name('checkout.create-intent');
+    Route::post('/checkout/create-subscription-intent', [StripeSubscriptionController::class, 'createIntent'])->name('checkout.create-subscription-intent');
     Route::get('/checkout/success', [StripeController::class, 'success'])->name('checkout.success');
+    Route::get('/checkout/subscription/success', [StripeSubscriptionController::class, 'success'])->name('checkout.subscription.success');
 });
 
 //Route PayPal
