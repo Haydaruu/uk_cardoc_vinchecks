@@ -142,19 +142,40 @@ class PayPalService
             return false;
         }
 
+        $rawBody = $request->getContent();
+
+        if(! $rawBody) {
+            return false;
+        }
+
+        $payload = '{'
+        . '"auth_algo":'
+        . json_encode($authAlgo)
+        . ','
+        . '"cert_url":'
+        . json_encode($certUrl)
+        . ','
+        . '"transmission_id":'
+        . json_encode($transmissionId)
+        . ','
+        . '"transmission_sig":'
+        . json_encode($transmissionSig)
+        . ','
+        . '"transmission_time":'
+        . json_encode($transmissionTime)
+        . ','
+        . '"webhook_id":'
+        . json_encode($webhookId)
+        . ','
+        . '"webhook_event":'
+        . $rawBody
+        . '}';
+
         $response = Http::withToken($this
             ->accessToken())
             ->acceptJson()
-            ->post($this->baseUrl(). '/v1/notifications/verify-webhook-signature',
-                [
-                    'auth_algo' => $authAlgo,
-                    'cert_url' => $certUrl,
-                    'transmission_id' => $transmissionId,
-                    'transmission_sig' => $transmissionSig,
-                    'transmission_time' => $transmissionTime,
-                    'webhook_id' => $webhookId,
-                    'webhook_event' => $request->json()->all(),
-                ]
+            ->withBody($payload, 'application/json')
+            ->post($this->baseUrl(). '/v1/notifications/verify-webhook-signature'  
             );
 
         if ($response->failed()){
