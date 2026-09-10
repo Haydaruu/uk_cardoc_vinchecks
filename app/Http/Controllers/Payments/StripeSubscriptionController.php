@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Settings;
+namespace App\Http\Controllers\Payments;
 
 use App\Http\Controllers\Controller;
 use App\Models\Subscription;
@@ -8,7 +8,7 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Stripe\StripeClient;
 
-class SubscriptionController extends Controller
+class StripeSubscriptionController extends Controller
 {
     public function checkout(Request $request)
     {
