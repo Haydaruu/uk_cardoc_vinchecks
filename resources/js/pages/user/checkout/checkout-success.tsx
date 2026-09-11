@@ -5,15 +5,16 @@ import {
 
 import {
     ArrowRight,
+    Check,
     CheckCircle2,
     CreditCard,
     Download,
+    ReceiptText,
+    ShieldCheck,
     Wallet,
 } from 'lucide-react';
 
-type PurchaseType =
-    | 'credit_purchase'
-    | 'subscription';
+type PurchaseType = 'credit_purchase' | 'subscription';
 
 type CheckoutSuccessProps = {
     purchaseType?: PurchaseType;
@@ -31,288 +32,235 @@ type CheckoutSuccessProps = {
 
 export default function CheckoutSuccess({
     order,
-
-    /*
-     * Default ke credit purchase supaya
-     * Stripe/PayPal one-time lama tetap
-     * kompatibel walaupun controller belum
-     * mengirim purchaseType.
-     */
     purchaseType = 'credit_purchase',
 }: CheckoutSuccessProps) {
-    const isSubscription =
-        purchaseType ===
-        'subscription';
+    const isSubscription = purchaseType === 'subscription';
+    const isCardPayment = !!order.cardBrand && !!order.cardLast4;
+    const formattedAmount = formatCurrency(order.amount, order.currency);
 
     function handleDashboard() {
         router.visit('/dashboard');
     }
-
-    const formattedAmount =
-        formatCurrency(
-            order.amount,
-            order.currency,
-        );
-
-    /*
-     * Untuk flow sekarang:
-     *
-     * Stripe/card:
-     * punya cardBrand + cardLast4
-     *
-     * PayPal:
-     * keduanya null
-     */
-    const isCardPayment =
-        !!order.cardBrand &&
-        !!order.cardLast4;
 
     return (
         <>
             <Head
                 title={
                     isSubscription
-                        ? 'Subscription Successful'
-                        : 'Payment Successful'
+                        ? 'Subscription Confirmed'
+                        : 'Payment Confirmed'
                 }
             />
 
-            <div className="flex min-h-screen items-center justify-center bg-background py-10 font-body-md text-on-background">
+            <main className="min-h-screen bg-surface">
+                <div className="mx-auto max-w-[920px] px-5 py-12 md:px-8 md:py-20">
 
-                {/* Main */}
-                <main className="bg-pattern relative w-full px-gutter py-section-padding">
-
-                    {/* Decorative Background */}
-                    <div className="absolute left-1/4 top-1/4 -z-10 size-96 rounded-full bg-primary-fixed-dim/20 blur-3xl mix-blend-multiply" />
-
-                    <div className="absolute bottom-1/4 right-1/4 -z-10 size-80 rounded-full bg-secondary-fixed-dim/20 blur-3xl mix-blend-multiply" />
-
-                    <div className="mx-auto w-full max-w-2xl">
-
-                        <div className="card-shadow overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest">
-
-                            <div className="sovereign-line" />
-
-                            <div className="flex flex-col items-center p-8 text-center md:p-12">
-
-                                {/* Success Icon */}
-                                <div className="relative mb-6 flex size-20 items-center justify-center rounded-full bg-surface-container-low">
-
-                                    <div
-                                        className="absolute inset-0 animate-ping rounded-full bg-secondary opacity-10"
-                                        style={{
-                                            animationDuration:
-                                                '3s',
-                                        }}
-                                    />
-
-                                    <CheckCircle2
-                                        className="size-10 text-secondary"
-                                        strokeWidth={
-                                            2
-                                        }
-                                    />
-
-                                </div>
-
-                                {/* Success Title */}
-                                <h1 className="font-h1 text-h1 mb-2 text-primary">
-                                    {isSubscription
-                                        ? 'Subscription Successful'
-                                        : 'Payment Successful'}
-                                </h1>
-
-                                {/* Success Description */}
-                                <p className="font-body-lg text-body-lg mb-8 max-w-lg text-on-surface-variant">
-                                    {isSubscription
-                                        ? 'Your membership is now active and your monthly credits have been added.'
-                                        : 'Your credits have been added to your account.'}
-                                </p>
-
-                                {/* Transaction Summary */}
-                                <div className="mb-8 w-full rounded-lg border border-outline-variant/50 bg-surface-container-low p-6 text-left">
-
-                                    <h2 className="font-label-sm text-label-sm mb-4 border-b border-outline-variant/30 pb-2 uppercase tracking-widest text-on-surface-variant">
-                                        Transaction
-                                        Summary
-                                    </h2>
-
-                                    <div className="grid grid-cols-1 gap-x-8 gap-y-4 md:grid-cols-2">
-
-                                        <SummaryField
-                                            label="Order Number"
-                                            value={
-                                                order.number
-                                            }
-                                        />
-
-                                        <SummaryField
-                                            label="Date"
-                                            value={
-                                                order.date
-                                            }
-                                        />
-
-                                        {/* Item */}
-                                        <div className="flex flex-col md:col-span-2">
-
-                                            <span className="font-label-sm text-label-sm text-on-surface-variant">
-                                                {isSubscription
-                                                    ? 'Membership Plan'
-                                                    : 'Item'}
-                                            </span>
-
-                                            <span className="font-body-md text-body-md font-semibold text-primary">
-                                                {
-                                                    order.item
-                                                }
-                                            </span>
-
-                                        </div>
-
-                                        {/* Amount */}
-                                        <div className="flex flex-col">
-
-                                            <span className="font-label-sm text-label-sm text-on-surface-variant">
-                                                {isSubscription
-                                                    ? 'Amount Paid Today'
-                                                    : 'Total Amount'}
-                                            </span>
-
-                                            <span className="font-h3 text-h3 text-primary">
-                                                {
-                                                    formattedAmount
-                                                }
-                                            </span>
-
-                                        </div>
-
-                                        {/* Payment Method */}
-                                        <div className="flex flex-col">
-
-                                            <span className="font-label-sm text-label-sm text-on-surface-variant">
-                                                Payment Method
-                                            </span>
-
-                                            {isCardPayment ? (
-                                                <div className="mt-1 flex items-center gap-2">
-
-                                                    <CreditCard className="size-4 text-primary" />
-
-                                                    <span className="font-body-md text-body-md font-semibold capitalize text-primary">
-                                                        {
-                                                            order.cardBrand
-                                                        }{' '}
-                                                        ending
-                                                        in{' '}
-                                                        {
-                                                            order.cardLast4
-                                                        }
-                                                    </span>
-
-                                                </div>
-                                            ) : (
-                                                <div className="mt-1 flex items-center gap-2">
-
-                                                    <Wallet className="size-4 text-primary" />
-
-                                                    <span className="font-body-md text-body-md font-semibold text-primary">
-                                                        PayPal
-                                                    </span>
-
-                                                </div>
-                                            )}
-
-                                        </div>
-
-                                        {/* Subscription Info */}
-                                        {isSubscription && (
-                                            <div className="mt-2 rounded-md border border-outline-variant/30 bg-surface-container-lowest p-4 md:col-span-2">
-
-                                                <p className="text-sm font-semibold text-primary">
-                                                    Monthly
-                                                    Membership
-                                                </p>
-
-                                                <p className="mt-1 text-xs leading-relaxed text-on-surface-variant">
-                                                    Your
-                                                    membership
-                                                    will renew
-                                                    automatically
-                                                    according
-                                                    to your
-                                                    billing
-                                                    cycle. You
-                                                    can manage
-                                                    or cancel
-                                                    it from
-                                                    your
-                                                    subscription
-                                                    settings.
-                                                </p>
-
-                                            </div>
-                                        )}
-
-                                    </div>
-
-                                </div>
-
-                                {/* Actions */}
-                                <div className="flex w-full flex-col gap-4 md:flex-row">
-
-                                    <button
-                                        type="button"
-                                        onClick={
-                                            handleDashboard
-                                        }
-                                        className="group relative flex flex-1 items-center justify-center gap-2 overflow-hidden rounded bg-secondary px-6 py-4 font-label-sm text-label-sm text-on-secondary shadow-sm transition-colors duration-200 hover:bg-on-secondary-fixed-variant"
-                                    >
-
-                                        <div className="absolute left-0 top-0 h-px w-full bg-white/30" />
-
-                                        <span>
-                                            Go to
-                                            Dashboard
-                                        </span>
-
-                                        <ArrowRight className="size-[18px]" />
-
-                                    </button>
-
-                                    {/* Download Receipt */}
-                                    <button
-                                        type="button"
-                                        disabled
-                                        title="Coming soon"
-                                        className="flex flex-1 cursor-not-allowed items-center justify-center gap-2 rounded border border-primary/40 px-6 py-4 font-label-sm text-label-sm text-primary/40"
-                                    >
-
-                                        <Download className="size-[18px]" />
-
-                                        <span>
-                                            Download
-                                            Receipt
-                                        </span>
-
-                                    </button>
-
-                                </div>
-
-                            </div>
-
+                    {/* Status */}
+                    <div className="mb-8 flex flex-col items-center text-center">
+                        <div className="mb-5 flex size-14 items-center justify-center rounded-full bg-surface-container">
+                            <CheckCircle2 className="size-7 text-secondary" />
                         </div>
 
+                        <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-secondary">
+                            {isSubscription
+                                ? 'Membership confirmed'
+                                : 'Payment confirmed'}
+                        </p>
+
+                        <h1 className="max-w-2xl text-3xl font-bold tracking-tight text-primary md:text-4xl">
+                            {isSubscription
+                                ? 'Your membership is active'
+                                : 'Your purchase is complete'}
+                        </h1>
+
+                        <p className="mt-3 max-w-lg text-sm leading-6 text-on-surface-variant">
+                            {isSubscription
+                                ? 'Your membership has been activated. Monthly credits are applied after payment confirmation.'
+                                : 'Your payment was successful and your credits are now available in your account.'}
+                        </p>
                     </div>
 
-                </main>
+                    {/* Receipt */}
+                    <section className="overflow-hidden rounded-xl border border-outline-variant/60 bg-white shadow-[0_18px_50px_rgba(0,13,47,0.06)]">
 
-            </div>
+                        {/* Header */}
+                        <div className="flex flex-col gap-5 border-b border-outline-variant/50 px-6 py-6 sm:flex-row sm:items-center sm:justify-between md:px-8">
+                            <div className="flex items-center gap-3">
+                                <div className="flex size-10 items-center justify-center rounded-lg bg-primary text-white">
+                                    <ReceiptText className="size-5" />
+                                </div>
+
+                                <div>
+                                    <p className="font-semibold text-primary">
+                                        UKCarDoc
+                                    </p>
+
+                                    <p className="text-xs text-on-surface-variant">
+                                        {isSubscription
+                                            ? 'Membership confirmation'
+                                            : 'Payment receipt'}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="sm:text-right">
+                                <p className="text-xs uppercase tracking-wider text-outline">
+                                    Reference
+                                </p>
+
+                                <p className="mt-1 text-sm font-semibold text-primary">
+                                    {order.number}
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Content */}
+                        <div className="grid md:grid-cols-[1fr_280px]">
+
+                            {/* Details */}
+                            <div className="px-6 py-7 md:px-8 md:py-8">
+                                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-on-surface-variant">
+                                    {isSubscription ? 'Membership' : 'Purchase'}
+                                </p>
+
+                                <h2 className="mt-2 text-2xl font-bold text-primary">
+                                    {order.item}
+                                </h2>
+
+                                <div className="mt-7 grid gap-6 border-t border-outline-variant/40 pt-6 sm:grid-cols-2">
+                                    <ReceiptField
+                                        label="Transaction date"
+                                        value={order.date}
+                                    />
+
+                                    <ReceiptField
+                                        label="Reference number"
+                                        value={order.number}
+                                    />
+
+                                    <div>
+                                        <p className="text-xs text-on-surface-variant">
+                                            Payment method
+                                        </p>
+
+                                        <div className="mt-2 flex items-center gap-2 text-sm font-semibold text-primary">
+                                            {isCardPayment ? (
+                                                <>
+                                                    <CreditCard className="size-4" />
+
+                                                    <span className="capitalize">
+                                                        {order.cardBrand} •••• {order.cardLast4}
+                                                    </span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Wallet className="size-4" />
+                                                    <span>PayPal</span>
+                                                </>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <ReceiptField
+                                        label="Status"
+                                        value={isSubscription ? 'Active' : 'Paid'}
+                                    />
+                                </div>
+
+                                {isSubscription && (
+                                    <div className="mt-7 rounded-lg bg-surface-container-low px-4 py-4">
+                                        <div className="flex items-start gap-3">
+                                            <ShieldCheck className="mt-0.5 size-4 shrink-0 text-primary" />
+
+                                            <div>
+                                                <p className="text-sm font-semibold text-primary">
+                                                    Monthly membership
+                                                </p>
+
+                                                <p className="mt-1 text-xs leading-5 text-on-surface-variant">
+                                                    Your membership renews automatically each billing cycle until cancelled.
+                                                    You can change or cancel your plan from your subscription settings.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Amount */}
+                            <div className="flex flex-col justify-between border-t border-outline-variant/50 bg-primary p-6 text-white md:border-l md:border-t-0 md:p-8">
+                                <div>
+                                    <p className="text-xs font-semibold uppercase tracking-[0.15em] text-white/60">
+                                        {isSubscription
+                                            ? 'Monthly amount'
+                                            : 'Amount paid'}
+                                    </p>
+
+                                    <p className="mt-3 text-4xl font-bold tracking-tight">
+                                        {formattedAmount}
+                                    </p>
+
+                                    {isSubscription && (
+                                        <p className="mt-2 text-xs leading-5 text-white/65">
+                                            Billed monthly until cancelled
+                                        </p>
+                                    )}
+                                </div>
+
+                                <div className="mt-10 border-t border-white/15 pt-5">
+                                    <div className="flex items-center gap-2 text-xs text-white/70">
+                                        <Check className="size-4" />
+
+                                        {isSubscription
+                                            ? 'Membership active'
+                                            : 'Payment received'}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="flex flex-col gap-3 border-t border-outline-variant/50 bg-surface-container-low/40 px-6 py-5 sm:flex-row sm:items-center sm:justify-between md:px-8">
+                            <p className="text-xs leading-5 text-on-surface-variant">
+                                {isSubscription
+                                    ? 'You can manage this membership from your account settings.'
+                                    : 'Keep this receipt for your records.'}
+                            </p>
+
+                            <div className="flex flex-col gap-3 sm:flex-row">
+                                <button
+                                    type="button"
+                                    disabled
+                                    title="Coming soon"
+                                    className="flex cursor-not-allowed items-center justify-center gap-2 rounded-md border border-outline-variant bg-white px-5 py-3 text-sm font-semibold text-outline opacity-60"
+                                >
+                                    <Download className="size-4" />
+                                    Download receipt
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={handleDashboard}
+                                    className="flex items-center justify-center gap-2 rounded-md bg-secondary px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-secondary-container"
+                                >
+                                    Go to dashboard
+                                    <ArrowRight className="size-4" />
+                                </button>
+                            </div>
+                        </div>
+                    </section>
+
+                    <div className="mt-6 flex items-center justify-center gap-2 text-xs text-outline">
+                        <ShieldCheck className="size-3.5" />
+                        Securely processed payment
+                    </div>
+                </div>
+            </main>
         </>
     );
 }
 
-function SummaryField({
+function ReceiptField({
     label,
     value,
 }: {
@@ -320,16 +268,14 @@ function SummaryField({
     value: string;
 }) {
     return (
-        <div className="flex flex-col">
-
-            <span className="font-label-sm text-label-sm text-on-surface-variant">
+        <div>
+            <p className="text-xs text-on-surface-variant">
                 {label}
-            </span>
+            </p>
 
-            <span className="font-body-md text-body-md font-semibold text-primary">
+            <p className="mt-2 break-words text-sm font-semibold text-primary">
                 {value}
-            </span>
-
+            </p>
         </div>
     );
 }
@@ -338,28 +284,17 @@ function formatCurrency(
     amount: string,
     currency: string,
 ): string {
-    const numericAmount =
-        Number(amount);
+    const numericAmount = Number(amount);
 
-    if (
-        Number.isNaN(
-            numericAmount,
-        )
-    ) {
-        return `${currency} ${amount}`;
+    if(Number.isNaN(numericAmount)) {
+        return `${currency.toUpperCase()} ${amount}`;
     }
 
     try {
-        return new Intl.NumberFormat(
-            'en-GB',
-            {
-                style: 'currency',
-                currency:
-                    currency.toUpperCase(),
-            },
-        ).format(
-            numericAmount,
-        );
+        return new Intl.NumberFormat('en-GB', {
+            style: 'currency',
+            currency: currency.toUpperCase(),
+        }).format(numericAmount);
     } catch {
         return `${currency.toUpperCase()} ${amount}`;
     }

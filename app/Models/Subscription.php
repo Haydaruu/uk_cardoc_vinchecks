@@ -27,7 +27,11 @@ class Subscription extends Model
         'pending_stripe_price_id',
         'pending_price',
         'pending_monthly_credits',
-        'pending_plan_effective_at'
+        'pending_plan_effective_at',
+
+        'paypal_subscription_id',
+        'paypal_plan_id',
+        'pending_paypal_plan_id'
     ];
 
     protected $casts = [

@@ -34,25 +34,34 @@ return [
     // Subscription Plans
     'premium-monthly' => [
         'price_id' => env('STRIPE_PRICE_PREMIUM_MONTHLY'),
+        'paypal_plan_id' => env('PAYPAL_PLAN_PREMIUM_MONTHLY'),
         'type' => 'subscription',
         'credits' => 15,
         'label' => 'Premium',
+        'amount_minor' => 3999,
+        'currency' => 'GBP',
         'amount_display' => '£39.99/month',
     ],
 
     'premium-plus-monthly' => [
         'price_id' => env('STRIPE_PRICE_PREMIUM_PLUS_MONTHLY'),
+        'paypal_plan_id' => env('PAYPAL_PLAN_PREMIUM_PLUS_MONTHLY'),
         'type' => 'subscription',
         'credits' => 25,
         'label' => 'Premium Plus',
+        'amount_minor' => 5999,
+        'currency' => 'GBP',
         'amount_display' => '£59.99/month',
     ],
 
     'premium-max-monthly' => [
         'price_id' => env('STRIPE_PRICE_PREMIUM_MAX_MONTHLY'),
+        'paypal_plan_id' => env('PAYPAL_PLAN_PREMIUM_MAX_MONTHLY'),
         'type' => 'subscription',
         'credits' => 35,
         'label' => 'Premium Max',
+        'amount_minor' => 8999,
+        'currency' => 'GBP',
         'amount_display' => '£89.99/month',
     ],
 ];

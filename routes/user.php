@@ -9,6 +9,7 @@ use App\Http\Controllers\Payments\CheckoutController;
 use App\Http\Controllers\Payments\StripeController;
 use App\Http\Controllers\Payments\PayPalController;
 use App\Http\Controllers\Payments\StripeSubscriptionController;
+use App\Http\Controllers\Payments\PayPalSubscriptionController;
 use App\Http\Controllers\Settings\SettingsController;
 use App\Http\Controllers\Settings\SecurityController;
 use App\Http\Controllers\Settings\ConnectedAccountController;
@@ -30,6 +31,9 @@ Route::middleware('auth')->group(function (){
     Route::post('/checkout/create-subscription-intent', [StripeSubscriptionController::class, 'createIntent'])->name('checkout.create-subscription-intent');
     Route::get('/checkout/success', [StripeController::class, 'success'])->name('checkout.success');
     Route::get('/checkout/subscription/success', [StripeSubscriptionController::class, 'success'])->name('checkout.subscription.success');
+    Route::post('/subscription/checkout', [StripeSubscriptionController::class, 'checkout'])->name('subscription.checkout');
+    Route::delete('/subscription', [StripeSubscriptionController::class, 'cancel'])->name('subscription.cancel');
+    Route::patch('/subscription/plan', [StripeSubscriptionController::class, 'changePlan'])->name('subscription.plan.change');
 });
 
 //Route PayPal
@@ -37,6 +41,12 @@ Route::middleware('auth')->group(function (){
     Route::post('/checkout/paypal/create-order', [PayPalController::class, 'createOrder'])->name('checkout.paypal.create-order');
     Route::post('/checkout/paypal/capture', [PayPalController::class, 'capture'])->name('checkout.paypal.capture');
     Route::get('/checkout/paypal/success', [PayPalController::class, 'success'])->name('checkout.paypal.success');
+    Route::post('/checkout/paypal/subscription/create', [PayPalSubscriptionController::class, 'create'])->name('checkout.paypal.subscription.create');
+    Route::post('/checkout/paypal/subscription/confirm', [PayPalSubscriptionController::class, 'confirm'])->name('checkout.paypal.subscription.confirm');
+    Route::get('/checkout/paypal/subscription/success', [PayPalSubscriptionController::class, 'success'])->name('checkout.paypal.subscription.success');
+    Route::delete( '/subscription/paypal', [PayPalSubscriptionController::class, 'cancel'])->name('subscription.paypal.cancel');
+    Route::patch('/subscription/paypal/plan',  [PayPalSubscriptionController::class, 'changePlan'])->name('subscription.paypal.plan.change');
+    Route::get('/subscription/paypal/plan/approved', [PayPalSubscriptionController::class, 'changePlanApproved'])->name('subscription.paypal.plan.approved');
 });
 
 
@@ -62,9 +72,7 @@ Route::middleware(['auth', 'verified'])->prefix('settings')->name('settings.')->
 
     //page Subscription
     Route::get('/subscription', [SettingsController::class, 'subscription'])->name('subscription');
-    Route::post('/subscription/checkout', [StripeSubscriptionController::class, 'checkout'])->name('subscription.checkout');
-    Route::delete('/subscription', [StripeSubscriptionController::class, 'cancel'])->name('subscription.cancel');
-    Route::patch('/subscription/plan', [StripeSubscriptionController::class, 'changePlan'])->name('subscription.plan.change');
+
     
     Route::get('/help', [SettingsController::class, 'help'])->name('help');
 });

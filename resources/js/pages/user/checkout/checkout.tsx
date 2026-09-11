@@ -14,12 +14,14 @@ import { Head } from '@inertiajs/react';
 import {
     PayPalOneTimePaymentButton,
     PayPalProvider,
+    PayPalSubscriptionButton,
     type OnApproveDataOneTimePayments,
+    type OnApproveDataSubscriptions,
     type OnErrorData,
 } from '@paypal/react-paypal-js/sdk-v6';
 
 import {
-    CheckCircle2,
+    Check,
     CreditCard,
     Lock,
     ShieldAlert,
@@ -29,21 +31,15 @@ import {
 
 import {
     type FormEvent,
+    type ReactNode,
     useEffect,
     useState,
 } from 'react';
 
-const stripePromise = loadStripe(
-    import.meta.env.VITE_STRIPE_KEY,
-);
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_KEY);
 
-type PaymentMethod =
-    | 'stripe'
-    | 'paypal';
-
-type PlanType =
-    | 'one_time'
-    | 'subscription';
+type PaymentMethod = 'stripe' | 'paypal';
+type PlanType = 'one_time' | 'subscription';
 
 type CheckoutProps = {
     plan: string;
@@ -51,12 +47,8 @@ type CheckoutProps = {
     label: string;
     amountDisplay: string;
     credits: number;
-
     paypalClientId: string | null;
-
-    paypalEnvironment:
-        | 'sandbox'
-        | 'production';
+    paypalEnvironment: 'sandbox' | 'production';
 };
 
 export default function Checkout({
@@ -68,171 +60,62 @@ export default function Checkout({
     paypalClientId,
     paypalEnvironment,
 }: CheckoutProps) {
-    const [
-        paymentMethod,
-        setPaymentMethod,
-    ] = useState<PaymentMethod>(
-        'stripe',
-    );
+    const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('stripe');
+    const [clientSecret, setClientSecret] = useState<string | null>(null);
+    const [subscriptionId, setSubscriptionId] = useState<string | null>(null);
+    const [initError, setInitError] = useState<string | null>(null);
 
-    const [
-        clientSecret,
-        setClientSecret,
-    ] = useState<string | null>(
-        null,
-    );
+    const isSubscription = planType === 'subscription';
 
-    const [
-        subscriptionId,
-        setSubscriptionId,
-    ] = useState<string | null>(
-        null,
-    );
+    const stripeIntentUrl = isSubscription
+        ? '/checkout/create-subscription-intent'
+        : createIntent.url();
 
-    const [
-        initError,
-        setInitError,
-    ] = useState<string | null>(
-        null,
-    );
-
-    /*
-     * One-time:
-     * POST /checkout/create-intent
-     *
-     * Subscription:
-     * POST /checkout/create-subscription-intent
-     */
-    const stripeIntentUrl =
-        planType === 'subscription'
-            ? '/checkout/create-subscription-intent'
-            : createIntent.url();
-
-    /*
-     * Reset Stripe state whenever
-     * selected plan changes.
-     *
-     * Useful when Inertia reuses
-     * this same page component.
-     */
     useEffect(() => {
         setClientSecret(null);
         setSubscriptionId(null);
         setInitError(null);
-    }, [
-        plan,
-        planType,
-    ]);
+    }, [plan, planType]);
 
-    /*
-     * Prepare Stripe payment
-     * only when Card is selected.
-     */
     useEffect(() => {
-        if (
-            paymentMethod !==
-            'stripe'
-        ) {
-            return;
-        }
-
-        if (clientSecret) {
-            return;
-        }
+        if(paymentMethod !== 'stripe' || clientSecret) return;
 
         let cancelled = false;
 
-        const prepareStripePayment =
-            async () => {
-                setInitError(null);
+        async function prepareStripePayment() {
+            setInitError(null);
 
-                try {
-                    const response =
-                        await fetch(
-                            stripeIntentUrl,
-                            {
-                                method:
-                                    'POST',
+            try {
+                const data = await postJson<{
+                    clientSecret?: string;
+                    subscriptionId?: string;
+                }>(stripeIntentUrl, { plan });
 
-                                headers: {
-                                    'Content-Type':
-                                        'application/json',
-
-                                    Accept:
-                                        'application/json',
-
-                                    'X-CSRF-TOKEN':
-                                        getCsrfToken(),
-                                },
-
-                                body: JSON.stringify(
-                                    {
-                                        plan,
-                                    },
-                                ),
-                            },
-                        );
-
-                    const data =
-                        await response.json();
-
-                    if (!response.ok) {
-                        throw new Error(
-                            data.message ??
-                                'Unable to prepare Stripe payment.',
-                        );
-                    }
-
-                    if (
-                        !data.clientSecret
-                    ) {
-                        throw new Error(
-                            data.message ??
-                                'Stripe did not return a payment client secret.',
-                        );
-                    }
-
-                    if (cancelled) {
-                        return;
-                    }
-
-                    /*
-                     * Subscription must also
-                     * return subscriptionId.
-                     */
-                    if (
-                        planType ===
-                        'subscription'
-                    ) {
-                        if (
-                            !data.subscriptionId
-                        ) {
-                            throw new Error(
-                                'Stripe did not return a subscription ID.',
-                            );
-                        }
-
-                        setSubscriptionId(
-                            data.subscriptionId,
-                        );
-                    }
-
-                    setClientSecret(
-                        data.clientSecret,
-                    );
-                } catch (error) {
-                    if (cancelled) {
-                        return;
-                    }
-
-                    setInitError(
-                        error instanceof
-                            Error
-                            ? error.message
-                            : 'Unable to connect to payment server.',
-                    );
+                if(!data.clientSecret) {
+                    throw new Error('Stripe did not return a payment client secret.');
                 }
-            };
+
+                if(cancelled) return;
+
+                if(isSubscription) {
+                    if(!data.subscriptionId) {
+                        throw new Error('Stripe did not return a subscription ID.');
+                    }
+
+                    setSubscriptionId(data.subscriptionId);
+                }
+
+                setClientSecret(data.clientSecret);
+            } catch(error) {
+                if(cancelled) return;
+
+                setInitError(
+                    error instanceof Error
+                        ? error.message
+                        : 'Unable to connect to payment server.',
+                );
+            }
+        }
 
         prepareStripePayment();
 
@@ -241,647 +124,538 @@ export default function Checkout({
         };
     }, [
         plan,
-        planType,
         paymentMethod,
         clientSecret,
         stripeIntentUrl,
+        isSubscription,
     ]);
-
-    const checkoutDescription =
-        planType === 'subscription'
-            ? `${credits} credits will be added every month. Unused credits never expire.`
-            : 'Credits never expire — use them anytime to unlock a Full Report.';
-
-    const orderBenefit =
-        planType === 'subscription'
-            ? `${credits} credits every month with automatic monthly refill`
-            : 'Credits never expire — use them anytime to unlock a Full Report';
-
-    const availabilityText =
-        planType === 'subscription'
-            ? 'Your membership and monthly credits will become available after the first payment is confirmed.'
-            : 'Your credits will be available immediately after payment.';
 
     return (
         <>
             <Head title="Secure Checkout" />
 
-            <main className="mx-auto max-w-7xl px-8 py-section-padding">
-                <div className="grid grid-cols-1 gap-12 lg:grid-cols-12">
+            <main className="min-h-[calc(100vh-80px)] bg-surface">
+                <div className="mx-auto max-w-[1180px] px-5 py-10 md:px-8 md:py-14">
 
-                    {/* Payment */}
-                    <div className="space-y-12 lg:col-span-7">
-                        <section>
+                    {/* Heading */}
+                    <div className="mb-9 max-w-2xl">
+                        <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-on-surface-variant">
+                            <ShieldCheck className="size-4 text-secondary" />
+                            Secure checkout
+                        </div>
 
-                            <h1 className="font-h2 text-h2 mb-2 text-primary">
-                                Secure Checkout
-                            </h1>
+                        <h1 className="text-3xl font-bold tracking-tight text-primary md:text-4xl">
+                            {isSubscription
+                                ? `Start your ${label} membership`
+                                : `Complete your ${label} purchase`}
+                        </h1>
 
-                            <p className="font-body-lg mb-8 text-on-surface-variant">
-                                {checkoutDescription}{' '}
+                        <p className="mt-3 max-w-xl text-sm leading-6 text-on-surface-variant">
+                            {isSubscription
+                                ? `${credits} credits are added to your account every month. Cancel anytime from your subscription settings.`
+                                : `${credits} ${credits === 1 ? 'credit' : 'credits'} will be available after payment.`}
+                        </p>
+                    </div>
 
-                                <span className="font-bold text-primary">
-                                    {label}
-                                </span>
-                                .
-                            </p>
+                    <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_390px]">
 
-                            {/* Payment Method */}
-                            <div className="mb-8">
+                        {/* Payment */}
+                        <section className="overflow-hidden rounded-xl border border-outline-variant/60 bg-white shadow-[0_12px_35px_rgba(0,13,47,0.05)]">
 
-                                <p className="font-label-sm mb-3 text-xs font-bold uppercase tracking-widest text-on-surface-variant">
-                                    Payment Method
-                                </p>
+                            {/* Payment selector */}
+                            <div className="border-b border-outline-variant/50 px-6 py-6 md:px-8">
+                                <div className="mb-4 flex items-center justify-between">
+                                    <div>
+                                        <p className="text-sm font-semibold text-primary">
+                                            Payment method
+                                        </p>
 
-                                <div className="grid grid-cols-2 gap-4">
-
-                                    {/* Card */}
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            setInitError(
-                                                null,
-                                            );
-
-                                            setPaymentMethod(
-                                                'stripe',
-                                            );
-                                        }}
-                                        className={`flex items-center justify-center gap-3 rounded-lg border px-4 py-4 font-bold transition-all ${
-                                            paymentMethod ===
-                                            'stripe'
-                                                ? 'border-primary bg-primary text-white shadow-sm'
-                                                : 'border-gray-300 bg-white text-primary hover:border-primary'
-                                        }`}
-                                    >
-                                        <CreditCard className="size-5" />
-
-                                        <span>
-                                            Card
-                                        </span>
-                                    </button>
-
-                                    {/* PayPal */}
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            setInitError(
-                                                null,
-                                            );
-
-                                            setPaymentMethod(
-                                                'paypal',
-                                            );
-                                        }}
-                                        className={`flex items-center justify-center gap-3 rounded-lg border px-4 py-4 font-bold transition-all ${
-                                            paymentMethod ===
-                                            'paypal'
-                                                ? 'border-primary bg-surface-container text-primary shadow-sm'
-                                                : 'border-gray-300 bg-white text-primary hover:border-primary'
-                                        }`}
-                                    >
-                                        <Wallet className="size-5" />
-
-                                        <span>
-                                            PayPal
-                                        </span>
-                                    </button>
-
-                                </div>
-                            </div>
-
-                            <div className="sovereign-line mb-8" />
-
-                            {/* Stripe */}
-                            {paymentMethod ===
-                                'stripe' && (
-                                <>
-                                    {initError && (
-                                        <PaymentError
-                                            message={
-                                                initError
-                                            }
-                                        />
-                                    )}
-
-                                    {!initError &&
-                                        !clientSecret && (
-                                            <div className="flex items-center gap-3 rounded-lg border border-outline-variant bg-surface-container-low p-4 text-sm text-on-surface-variant">
-
-                                                <div className="size-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-
-                                                Preparing
-                                                secure card
-                                                payment...
-
-                                            </div>
-                                        )}
-
-                                    {clientSecret && (
-                                        <Elements
-                                            stripe={
-                                                stripePromise
-                                            }
-                                            options={{
-                                                clientSecret,
-
-                                                appearance: {
-                                                    variables:
-                                                        {
-                                                            colorPrimary:
-                                                                '#000d2f',
-
-                                                            colorDanger:
-                                                                '#ba1a1a',
-
-                                                            fontFamily:
-                                                                'Inter, sans-serif',
-
-                                                            borderRadius:
-                                                                '4px',
-                                                        },
-                                                },
-                                            }}
-                                        >
-                                            <StripeCheckoutForm
-                                                amountDisplay={
-                                                    amountDisplay
-                                                }
-                                                planType={
-                                                    planType
-                                                }
-                                                subscriptionId={
-                                                    subscriptionId
-                                                }
-                                            />
-                                        </Elements>
-                                    )}
-                                </>
-                            )}
-
-                            {/* PayPal */}
-                            {paymentMethod ===
-                                'paypal' && (
-                                <div className="space-y-6">
-
-                                    <div className="rounded-lg border border-outline-variant bg-surface-container-low p-5">
-
-                                        <div className="flex items-start gap-3">
-
-                                            <ShieldCheck className="mt-0.5 size-5 shrink-0 text-primary" />
-
-                                            <div>
-                                                <p className="font-semibold text-primary">
-                                                    Pay securely with PayPal
-                                                </p>
-
-                                                <p className="mt-1 text-sm leading-relaxed text-on-surface-variant">
-                                                    You will
-                                                    complete
-                                                    payment
-                                                    through
-                                                    PayPal.
-                                                    UKCarDoc
-                                                    never
-                                                    receives
-                                                    your PayPal
-                                                    password.
-                                                </p>
-                                            </div>
-
-                                        </div>
-
+                                        <p className="mt-1 text-xs text-on-surface-variant">
+                                            Choose how you would like to pay.
+                                        </p>
                                     </div>
 
-                                    {planType ===
-                                    'subscription' ? (
-                                        /*
-                                         * Jangan call PayPal
-                                         * one-time API untuk
-                                         * subscription.
-                                         *
-                                         * PayPal subscription
-                                         * kita implement setelah
-                                         * Stripe subscription selesai.
-                                         */
-                                        <PaymentError message="PayPal membership payments are not available yet. Please use Card for this subscription." />
-                                    ) : !paypalClientId ? (
-                                        <PaymentError message="PayPal is not configured correctly." />
-                                    ) : (
-                                        <PayPalProvider
-                                            clientId={
-                                                paypalClientId
-                                            }
-                                            environment={
-                                                paypalEnvironment
-                                            }
-                                            components={[
-                                                'paypal-payments',
-                                            ]}
-                                            pageType="checkout"
-                                        >
-                                            <PayPalCheckout
-                                                plan={
-                                                    plan
-                                                }
-                                            />
-                                        </PayPalProvider>
-                                    )}
-
+                                    <Lock className="size-4 text-outline" />
                                 </div>
-                            )}
 
+                                <div className="grid grid-cols-2 rounded-lg bg-surface-container-low p-1">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setInitError(null);
+                                            setPaymentMethod('stripe');
+                                        }}
+                                        className={`flex items-center justify-center gap-2 rounded-md px-4 py-3 text-sm font-semibold transition-all ${
+                                            paymentMethod === 'stripe'
+                                                ? 'bg-white text-primary shadow-sm ring-1 ring-outline-variant/40'
+                                                : 'text-on-surface-variant hover:text-primary'
+                                        }`}
+                                    >
+                                        <CreditCard className="size-4" />
+                                        Card
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setInitError(null);
+                                            setPaymentMethod('paypal');
+                                        }}
+                                        className={`flex items-center justify-center gap-2 rounded-md px-4 py-3 text-sm font-semibold transition-all ${
+                                            paymentMethod === 'paypal'
+                                                ? 'bg-white text-primary shadow-sm ring-1 ring-outline-variant/40'
+                                                : 'text-on-surface-variant hover:text-primary'
+                                        }`}
+                                    >
+                                        <Wallet className="size-4" />
+                                        PayPal
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Payment body */}
+                            <div className="px-6 py-7 md:px-8 md:py-8">
+
+                                {paymentMethod === 'stripe' && (
+                                    <>
+                                        {initError && (
+                                            <PaymentError message={initError} />
+                                        )}
+
+                                        {!initError && !clientSecret && (
+                                            <PaymentLoading />
+                                        )}
+
+                                        {clientSecret && (
+                                            <Elements
+                                                stripe={stripePromise}
+                                                options={{
+                                                    clientSecret,
+
+                                                    appearance: {
+                                                        variables: {
+                                                            colorPrimary: '#000d2f',
+                                                            colorDanger: '#ba1a1a',
+                                                            colorText: '#151c27',
+                                                            fontFamily: 'Inter, sans-serif',
+                                                            borderRadius: '6px',
+                                                            spacingUnit: '4px',
+                                                        },
+
+                                                        rules: {
+                                                            '.Input': {
+                                                                borderColor: '#d8dae2',
+                                                                boxShadow: 'none',
+                                                                padding: '13px 14px',
+                                                            },
+
+                                                            '.Input:focus': {
+                                                                borderColor: '#455c99',
+                                                                boxShadow: '0 0 0 1px #455c99',
+                                                            },
+                                                        },
+                                                    },
+                                                }}
+                                            >
+                                                <StripeCheckoutForm
+                                                    amountDisplay={amountDisplay}
+                                                    planType={planType}
+                                                    subscriptionId={subscriptionId}
+                                                />
+                                            </Elements>
+                                        )}
+                                    </>
+                                )}
+
+                                {paymentMethod === 'paypal' && (
+                                    <PayPalSection
+                                        plan={plan}
+                                        planType={planType}
+                                        paypalClientId={paypalClientId}
+                                        paypalEnvironment={paypalEnvironment}
+                                    />
+                                )}
+                            </div>
+
+                            {/* Secure footer */}
+                            <div className="flex items-center gap-3 border-t border-outline-variant/40 bg-surface-container-low/50 px-6 py-4 text-xs leading-5 text-on-surface-variant md:px-8">
+                                <ShieldCheck className="size-4 shrink-0 text-primary" />
+                                Payment information is processed securely by the selected payment provider.
+                            </div>
                         </section>
+
+                        <OrderSummary
+                            label={label}
+                            amountDisplay={amountDisplay}
+                            credits={credits}
+                            planType={planType}
+                        />
                     </div>
-
-                    {/* Order Summary */}
-                    <div className="space-y-8 lg:col-span-5">
-
-                        <div className="rounded-lg border border-gray-200 bg-white p-8 shadow-[0_4px_20px_rgba(0,32,91,0.04)]">
-
-                            <h3 className="font-h3 text-h3 mb-6 text-primary">
-                                Order Summary
-                            </h3>
-
-                            <div className="mb-6 space-y-4">
-
-                                <div className="flex items-start justify-between gap-6">
-
-                                    <p className="font-bold text-primary">
-                                        {label}
-                                    </p>
-
-                                    <span className="shrink-0 font-bold text-primary">
-                                        {amountDisplay}
-                                    </span>
-
-                                </div>
-
-                                <div className="sovereign-line" />
-
-                                <div className="flex items-start gap-2 text-sm text-slate-600">
-
-                                    <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-green-600" />
-
-                                    <span>
-                                        {orderBenefit}
-                                    </span>
-
-                                </div>
-
-                            </div>
-
-                            <div className="mb-6 rounded bg-surface-container-low p-4">
-
-                                <div className="flex items-center justify-between gap-4 text-primary">
-
-                                    <span className="font-bold">
-                                        {planType ===
-                                        'subscription'
-                                            ? 'Amount Due Today'
-                                            : 'Total Amount Due'}
-                                    </span>
-
-                                    <span className="shrink-0 text-2xl font-black">
-                                        {amountDisplay}
-                                    </span>
-
-                                </div>
-
-                            </div>
-
-                            <div className="flex items-start gap-3 text-xs text-slate-500">
-
-                                <ShieldCheck className="mt-0.5 size-4 shrink-0" />
-
-                                <span>
-                                    {availabilityText}
-                                </span>
-
-                            </div>
-
-                        </div>
-
-                        {/* Trust */}
-                        <div className="grid grid-cols-1 gap-4">
-
-                            <div className="flex items-center gap-4 rounded border border-gray-100 bg-white p-4">
-
-                                <div className="flex size-12 items-center justify-center rounded-full bg-surface-container">
-
-                                    <ShieldCheck className="size-5 text-primary" />
-
-                                </div>
-
-                                <div>
-
-                                    <p className="text-xs font-bold uppercase tracking-widest text-primary">
-                                        UK Government
-                                        Data Partner
-                                    </p>
-
-                                    <p className="text-[11px] text-slate-500">
-                                        Direct
-                                        integration
-                                        with DVLA
-                                        &amp; DVSA
-                                        systems.
-                                    </p>
-
-                                </div>
-
-                            </div>
-
-                            <div className="flex items-center justify-between rounded border border-gray-200 bg-slate-50 p-4">
-
-                                <TrustBadge
-                                    label="Verified by"
-                                    value="VISA"
-                                />
-
-                                <div className="h-8 w-px bg-gray-300" />
-
-                                <TrustBadge
-                                    label="Mastercard"
-                                    value="ID Check"
-                                />
-
-                                <div className="h-8 w-px bg-gray-300" />
-
-                                <TrustBadge
-                                    label="Secure"
-                                    value="Payments"
-                                />
-
-                            </div>
-
-                        </div>
-
-                    </div>
-
                 </div>
             </main>
         </>
     );
 }
 
-/*
-|--------------------------------------------------------------------------
-| PayPal One-Time Checkout
-|--------------------------------------------------------------------------
-|
-| Untuk sekarang component ini hanya
-| digunakan plan one_time.
-|
-| Subscription PayPal nanti punya
-| flow sendiri menggunakan PayPal
-| Subscriptions API.
-|
-*/
-
-function PayPalCheckout({
-    plan,
+function OrderSummary({
+    label,
+    amountDisplay,
+    credits,
+    planType,
 }: {
-    plan: string;
+    label: string;
+    amountDisplay: string;
+    credits: number;
+    planType: PlanType;
 }) {
-    const [
-        errorMessage,
-        setErrorMessage,
-    ] = useState<string | null>(
-        null,
-    );
-
-    const [
-        isProcessing,
-        setIsProcessing,
-    ] = useState(false);
-
-    const createPayPalOrder =
-        async (): Promise<{
-            orderId: string;
-        }> => {
-            setErrorMessage(null);
-
-            const response =
-                await fetch(
-                    '/checkout/paypal/create-order',
-                    {
-                        method:
-                            'POST',
-
-                        headers: {
-                            'Content-Type':
-                                'application/json',
-
-                            Accept:
-                                'application/json',
-
-                            'X-CSRF-TOKEN':
-                                getCsrfToken(),
-                        },
-
-                        body: JSON.stringify(
-                            {
-                                plan,
-                            },
-                        ),
-                    },
-                );
-
-            const data =
-                await response.json();
-
-            if (!response.ok) {
-                throw new Error(
-                    data.message ??
-                        'Unable to create PayPal order.',
-                );
-            }
-
-            if (!data.id) {
-                throw new Error(
-                    'PayPal order ID was not returned.',
-                );
-            }
-
-            return {
-                orderId:
-                    data.id,
-            };
-        };
-
-    const handleApprove =
-        async (
-            data: OnApproveDataOneTimePayments,
-        ) => {
-            setIsProcessing(true);
-            setErrorMessage(null);
-
-            try {
-                const response =
-                    await fetch(
-                        '/checkout/paypal/capture',
-                        {
-                            method:
-                                'POST',
-
-                            headers: {
-                                'Content-Type':
-                                    'application/json',
-
-                                Accept:
-                                    'application/json',
-
-                                'X-CSRF-TOKEN':
-                                    getCsrfToken(),
-                            },
-
-                            body: JSON.stringify(
-                                {
-                                    order_id:
-                                        data.orderId,
-                                },
-                            ),
-                        },
-                    );
-
-                const result =
-                    await response.json();
-
-                if (!response.ok) {
-                    throw new Error(
-                        result.message ??
-                            'Unable to capture PayPal payment.',
-                    );
-                }
-
-                if (
-                    result.status !==
-                    'success'
-                ) {
-                    throw new Error(
-                        'PayPal payment was not completed.',
-                    );
-                }
-
-                if (
-                    !result.redirect
-                ) {
-                    throw new Error(
-                        'Checkout success URL was not returned.',
-                    );
-                }
-
-                window.location.assign(
-                    result.redirect,
-                );
-            } catch (error) {
-                setErrorMessage(
-                    error instanceof
-                        Error
-                        ? error.message
-                        : 'PayPal payment failed.',
-                );
-
-                setIsProcessing(false);
-
-                throw error;
-            }
-        };
-
-    const handleError = (
-        error: OnErrorData,
-    ) => {
-        setIsProcessing(false);
-
-        setErrorMessage(
-            error.message ??
-                'Something went wrong with PayPal.',
-        );
-    };
+    const isSubscription = planType === 'subscription';
 
     return (
-        <div className="space-y-4">
+        <aside className="lg:sticky lg:top-8">
+            <div className="overflow-hidden rounded-xl border border-outline-variant/60 bg-white shadow-[0_12px_35px_rgba(0,13,47,0.05)]">
 
-            {errorMessage && (
-                <PaymentError
-                    message={
-                        errorMessage
-                    }
-                />
-            )}
-
-            {isProcessing && (
-                <div className="flex items-center justify-center gap-3 rounded-lg border border-outline-variant bg-surface-container-low p-4 text-sm font-semibold text-primary">
-
-                    <div className="size-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-
-                    Confirming your
-                    PayPal payment...
-
+                <div className="border-b border-outline-variant/50 px-6 py-5">
+                    <p className="text-xs font-semibold uppercase tracking-[0.15em] text-on-surface-variant">
+                        Order summary
+                    </p>
                 </div>
-            )}
 
-            <div
-                className={
-                    isProcessing
-                        ? 'pointer-events-none opacity-50'
-                        : ''
-                }
-            >
-                <PayPalOneTimePaymentButton
-                    createOrder={
-                        createPayPalOrder
-                    }
-                    onApprove={
-                        handleApprove
-                    }
-                    onCancel={() => {
-                        setIsProcessing(
-                            false,
-                        );
+                <div className="p-6">
+                    <div className="flex items-start justify-between gap-6">
+                        <div>
+                            <p className="font-semibold text-primary">
+                                {label}
+                            </p>
 
-                        setErrorMessage(
-                            'PayPal checkout was cancelled. No payment was taken.',
-                        );
-                    }}
-                    onError={
-                        handleError
-                    }
-                    presentationMode="auto"
-                    disabled={
-                        isProcessing
-                    }
-                />
+                            <p className="mt-1 text-xs leading-5 text-on-surface-variant">
+                                {isSubscription
+                                    ? 'Monthly membership'
+                                    : credits === 1
+                                      ? '1 report credit'
+                                      : `${credits} report credits`}
+                            </p>
+                        </div>
+
+                        <p className="shrink-0 text-sm font-semibold text-primary">
+                            {amountDisplay}
+                        </p>
+                    </div>
+
+                    <div className="my-6 h-px bg-outline-variant/50" />
+
+                    <div className="space-y-3">
+                        <SummaryBenefit
+                            text={
+                                isSubscription
+                                    ? `${credits} credits added every month`
+                                    : `${credits} ${credits === 1 ? 'credit' : 'credits'} added after payment`
+                            }
+                        />
+
+                        <SummaryBenefit text="Unused credits never expire" />
+
+                        {isSubscription && (
+                            <SummaryBenefit text="Cancel anytime from your account" />
+                        )}
+                    </div>
+
+                    <div className="my-6 h-px bg-outline-variant/50" />
+
+                    <div className="flex items-end justify-between gap-6">
+                        <div>
+                            <p className="text-xs text-on-surface-variant">
+                                {isSubscription ? 'Due today' : 'Total'}
+                            </p>
+
+                            {isSubscription && (
+                                <p className="mt-1 text-[11px] text-outline">
+                                    Then billed monthly
+                                </p>
+                            )}
+                        </div>
+
+                        <p className="text-2xl font-bold tracking-tight text-primary">
+                            {amountDisplay}
+                        </p>
+                    </div>
+                </div>
+
+                <div className="border-t border-outline-variant/40 bg-primary px-6 py-5 text-white">
+                    <div className="flex items-start gap-3">
+                        <ShieldCheck className="mt-0.5 size-5 shrink-0 text-white/80" />
+
+                        <div>
+                            <p className="text-sm font-semibold">
+                                Secure payment
+                            </p>
+
+                            <p className="mt-1 text-xs leading-5 text-white/65">
+                                Your card or PayPal credentials are handled directly by the payment provider.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+    );
+}
+
+function SummaryBenefit({ text }: { text: string }) {
+    return (
+        <div className="flex items-start gap-3 text-sm text-on-surface-variant">
+            <div className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-surface-container">
+                <Check className="size-3 text-primary" />
             </div>
 
-            <p className="text-center text-xs text-slate-500">
-                You will be redirected
-                back to UKCarDoc after
-                payment is confirmed.
-            </p>
-
+            <span>{text}</span>
         </div>
     );
 }
 
-/*
-|--------------------------------------------------------------------------
-| Stripe Checkout Form
-|--------------------------------------------------------------------------
-|
-| Satu form dipakai untuk:
-|
-| one_time
-| → PaymentIntent
-| → /checkout/success
-|
-| subscription
-| → incomplete Subscription
-| → first invoice confirmation
-| → /checkout/subscription/success
-|
-*/
+function PayPalSection({
+    plan,
+    planType,
+    paypalClientId,
+    paypalEnvironment,
+}: {
+    plan: string;
+    planType: PlanType;
+    paypalClientId: string | null;
+    paypalEnvironment: 'sandbox' | 'production';
+}) {
+    const isSubscription = planType === 'subscription';
+
+    return (
+        <div className="mx-auto max-w-lg py-2">
+            <div className="mb-7 text-center">
+                <div className="mx-auto mb-4 flex size-11 items-center justify-center rounded-full bg-surface-container">
+                    <Wallet className="size-5 text-primary" />
+                </div>
+
+                <h2 className="text-lg font-semibold text-primary">
+                    {isSubscription ? 'Subscribe with PayPal' : 'Pay with PayPal'}
+                </h2>
+
+                <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-on-surface-variant">
+                    {isSubscription
+                        ? 'Approve your monthly membership securely using your PayPal account.'
+                        : 'Continue with your PayPal account to complete this payment securely.'}
+                </p>
+            </div>
+
+            {!paypalClientId ? (
+                <PaymentError message="PayPal is not configured correctly." />
+            ) : (
+                <PayPalProvider
+                    clientId={paypalClientId}
+                    environment={paypalEnvironment}
+                    components={
+                        isSubscription
+                            ? ['paypal-subscriptions']
+                            : ['paypal-payments']
+                    }
+                    pageType="checkout"
+                >
+                    {isSubscription ? (
+                        <PayPalSubscriptionCheckout plan={plan} />
+                    ) : (
+                        <PayPalOneTimeCheckout plan={plan} />
+                    )}
+                </PayPalProvider>
+            )}
+        </div>
+    );
+}
+
+function PayPalOneTimeCheckout({ plan }: { plan: string }) {
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
+    const [isProcessing, setIsProcessing] = useState(false);
+
+    async function createPayPalOrder(): Promise<{ orderId: string }> {
+        setErrorMessage(null);
+
+        const data = await postJson<{ id?: string }>(
+            '/checkout/paypal/create-order',
+            { plan },
+        );
+
+        if(!data.id) {
+            throw new Error('PayPal order ID was not returned.');
+        }
+
+        return {
+            orderId: data.id,
+        };
+    }
+
+    async function handleApprove(data: OnApproveDataOneTimePayments) {
+        setIsProcessing(true);
+        setErrorMessage(null);
+
+        try {
+            const result = await postJson<{
+                status?: string;
+                redirect?: string;
+            }>('/checkout/paypal/capture', {
+                order_id: data.orderId,
+            });
+
+            if(result.status !== 'success') {
+                throw new Error('PayPal payment was not completed.');
+            }
+
+            if(!result.redirect) {
+                throw new Error('Checkout success URL was not returned.');
+            }
+
+            window.location.assign(result.redirect);
+        } catch(error) {
+            setIsProcessing(false);
+
+            setErrorMessage(
+                error instanceof Error
+                    ? error.message
+                    : 'PayPal payment failed.',
+            );
+
+            throw error;
+        }
+    }
+
+    function handleError(error: OnErrorData) {
+        setIsProcessing(false);
+        setErrorMessage(error.message ?? 'Something went wrong with PayPal.');
+    }
+
+    return (
+        <div>
+            {errorMessage && (
+                <div className="mb-4">
+                    <PaymentError message={errorMessage} />
+                </div>
+            )}
+
+            {isProcessing && (
+                <PaymentProcessing text="Confirming payment..." />
+            )}
+
+            <div className={isProcessing ? 'pointer-events-none opacity-50' : ''}>
+                <PayPalOneTimePaymentButton
+                    createOrder={createPayPalOrder}
+                    onApprove={handleApprove}
+                    onCancel={() => {
+                        setIsProcessing(false);
+                        setErrorMessage('PayPal checkout was cancelled. No payment was taken.');
+                    }}
+                    onError={handleError}
+                    presentationMode="auto"
+                    disabled={isProcessing}
+                />
+            </div>
+
+            <p className="mt-4 text-center text-xs text-outline">
+                You'll return to UKCarDoc after PayPal confirms your payment.
+            </p>
+        </div>
+    );
+}
+
+function PayPalSubscriptionCheckout({ plan }: { plan: string }) {
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
+    const [isProcessing, setIsProcessing] = useState(false);
+
+    async function createSubscription(): Promise<{ subscriptionId: string }> {
+        setErrorMessage(null);
+
+        const data = await postJson<{ subscriptionId?: string }>(
+            '/checkout/paypal/subscription/create',
+            { plan },
+        );
+
+        if(!data.subscriptionId) {
+            throw new Error('PayPal subscription ID was not returned.');
+        }
+
+        return {
+            subscriptionId: data.subscriptionId,
+        };
+    }
+
+    async function handleApprove(data: OnApproveDataSubscriptions) {
+        setIsProcessing(true);
+        setErrorMessage(null);
+
+        try {
+            const result = await postJson<{
+                status?: string;
+                redirect?: string;
+            }>('/checkout/paypal/subscription/confirm', {
+                subscription_id: data.subscriptionId,
+            });
+
+            if(result.status !== 'success') {
+                throw new Error('PayPal subscription was not activated.');
+            }
+
+            if(!result.redirect) {
+                throw new Error('Subscription success URL was not returned.');
+            }
+
+            window.location.assign(result.redirect);
+        } catch(error) {
+            setIsProcessing(false);
+
+            setErrorMessage(
+                error instanceof Error
+                    ? error.message
+                    : 'PayPal subscription failed.',
+            );
+
+            throw error;
+        }
+    }
+
+    function handleError(error: OnErrorData) {
+        setIsProcessing(false);
+        setErrorMessage(
+            error.message ?? 'Something went wrong with PayPal.',
+        );
+    }
+
+    return (
+        <div>
+            {errorMessage && (
+                <div className="mb-4">
+                    <PaymentError message={errorMessage} />
+                </div>
+            )}
+
+            {isProcessing && (
+                <PaymentProcessing text="Activating membership..." />
+            )}
+
+            <div className={isProcessing ? 'pointer-events-none opacity-50' : ''}>
+                <PayPalSubscriptionButton
+                    createSubscription={createSubscription}
+                    onApprove={handleApprove}
+                    onCancel={() => {
+                        setIsProcessing(false);
+                        setErrorMessage(
+                            'PayPal subscription was cancelled. No membership was created.',
+                        );
+                    }}
+                    onError={handleError}
+                    presentationMode="auto"
+                    disabled={isProcessing}
+                />
+            </div>
+
+            <p className="mt-4 text-center text-xs text-outline">
+                You'll return to UKCarDoc after PayPal confirms your membership.
+            </p>
+        </div>
+    );
+}
 
 function StripeCheckoutForm({
     amountDisplay,
@@ -889,63 +663,27 @@ function StripeCheckoutForm({
     subscriptionId,
 }: {
     amountDisplay: string;
-
-    planType:
-        | 'one_time'
-        | 'subscription';
-
-    subscriptionId:
-        string | null;
+    planType: PlanType;
+    subscriptionId: string | null;
 }) {
-    const stripe =
-        useStripe();
+    const stripe = useStripe();
+    const elements = useElements();
 
-    const elements =
-        useElements();
+    const [isProcessing, setIsProcessing] = useState(false);
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-    const [
-        isProcessing,
-        setIsProcessing,
-    ] = useState(false);
-
-    const [
-        errorMessage,
-        setErrorMessage,
-    ] = useState<string | null>(
-        null,
-    );
-
-    const [
-        billing,
-        setBilling,
-    ] = useState({
+    const [billing, setBilling] = useState({
         line1: '',
         city: '',
         postalCode: '',
     });
 
-    async function handleSubmit(
-        e: FormEvent,
-    ) {
-        e.preventDefault();
+    async function handleSubmit(event: FormEvent) {
+        event.preventDefault();
 
-        if (
-            !stripe ||
-            !elements
-        ) {
-            return;
-        }
+        if(!stripe || !elements) return;
 
-        /*
-         * Subscription harus punya
-         * subscription ID sebelum
-         * payment bisa dilanjutkan.
-         */
-        if (
-            planType ===
-                'subscription' &&
-            !subscriptionId
-        ) {
+        if(planType === 'subscription' && !subscriptionId) {
             setErrorMessage(
                 'Subscription could not be identified. Please refresh the page and try again.',
             );
@@ -956,297 +694,219 @@ function StripeCheckoutForm({
         setIsProcessing(true);
         setErrorMessage(null);
 
-        /*
-         * One-time dan subscription
-         * punya success endpoint
-         * berbeda.
-         */
-        const returnUrl =
-            planType ===
-            'subscription'
-                ? `${
-                      window.location
-                          .origin
-                  }/checkout/subscription/success?subscription_id=${encodeURIComponent(
-                      subscriptionId!,
-                  )}`
-                : `${
-                      window.location
-                          .origin
-                  }/checkout/success`;
+        const returnUrl = planType === 'subscription'
+            ? `${window.location.origin}/checkout/subscription/success?subscription_id=${encodeURIComponent(subscriptionId!)}`
+            : `${window.location.origin}/checkout/success`;
 
-        const { error } =
-            await stripe.confirmPayment(
-                {
-                    elements,
+        const { error } = await stripe.confirmPayment({
+            elements,
 
-                    confirmParams: {
-                        return_url:
-                            returnUrl,
+            confirmParams: {
+                return_url: returnUrl,
 
-                        payment_method_data:
-                            {
-                                billing_details:
-                                    {
-                                        address:
-                                            {
-                                                line1:
-                                                    billing.line1,
-
-                                                city:
-                                                    billing.city,
-
-                                                postal_code:
-                                                    billing.postalCode,
-
-                                                /*
-                                                 * UKCarDoc market.
-                                                 *
-                                                 * Nanti kalau mau
-                                                 * support billing country
-                                                 * dinamis, field ini
-                                                 * bisa dijadikan state.
-                                                 */
-                                                country:
-                                                    'GB',
-                                            },
-                                    },
-                            },
+                payment_method_data: {
+                    billing_details: {
+                        address: {
+                            line1: billing.line1,
+                            city: billing.city,
+                            postal_code: billing.postalCode,
+                            country: 'GB',
+                        },
                     },
                 },
-            );
+            },
+        });
 
-        /*
-         * Jika Stripe harus redirect,
-         * browser akan pindah otomatis.
-         *
-         * Bagian ini biasanya berjalan
-         * kalau payment gagal langsung.
-         */
-        if (error) {
-            setErrorMessage(
-                error.message ??
-                    'Payment failed. Please try again.',
-            );
-
+        if(error) {
+            setErrorMessage(error.message ?? 'Payment failed. Please try again.');
             setIsProcessing(false);
         }
     }
 
     return (
-        <form
-            onSubmit={
-                handleSubmit
-            }
-            className="space-y-8"
-        >
-
-            {/* Payment Details */}
+        <form onSubmit={handleSubmit}>
             <div>
+                <div className="mb-5">
+                    <h2 className="text-lg font-semibold text-primary">
+                        Card details
+                    </h2>
 
-                <h3 className="font-h3 text-h3 mb-4 text-primary">
-                    Payment Details
-                </h3>
+                    <p className="mt-1 text-sm text-on-surface-variant">
+                        Enter your payment information below.
+                    </p>
+                </div>
 
                 <PaymentElement />
-
             </div>
 
-            {/* Billing Address */}
-            <div className="space-y-4 pt-2">
+            <div className="my-7 h-px bg-outline-variant/40" />
 
-                <h3 className="font-h3 text-h3 text-primary">
-                    Billing Address
-                </h3>
+            <div>
+                <h2 className="text-lg font-semibold text-primary">
+                    Billing address
+                </h2>
 
-                {/* Street */}
-                <div>
+                <p className="mt-1 text-sm text-on-surface-variant">
+                    Used for payment verification.
+                </p>
 
-                    <label className="font-label-sm mb-2 block text-primary">
-                        STREET ADDRESS
-                    </label>
-
-                    <input
-                        required
-                        type="text"
+                <div className="mt-5 space-y-4">
+                    <Field
+                        label="Street address"
                         placeholder="123 Pall Mall"
-                        value={
-                            billing.line1
+                        value={billing.line1}
+                        onChange={(value) =>
+                            setBilling((current) => ({
+                                ...current,
+                                line1: value,
+                            }))
                         }
-                        onChange={(e) =>
-                            setBilling(
-                                (
-                                    current,
-                                ) => ({
-                                    ...current,
-
-                                    line1:
-                                        e
-                                            .target
-                                            .value,
-                                }),
-                            )
-                        }
-                        className="w-full rounded border border-gray-300 px-4 py-3 outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary"
                     />
 
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-
-                    {/* City */}
-                    <div>
-
-                        <label className="font-label-sm mb-2 block text-primary">
-                            CITY
-                        </label>
-
-                        <input
-                            required
-                            type="text"
+                    <div className="grid gap-4 sm:grid-cols-2">
+                        <Field
+                            label="City"
                             placeholder="London"
-                            value={
-                                billing.city
+                            value={billing.city}
+                            onChange={(value) =>
+                                setBilling((current) => ({
+                                    ...current,
+                                    city: value,
+                                }))
                             }
-                            onChange={(e) =>
-                                setBilling(
-                                    (
-                                        current,
-                                    ) => ({
-                                        ...current,
-
-                                        city:
-                                            e
-                                                .target
-                                                .value,
-                                    }),
-                                )
-                            }
-                            className="w-full rounded border border-gray-300 px-4 py-3 outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary"
                         />
 
-                    </div>
-
-                    {/* Postcode */}
-                    <div>
-
-                        <label className="font-label-sm mb-2 block text-primary">
-                            POSTCODE
-                        </label>
-
-                        <input
-                            required
-                            type="text"
+                        <Field
+                            label="Postcode"
                             placeholder="SW1A 1AA"
-                            value={
-                                billing.postalCode
+                            value={billing.postalCode}
+                            onChange={(value) =>
+                                setBilling((current) => ({
+                                    ...current,
+                                    postalCode: value,
+                                }))
                             }
-                            onChange={(e) =>
-                                setBilling(
-                                    (
-                                        current,
-                                    ) => ({
-                                        ...current,
-
-                                        postalCode:
-                                            e
-                                                .target
-                                                .value,
-                                    }),
-                                )
-                            }
-                            className="w-full rounded border border-gray-300 px-4 py-3 outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary"
                         />
-
                     </div>
-
                 </div>
-
             </div>
 
             {errorMessage && (
-                <PaymentError
-                    message={
-                        errorMessage
-                    }
-                />
+                <div className="mt-5">
+                    <PaymentError message={errorMessage} />
+                </div>
             )}
 
-            <div className="pt-2">
+            <button
+                type="submit"
+                disabled={!stripe || isProcessing}
+                className="mt-7 flex w-full items-center justify-center gap-2 rounded-lg bg-secondary px-6 py-4 text-sm font-semibold text-white shadow-[0_8px_20px_rgba(187,0,26,0.16)] transition-all hover:bg-secondary-container active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+                <Lock className="size-4" />
 
-                <button
-                    type="submit"
-                    disabled={
-                        !stripe ||
-                        isProcessing
-                    }
-                    className="flex w-full items-center justify-center gap-3 rounded bg-secondary py-5 font-bold text-white shadow-lg transition-all hover:bg-red-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                    <Lock className="size-5" />
+                {isProcessing
+                    ? 'Processing payment...'
+                    : planType === 'subscription'
+                      ? `Subscribe for ${amountDisplay}`
+                      : `Pay ${amountDisplay}`}
+            </button>
 
-                    {isProcessing
-                        ? 'Processing...'
-                        : planType ===
-                            'subscription'
-                          ? `Subscribe ${amountDisplay}`
-                          : `Pay ${amountDisplay} Now`}
-                </button>
-
-                <p className="mt-4 text-center text-xs text-slate-500">
-                    By clicking{' '}
-                    {planType ===
-                    'subscription'
-                        ? '"Subscribe"'
-                        : '"Pay Now"'}{' '}
-                    you agree to our
-                    Terms of Service and
-                    Refund Policy.
-                </p>
-
-            </div>
-
+            <p className="mt-4 text-center text-[11px] leading-5 text-outline">
+                By continuing, you agree to UKCarDoc's Terms of Service and Refund Policy.
+            </p>
         </form>
     );
 }
 
-function PaymentError({
-    message,
+function Field({
+    label,
+    placeholder,
+    value,
+    onChange,
 }: {
-    message: string;
+    label: string;
+    placeholder: string;
+    value: string;
+    onChange: (value: string) => void;
 }) {
     return (
-        <div className="flex items-start gap-3 rounded-lg border border-error-container bg-error-container p-4 text-on-error-container">
+        <label className="block">
+            <span className="mb-2 block text-xs font-semibold text-primary">
+                {label}
+            </span>
 
-            <ShieldAlert className="mt-0.5 size-5 shrink-0" />
+            <input
+                required
+                type="text"
+                value={value}
+                placeholder={placeholder}
+                onChange={(event) => onChange(event.target.value)}
+                className="w-full rounded-md border border-outline-variant bg-white px-4 py-3 text-sm text-primary outline-none transition focus:border-surface-tint focus:ring-1 focus:ring-surface-tint"
+            />
+        </label>
+    );
+}
 
-            <p className="text-sm">
-                {message}
-            </p>
+function PaymentLoading() {
+    return (
+        <div className="flex min-h-40 items-center justify-center">
+            <div className="text-center">
+                <div className="mx-auto size-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
 
+                <p className="mt-4 text-sm text-on-surface-variant">
+                    Preparing secure payment…
+                </p>
+            </div>
         </div>
     );
 }
 
-function TrustBadge({
-    label,
-    value,
-}: {
-    label: string;
-    value: string;
-}) {
+function PaymentProcessing({ text }: { text: string }) {
     return (
-        <div className="px-2 text-center">
-
-            <p className="text-[10px] font-black uppercase tracking-tighter text-slate-400">
-                {label}
-            </p>
-
-            <p className="text-sm font-bold text-slate-600">
-                {value}
-            </p>
-
+        <div className="mb-4 flex items-center justify-center gap-3 rounded-lg bg-surface-container-low px-4 py-3 text-sm text-primary">
+            <div className="size-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            {text}
         </div>
     );
+}
+
+function PaymentError({ message }: { message: string }) {
+    return (
+        <div className="flex items-start gap-3 rounded-lg border border-error/15 bg-error-container/50 px-4 py-3.5 text-on-error-container">
+            <ShieldAlert className="mt-0.5 size-4 shrink-0" />
+
+            <p className="text-sm leading-5">
+                {message}
+            </p>
+        </div>
+    );
+}
+
+async function postJson<T extends object>(
+    url: string,
+    body: Record<string, unknown>,
+): Promise<T> {
+    const response = await fetch(url, {
+        method: 'POST',
+
+        headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+            'X-CSRF-TOKEN': getCsrfToken(),
+        },
+
+        body: JSON.stringify(body),
+    });
+
+    const data = await response.json().catch(() => ({})) as T & {
+        message?: string;
+    };
+
+    if(!response.ok) {
+        throw new Error(data.message ?? 'Request failed. Please try again.');
+    }
+
+    return data;
 }
 
 function getCsrfToken(): string {
@@ -1257,9 +917,7 @@ function getCsrfToken(): string {
     );
 }
 
-Checkout.layout = (
-    page: React.ReactNode,
-) => (
+Checkout.layout = (page: ReactNode) => (
     <BaseLayout>
         {page}
     </BaseLayout>

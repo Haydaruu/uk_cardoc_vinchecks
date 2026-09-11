@@ -14,72 +14,72 @@ class StripeSubscriptionController extends Controller
     public function createIntent(Request $request)
     {
         $request->validate([
-        'plan' => [
-            'required',
-            'string',
-        ],
-    ]);
+            'plan' => [
+                'required',
+                'string',
+            ],
+        ]);
 
-    $user = $request->user();
+        $user = $request->user();
 
-    $planSlug = $request->string('plan')->toString();
+        $planSlug = $request->string('plan')->toString();
 
-    $plan = config("credit_plans.{$planSlug}");
+        $plan = config("credit_plans.{$planSlug}");
 
-    if (! $plan || $plan['type'] !== 'subscription') {
-        return response()->json([
-            'message' =>
-                'Invalid subscription plan.',
-        ], 422);
-    }
+        if (!$plan || $plan['type'] !== 'subscription') {
+            return response()->json([
+                'message' =>
+                    'Invalid subscription plan.',
+            ], 422);
+        }
 
-    /*
-     * Direct URL protection.
-     *
-     * Pricing page already sends
-     * existing members through
-     * Change Plan, but backend
-     * must still enforce this.
-     */
-    if ($user->activeSubscription()) {
-        return response()->json([
-            'message' =>
-                'You already have an active subscription.',
-        ], 409);
-    }
+        /*
+         * Direct URL protection.
+         *
+         * Pricing page already sends
+         * existing members through
+         * Change Plan, but backend
+         * must still enforce this.
+         */
+        if ($user->activeSubscription()) {
+            return response()->json([
+                'message' =>
+                    'You already have an active subscription.',
+            ], 409);
+        }
 
-    $stripe = new StripeClient(config('services.stripe.secret'));
+        $stripe = new StripeClient(config('services.stripe.secret'));
 
-    /*
-     * Subscription needs
-     * a Stripe Customer.
-     */
-    if (! $user->stripe_customer_id) {
-        try {
-            $customer =$stripe
+        /*
+         * Subscription needs
+         * a Stripe Customer.
+         */
+        if (!$user->stripe_customer_id) {
+            try {
+                $customer = $stripe
                     ->customers
                     ->create([
-                        'email' =>$user->email,
+                        'email' => $user->email,
                         'name' => $user->name,
                         'metadata' => [
                             'user_id' =>
                                 (string) $user->id,
                         ],
                     ]);
-        } catch (ApiErrorException $e) {
-            report($e);
+            } catch (ApiErrorException $e) {
+                report($e);
 
-            return response()->json([
-                'message' =>
-                    'Unable to create Stripe customer.',
-            ], 502);
+                return response()->json([
+                    'message' =>
+                        'Unable to create Stripe customer.',
+                ], 502);
+            }
+
+            $user->update(['stripe_customer_id' => $customer->id,]);
         }
 
-        $user->update(['stripe_customer_id' =>$customer->id,]);
-    }
-
-    try {
-        $subscription = $stripe
+        try {
+            $subscription = $stripe
                 ->subscriptions
                 ->create([
                     'customer' =>
@@ -91,7 +91,7 @@ class StripeSubscriptionController extends Controller
                             'quantity' => 1,
                         ],
                     ],
-                    
+
                     'payment_behavior' => 'default_incomplete',
 
                     'payment_settings' => [
@@ -109,28 +109,28 @@ class StripeSubscriptionController extends Controller
                         'latest_invoice.confirmation_secret',
                     ],
                 ]);
-    } catch (ApiErrorException $e) {
-        report($e);
+        } catch (ApiErrorException $e) {
+            report($e);
+
+            return response()->json([
+                'message' =>
+                    'Unable to prepare subscription payment.',
+            ], 502);
+        }
+
+        $clientSecret = $subscription->latest_invoice?->confirmation_secret?->client_secret;
+
+        if (!$clientSecret) {
+            return response()->json([
+                'message' =>
+                    'Stripe did not return a payment client secret.',
+            ], 502);
+        }
 
         return response()->json([
-            'message' =>
-                'Unable to prepare subscription payment.',
-        ], 502);
-    }
-
-    $clientSecret = $subscription->latest_invoice?->confirmation_secret?->client_secret;
-
-    if (! $clientSecret) {
-        return response()->json([
-            'message' =>
-                'Stripe did not return a payment client secret.',
-        ], 502);
-    }
-
-    return response()->json([
-        'clientSecret' =>$clientSecret,
-        'subscriptionId' =>$subscription->id,
-    ]);
+            'clientSecret' => $clientSecret,
+            'subscriptionId' => $subscription->id,
+        ]);
     }
     public function checkout(Request $request)
     {
@@ -144,7 +144,7 @@ class StripeSubscriptionController extends Controller
 
         $plan = config("credit_plans.{$planSlug}");
 
-        if (! $plan || $plan['type'] !== 'subscription') {
+        if (!$plan || $plan['type'] !== 'subscription') {
             abort(422, 'Invalid subscription plan. ');
         }
 
@@ -152,8 +152,8 @@ class StripeSubscriptionController extends Controller
             ->whereIn('status', ['active', 'pending'])
             ->latest()
             ->first();
-        
-        if( $existingSubscription ) {
+
+        if ($existingSubscription) {
             return back()->with(
                 'error',
                 ' You already have an active subscription. '
@@ -162,16 +162,16 @@ class StripeSubscriptionController extends Controller
 
         $stripe = new StripeClient(config('services.stripe.secret'));
 
-        if (! $user->stripe_customer_id) {
+        if (!$user->stripe_customer_id) {
             $customer = $stripe->customers->create([
                 'email' => $user->email,
                 'name' => $user->name,
                 'metadata' => [
-                    'user_id' => (string)$user->id,
+                    'user_id' => (string) $user->id,
                 ],
             ]);
 
-             $user->update([
+            $user->update([
                 'stripe_customer_id' => $customer->id,
             ]);
         }
@@ -185,26 +185,26 @@ class StripeSubscriptionController extends Controller
                     'quantity' => 1,
                 ],
             ],
-            
+
             'subscription_data' => [
                 'metadata' => [
-                    'user_id' => (string)$user->id,
+                    'user_id' => (string) $user->id,
                     'plan' => $planSlug,
-                    'credits' => (string)$plan['credits'],
+                    'credits' => (string) $plan['credits'],
                 ],
             ],
 
             'metadata' => [
-                'user_id' => (string)$user->id,
+                'user_id' => (string) $user->id,
                 'plan' => $planSlug,
                 'credits' => (string) $plan['credits'],
             ],
 
-            'success_url' => 
+            'success_url' =>
                 route('settings.subscription')
                 . '?checkout=success',
-            
-            'cancel_url' => 
+
+            'cancel_url' =>
                 route('settings.subscription')
                 . '?checkout=cancelled',
         ]);
@@ -272,24 +272,24 @@ class StripeSubscriptionController extends Controller
             )
             : null;
 
-        if (! $plan || $plan['type'] !== 'subscription') {
-            return redirect('/')->with('modal','payment_failed');
+        if (!$plan || $plan['type'] !== 'subscription') {
+            return redirect('/')->with('modal', 'payment_failed');
         }
 
 
-        if (! in_array( $stripeSubscription->status,['active','trialing',],true)) {
-            return redirect('/')->with('modal','payment_failed');
+        if (!in_array($stripeSubscription->status, ['active', 'trialing',], true)) {
+            return redirect('/')->with('modal', 'payment_failed');
         }
 
         $invoice =
             $stripeSubscription
                 ->latest_invoice;
 
-        if (! $invoice) {
-            return redirect('/')->with('modal','payment_failed');
+        if (!$invoice) {
+            return redirect('/')->with('modal', 'payment_failed');
         }
 
-        $paidAt = $invoice->status_transitions?->paid_at?? $invoice->created?? time();
+        $paidAt = $invoice->status_transitions?->paid_at ?? $invoice->created ?? time();
 
         $paymentMethod = $stripeSubscription->default_payment_method;
 
@@ -300,10 +300,10 @@ class StripeSubscriptionController extends Controller
             [
                 'purchaseType' => 'subscription',
                 'order' => [
-                    'number' => 'UKC-SUB-' .strtoupper(substr($invoice->id,3,8)),
+                    'number' => 'UKC-SUB-' . strtoupper(substr($invoice->id, 3, 8)),
                     'date' => date('F j, Y', $paidAt),
                     'item' => $plan['label'],
-                    'amount' => number_format($invoice->amount_paid/ 100, 2),
+                    'amount' => number_format($invoice->amount_paid / 100, 2),
                     'currency' => strtoupper($invoice->currency),
                     'cardBrand' => $card?->brand,
                     'cardLast4' => $card?->last4,
@@ -319,7 +319,7 @@ class StripeSubscriptionController extends Controller
         $user = $request->user();
         $subscription = $user->activeSubscription();
 
-        if(! $subscription || ! $subscription->stripe_subscription_id) {
+        if (!$subscription || !$subscription->stripe_subscription_id) {
             return back()->with(
                 'error',
                 'No active subscription found.'
@@ -327,7 +327,8 @@ class StripeSubscriptionController extends Controller
         }
         $stripe = new StripeClient(config('services.stripe.secret'));
 
-        $stripe->subscriptions->update($subscription->stripe_subscription_id, 
+        $stripe->subscriptions->update(
+            $subscription->stripe_subscription_id,
             [
                 'cancel_at_period_end' => true
             ]
@@ -349,7 +350,7 @@ class StripeSubscriptionController extends Controller
 
         $subscription = $user->activeSubscription();
 
-        if(! $subscription || ! $subscription->stripe_subscription_id) {
+        if (!$subscription || !$subscription->stripe_subscription_id) {
             return back()->with(
                 'error',
                 'No active subscription found.'
@@ -359,7 +360,7 @@ class StripeSubscriptionController extends Controller
         $planSlug = $request->string('plan')->toString();
         $plan = config("credit_plans.{$planSlug}");
 
-        if(! $plan || $plan['type'] !== 'subscription') {
+        if (!$plan || $plan['type'] !== 'subscription') {
             abort(422, 'Invalid subscription plan.');
         }
 
@@ -376,11 +377,13 @@ class StripeSubscriptionController extends Controller
 
         $item = $stripeSubscription->items->data[0] ?? null;
 
-        if (! $item) {
+        if (!$item) {
             abort(422, 'Subscription item not found.');
         }
 
-        $updateSubscription = $stripe->subscriptions->update($subscription->stripe_subscription_id, [
+        $updateSubscription = $stripe->subscriptions->update(
+            $subscription->stripe_subscription_id,
+            [
                 'items' => [
                     [
                         'id' => $item->id,
@@ -391,9 +394,9 @@ class StripeSubscriptionController extends Controller
                 'proration_behavior' => 'none',
 
                 'metadata' => [
-                    'user_id' => (string)$user->id,
+                    'user_id' => (string) $user->id,
                     'plan' => $planSlug,
-                    'credits' => (string)$plan['credits'],
+                    'credits' => (string) $plan['credits'],
                 ],
             ]
         );

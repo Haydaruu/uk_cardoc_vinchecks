@@ -3,13 +3,11 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Laravel\Socialite\Socialite;
 use App\Models\User;
 use App\Models\SocialAccount;
 use Inertia\Inertia;
-use Illuminate\Support\Str;
 
 class MicrosoftAuthController extends Controller
 {

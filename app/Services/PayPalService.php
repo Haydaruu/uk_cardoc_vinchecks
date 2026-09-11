@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use Illuminate\Http\Request;
-use RUnTimeException;
+use RunTimeException;
 
 class PayPalService
 {
@@ -183,5 +183,175 @@ class PayPalService
         }
 
         return $response->json('verification_status') === 'SUCCESS';
+    }
+
+    public function createCatalogProduct(string $name, string $description): array
+    {
+        $response = Http::withToken($this->accessToken())
+            ->acceptJson()
+            ->withHeaders([
+                'PayPal-Request-Id' => (string) Str::uuid(),
+                'Prefer' => 'return=representation',
+            ])
+            ->post($this->baseUrl(). '/v1/catalogs/products',
+                [
+                    'name' => $name,
+                    'description' => $description,
+                    'type' => 'SERVICE',
+                ],
+            );
+
+            if($response->failed()) {
+                throw new RunTimeException('Unable to create PayPal product: '.$response->body());
+            }
+
+            return $response->json();
+    }
+
+    public function createBillingPlan(string $productId, string $name, int $amountMinor, string $currency = 'GPB',): array
+    {
+        $amount = number_format($amountMinor/100,2,'.','');
+
+        $response = Http::withToken($this->accessToken())
+            ->acceptJson()
+            ->withHeaders([
+                'PayPal-Request-Id' => (string) Str::uuid(),
+                'Prefer' => 'return=representation',
+            ])
+            ->post($this->baseUrl(). '/v1/billing/plans',
+                [
+                    'product_id' => $productId,
+                    'name' => $name,
+                    'description' => "{$name} monthly UKCardoc membership",
+                    'status' => 'ACTIVE',
+                    'billing_cycles' => [
+                        [
+                            'frequency' => [
+                                'interval_unit' => 'MONTH',
+                                'interval_count' => 1,
+                            ],
+
+                            'tenure_type' => 'REGULAR',
+                            'sequence' => 1,
+                            'total_cycles' => 0,
+                            'pricing_scheme' => [
+                                'fixed_price' => [
+                                    'value' => $amount,
+                                    'currency_code' => strtoupper($currency),
+                                ],
+                            ],
+                        ],
+                    ],
+
+                    'payment_preferences' => [
+                        'auto_bill_outstanding' => true,
+                        'payment_failure_threshold' => 3,
+                    ],
+                ],
+            ); 
+
+        if($response->failed()) {
+            throw new RuntimeException('Unable to create PayPal billing plan: '.$response->body());
+        }
+
+        return $response->json();
+    }
+
+    public function createSubscription(User $user, string $planSlug): array
+    {
+        $plan = config("credit_plans.{$planSlug}");
+
+        if(! $plan || $plan['type'] !== 'subscription') {
+            throw new RuntimeException('Invalid PayPal subscription plan.');
+        }
+
+        $payPalPlanId = $plan['paypal_plan_id'] ?? null;
+
+        if(! $payPalPlanId) {
+            throw new RuntimeException('PayPal billing plan is not configured.');
+        }
+
+        $response = Http::withToken($this->accessToken())
+            ->acceptJson()
+            ->withHeaders([
+                'PayPal-Request-Id' => (string) Str::uuid(),
+                'Prefer' => 'return=representation',
+            ])
+            ->post($this->baseUrl(). '/v1/billing/subscriptions', [
+                'plan_id' => $payPalPlanId,
+                'custom_id' => $user->id. '|'. $planSlug,
+
+                'application_context' => [
+                    'brand_name' => 'UKCarDoc',
+                    'locale' => 'en-GB',
+                    'user_action' => 'SUBSCRIBE_NOW',
+                ],
+            ]);
+
+        if($response->failed()) {
+            throw new RuntimeException(
+                'Unable to create PayPal subscription: '. $response->body()
+            );
+        }
+
+        return $response->json();
+    }
+
+    public function getSubscription(string $subscriptionId): array
+    {
+        $response = Http::withToken($this->accessToken())
+            ->acceptJson()
+            ->get($this->baseUrl(). "/v1/billing/subscriptions/{$subscriptionId}");
+
+        if($response->failed()) {
+            throw new RuntimeException(
+                'Unable to retrieve PayPal subscription: '. $response->body()
+            );
+        }
+
+        return $response->json();
+    }
+
+    public function reviseSubscripiton(string $subscriptionId, string $payPalPlanId, string $returnUrl, string $cancelUrl): array 
+    {
+        $response = Http::withToken($this->accessToken())
+        ->acceptJson()
+        ->withHeaders([
+            'PayPal-Request-Id' => (string) Str::uuid(),
+            'Prefer' => 'return=representation',
+        ])
+        ->post($this->baseUrl(). "/v1/billing/subscriptions/{$subscriptionId}/revise", [
+            'plan_id' => $payPalPlanId,
+
+            'application_context' => [
+                'brand_name' => 'UKCarDoc',
+                'locale' => 'en-GB',
+                'return_url' => $returnUrl,
+                'cancel_url' => $cancelUrl,
+            ],
+        ]);
+
+        if($response->failed()) {
+            throw new RuntimeException(
+                'Unable to revise PayPal subscription: '. $response->body()
+            );
+        }
+
+        return $response->json();
+    }
+
+    public function cancelSubscription(string $subscriptionId): void
+    {
+        $response = Http::withToken($this->accessToken())
+            ->acceptJson()
+            ->post($this->baseUrl(). "/v1/billing/subscriptions/{$subscriptionId}/cancel", [
+                'reason' => 'Cancelled by customer.',
+            ]);
+
+        if($response->failed()) {
+            throw new RuntimeException(
+                'Unable to cancel PayPal subscription: '. $response->body()
+            );
+        }
     }
 }
