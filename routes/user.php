@@ -161,8 +161,6 @@ Route::middleware(['auth', 'verified'])
         | Stripe
         */
 
-        Route::post('/subscription/checkout', [StripeSubscriptionController::class, 'checkout'])
-            ->name('subscription.checkout');
 
         Route::delete('/subscription', [StripeSubscriptionController::class, 'cancel'])
             ->name('subscription.cancel');

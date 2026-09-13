@@ -71,6 +71,7 @@ class StripeWebhookController extends Controller
                         'UKC-' . strtoupper(substr($intent->id, 3, 8)),
                         'currency' => strtoupper($intent->currency),
                         'amount' => $intent->amount / 100,
+                        'payment_method' => 'stripe',
                         'type' => 'payment',
                         'category' => 'credit_purchase',
                         'description' =>
@@ -115,6 +116,7 @@ class StripeWebhookController extends Controller
                         'stripe_subscription_id' => $stripeSubscription-> id,
                     ],
                     [
+                        'payment_method' => 'stripe',
                         'user_id' => $user->id,
                         'plan_name' => $planSlug,
                         'price' => $priceAmount,
@@ -141,8 +143,7 @@ class StripeWebhookController extends Controller
                     'invoice_id' => $invoice->id,
                 ]);
 
-                $stripeSubscriptionId = 
-                    $invoice->parent?->subscription_details?->subscription ?? $invoice->subscription ?? null;
+                $stripeSubscriptionId = $invoice->parent?->subscription_details?->subscription ?? $invoice->subscription ?? null;
 
                     if(! $stripeSubscriptionId) {
                         break;
@@ -189,6 +190,7 @@ class StripeWebhookController extends Controller
                                 'stripe_subscription_id' => $stripeSubscription-> id,
                             ],
                             [
+                                'payment_method' => 'stripe',
                                 'user_id' => $user->id,
                                 'plan_name' => $planSlug,
                                 'price' => $priceAmount,
@@ -248,7 +250,7 @@ class StripeWebhookController extends Controller
                         description: "Subscription payment: {$invoice->id}",
                     );
 
-                    $planConfig = config("credit_plans.{$subscription->plan_name}");
+                    
 
                     $paidAt = $invoice->status_transitions->paid_at ?? $invoice->created ?? time();
 
@@ -261,6 +263,7 @@ class StripeWebhookController extends Controller
                             'invoice_id' => 'UKC-SUB-'. strtoupper(substr($invoice->id, 3, 8)),
                             'currency' => strtoupper($invoice->currency),
                             'amount' => $invoice->amount_paid /100,
+                            'payment_method' => 'stripe',
                             'type' => 'payment',
                             'category' => 'subscription',
                             'description' => $billingPlan['label']  ?? $billingPlanSlug,
@@ -322,7 +325,7 @@ class StripeWebhookController extends Controller
             case 'invoice.payment_failed':
                 $invoice = $event->data->object;
 
-                $stripeSubscriptionId = $invoice->parent?->subscription_details->subscription ?? $invoice->subscription ?? null;
+                $stripeSubscriptionId = $invoice->parent?->subscription_details?->subscription ?? $invoice->subscription ?? null;
 
                 if(! $stripeSubscriptionId) {
                     break;

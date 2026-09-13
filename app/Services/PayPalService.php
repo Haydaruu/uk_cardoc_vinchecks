@@ -18,7 +18,10 @@ class PayPalService
 
     private function accessToken(): string
     {
-        $cachedToken = Cache::get('paypal_access_token');
+        $mode = config('services.paypal.mode', 'sandbox');
+        $cacheKey = "paypal_access_token_{$mode}";
+
+        $cachedToken = Cache::get($cacheKey);
 
         if ($cachedToken) {
             return $cachedToken;
@@ -208,7 +211,7 @@ class PayPalService
             return $response->json();
     }
 
-    public function createBillingPlan(string $productId, string $name, int $amountMinor, string $currency = 'GPB',): array
+    public function createBillingPlan(string $productId, string $name, int $amountMinor, string $currency = 'GBP',): array
     {
         $amount = number_format($amountMinor/100,2,'.','');
 

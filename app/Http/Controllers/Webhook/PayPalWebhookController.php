@@ -56,11 +56,9 @@ class PayPalWebhookController extends Controller
             ], 500);
         }
 
-        if($eventType !== 'PAYMENT.CAPTURE.COMPLETED') {
-            return response()->json([
-                'message' => true,
-            ]);
-        }
+        return response()->json([
+            'received' => true,
+        ]);
     }
 
     private function handleOneTimePayment(array $event, PayPalService $payPalService, CreditService $creditService): void
