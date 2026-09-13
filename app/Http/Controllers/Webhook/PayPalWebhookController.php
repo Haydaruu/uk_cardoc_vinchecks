@@ -20,7 +20,7 @@ class PayPalWebhookController extends Controller
             Log::warning('Invalid PayPal webhook signature.');
 
             return response()->json([
-                'message' => 'Invalid webhook siganture',
+                'message' => 'Invalid webhook signature',
             ], 400);
         }
 
@@ -198,7 +198,7 @@ class PayPalWebhookController extends Controller
         $expectedCurrency = strtoupper($plan['currency']);
 
         if($saleAmount !== $expectedAmount || $saleCurrency !== $expectedCurrency) {
-            Log::warning('PayPal subscription payment amount mismacth', [
+            Log::warning('PayPal subscription payment amount mismatch', [
                 'sale_id' => $saleId,
                 'subscription_id' => $subscriptionId,
                 'plan' => $planSlug,

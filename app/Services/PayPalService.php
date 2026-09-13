@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use Illuminate\Http\Request;
-use RunTimeException;
+use RuntimeException;
 
 class PayPalService
 {
@@ -20,6 +20,7 @@ class PayPalService
     {
         $mode = config('services.paypal.mode', 'sandbox');
         $cacheKey = "paypal_access_token_{$mode}";
+
 
         $cachedToken = Cache::get($cacheKey);
 
@@ -40,7 +41,7 @@ class PayPalService
         );
 
         if ($response->failed()) {
-            throw new RuntimeException('Unable to autheticate with PayPal.');
+            throw new RuntimeException('Unable to authenticate with PayPal.');
         }
 
         $token = $response->json('access_token');
@@ -50,7 +51,7 @@ class PayPalService
             throw new RuntimeException('Paypal access token was not returned.');
         }
 
-        Cache::put('paypal_access_token', $token, now()->addSeconds(max($expiresIn - 60, 60),),);
+        Cache::put($cacheKey, $token, now()->addSeconds(max($expiresIn - 60, 60),),);
 
         return $token;
     }

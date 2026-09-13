@@ -251,14 +251,18 @@ class StripeSubscriptionController extends Controller
         $stripe->subscriptions->update(
             $subscription->stripe_subscription_id,
             [
-                    'cancel_at_period_end' => true,
-                    'pending_plan_name' => null,
-                    'pending_stripe_price_id' => null,
-                    'pending_price' => null,
-                    'pending_monthly_credits' => null,
-                    'pending_plan_effective_at' => null,
+                'cancel_at_period_end' => true,
             ]
         );
+
+        $subscription->update([
+            'cancel_at_period_end' => true,
+            'pending_plan_name' => null,
+            'pending_stripe_price_id' => null,
+            'pending_price' => null,
+            'pending_monthly_credits' => null,
+            'pending_plan_effective_at' => null,
+        ]);
 
         return back()->with(
             'success',
