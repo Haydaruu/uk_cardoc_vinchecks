@@ -55,9 +55,6 @@ class PayPalWebhookController extends Controller
                 'message' => 'Unable to process PayPal webhook.',
             ], 500);
         }
-        return response()->json([
-            'received' => true,
-        ]);
 
         if($eventType !== 'PAYMENT.CAPTURE.COMPLETED') {
             return response()->json([
@@ -152,7 +149,6 @@ class PayPalWebhookController extends Controller
         if(! $sale) return;
 
         $saleId = $sale['id'] ?? null;
-
         $subscriptionId = $sale['billing_agreement_id'] ?? $sale['billing_agreement']['id'] ?? null;
 
         if(! $saleId || ! $subscriptionId) {
@@ -167,24 +163,35 @@ class PayPalWebhookController extends Controller
         $paypalSubscription = $payPalService->getSubscription($subscriptionId);
         $customId = $paypalSubscription['custom_id'] ?? null;
 
-        [$userId, $planSlug] = array_pad(explode('|', (string)$customId,2),2,null);
+        [$userId] = array_pad(explode('|', (string)$customId,2),2,null);
 
-        if(! $userId || ! $planSlug) {
+        if(! $userId ) {
             throw new \RuntimeException('Unable to resolve PayPal subscription');
         }
 
         $user = User::find($userId);
-        $plan = config("credit_plans.{$planSlug}");
 
-        if(! $user || ! $plan || $plan['type'] !== 'subscription') {
+        if(! $user) {
             throw new \RuntimeException('Unable to resolve PayPal subscription.');
         }
 
         $paypalPlanId = $paypalSubscription['plan_id'] ?? null;
 
-        if(! $paypalPlanId || $paypalPlanId !== ($plan['paypal_plan_id'] ?? null)) {
-            throw new \RuntimeException('PayPal subscription plan mismacth.');
+        if(! $paypalPlanId ) {
+            throw new \RuntimeException('PayPal subscription plan ID was not returned.');
         }
+
+        $planSlug = collect(config('credit_plans', []))->search(
+            fn(array $plan) =>
+                ($plan['type'] ?? null) === 'subscription'
+                && ($plan['paypal_plan_id'] ?? null) === $paypalPlanId
+        );
+
+        if($planSlug === false) {
+            throw new \RuntimeException('Unable to resolve PayPal subscription plan.');
+        }
+
+        $plan = config("credit_plans.{$planSlug}");
 
         $saleAmount = $sale['amount']['total'] ?? $sale['amount']['value'] ?? null;
         $saleCurrency = strtoupper($sale['amount']['currency'] ?? $sale['amount']['currency_code'] ?? '');
@@ -196,6 +203,7 @@ class PayPalWebhookController extends Controller
             Log::warning('PayPal subscription payment amount mismacth', [
                 'sale_id' => $saleId,
                 'subscription_id' => $subscriptionId,
+                'plan' => $planSlug,
                 'expected_amount' => $expectedAmount,
                 'received_amount' => $saleAmount,
                 'expected_currency' => $expectedCurrency,
@@ -248,17 +256,24 @@ class PayPalWebhookController extends Controller
                 'user_id' => $user->id,
                 'plan_name' => $planSlug,
                 'price' => $plan['amount_minor'] / 100,
+                'monthly_credits' => $plan['credits'],
+                'paypal_plan_id' => $paypalPlanId,
+
                 'payment_method' => 'paypal',
                 'start_date' => isset($paypalSubscription['start_time'])
                     ? Carbon::parse($paypalSubscription['start_time'])
                     : now(),
                 'end_date' => null,
                 'status' => 'active',
-                'monthly_credits' => $plan['credits'],
-                'paypal_plan_id' => $paypalPlanId,
                 'current_period_end' => $nextBillingTime,
                 'cancelled_at' => null,
                 'cancel_at_period_end' => false,
+
+                'pending_plan_name' => null,
+                'pending_paypal_plan_id' => null,
+                'pending_price' => null,
+                'pending_monthly_credits' => null,
+                'pending_plan_effective_at' => null,
             ]
         );
 
@@ -266,6 +281,7 @@ class PayPalWebhookController extends Controller
             'user_id' => $user->id,
             'subscription_id' => $subscriptionId,
             'sale_id' => $saleId,
+            'plan' => $planSlug,
             'credits' => $plan['credits'],
         ]);
     }

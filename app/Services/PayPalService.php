@@ -312,24 +312,27 @@ class PayPalService
         return $response->json();
     }
 
-    public function reviseSubscripiton(string $subscriptionId, string $payPalPlanId, string $returnUrl, string $cancelUrl): array 
+    public function reviseSubscription(string $subscriptionId, string $payPalPlanId, string $returnUrl, string $cancelUrl): array 
     {
         $response = Http::withToken($this->accessToken())
-        ->acceptJson()
-        ->withHeaders([
-            'PayPal-Request-Id' => (string) Str::uuid(),
-            'Prefer' => 'return=representation',
-        ])
-        ->post($this->baseUrl(). "/v1/billing/subscriptions/{$subscriptionId}/revise", [
-            'plan_id' => $payPalPlanId,
+            ->acceptJson()
+            ->withHeaders([
+                'PayPal-Request-Id' => (string) Str::uuid(),
+                'Prefer' => 'return=representation',
+            ])
+            ->post(
+                $this->baseUrl(). "/v1/billing/subscriptions/{$subscriptionId}/revise",
+                [
+                    'plan_id' => $payPalPlanId,
 
-            'application_context' => [
-                'brand_name' => 'UKCarDoc',
-                'locale' => 'en-GB',
-                'return_url' => $returnUrl,
-                'cancel_url' => $cancelUrl,
-            ],
-        ]);
+                    'application_context' => [
+                        'brand_name' => 'UKCarDoc',
+                        'locale' => 'en-GB',
+                        'return_url' => $returnUrl,
+                        'cancel_url' => $cancelUrl,
+                    ],
+                ]
+            );
 
         if($response->failed()) {
             throw new RuntimeException(

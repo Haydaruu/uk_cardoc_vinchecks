@@ -1,78 +1,194 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Auth;
+
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\PageController;
-use App\Http\Controllers\ReportController;
+
 use App\Http\Controllers\Payments\CheckoutController;
 use App\Http\Controllers\Payments\StripeController;
 use App\Http\Controllers\Payments\PayPalController;
 use App\Http\Controllers\Payments\StripeSubscriptionController;
 use App\Http\Controllers\Payments\PayPalSubscriptionController;
+
 use App\Http\Controllers\Settings\SettingsController;
 use App\Http\Controllers\Settings\SecurityController;
 use App\Http\Controllers\Settings\ConnectedAccountController;
-use Inertia\Inertia;
 
-Route::middleware(['auth', 'verified'])->group(function (){
-    Route::get('/dashboard',[DashboardController::class, 'index'])
+/*
+|--------------------------------------------------------------------------
+| Authenticated User Pages
+|--------------------------------------------------------------------------
+*/
+
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/dashboard', [DashboardController::class, 'index'])
         ->name('user.dashboard');
 
     Route::get('/my-report', [PageController::class, 'myReport'])
         ->name('page.my-report');
 });
 
-//Route Stripe
+/*
+|--------------------------------------------------------------------------
+| Checkout - Stripe
+|--------------------------------------------------------------------------
+*/
 
-Route::middleware('auth')->group(function (){
-    Route::get('/checkout', [CheckoutController::class, 'show'])->name('checkout.show');
-    Route::post('/checkout/create-intent', [StripeController::class, 'createOneTimeIntent'])->name('checkout.create-intent');
-    Route::post('/checkout/create-subscription-intent', [StripeSubscriptionController::class, 'createIntent'])->name('checkout.create-subscription-intent');
-    Route::get('/checkout/success', [StripeController::class, 'success'])->name('checkout.success');
-    Route::get('/checkout/subscription/success', [StripeSubscriptionController::class, 'success'])->name('checkout.subscription.success');
-    Route::post('/subscription/checkout', [StripeSubscriptionController::class, 'checkout'])->name('subscription.checkout');
-    Route::delete('/subscription', [StripeSubscriptionController::class, 'cancel'])->name('subscription.cancel');
-    Route::patch('/subscription/plan', [StripeSubscriptionController::class, 'changePlan'])->name('subscription.plan.change');
+Route::middleware('auth')->group(function () {
+    Route::get('/checkout', [CheckoutController::class, 'show'])
+        ->name('checkout.show');
+
+    Route::post('/checkout/create-intent', [StripeController::class, 'createOneTimeIntent'])
+        ->name('checkout.create-intent');
+
+    Route::post('/checkout/create-subscription-intent', [StripeSubscriptionController::class, 'createIntent'])
+        ->name('checkout.create-subscription-intent');
+
+    Route::get('/checkout/success', [StripeController::class, 'success'])
+        ->name('checkout.success');
+
+    Route::get('/checkout/subscription/success', [StripeSubscriptionController::class, 'success'])
+        ->name('checkout.subscription.success');
 });
 
-//Route PayPal
-Route::middleware('auth')->group(function (){
-    Route::post('/checkout/paypal/create-order', [PayPalController::class, 'createOrder'])->name('checkout.paypal.create-order');
-    Route::post('/checkout/paypal/capture', [PayPalController::class, 'capture'])->name('checkout.paypal.capture');
-    Route::get('/checkout/paypal/success', [PayPalController::class, 'success'])->name('checkout.paypal.success');
-    Route::post('/checkout/paypal/subscription/create', [PayPalSubscriptionController::class, 'create'])->name('checkout.paypal.subscription.create');
-    Route::post('/checkout/paypal/subscription/confirm', [PayPalSubscriptionController::class, 'confirm'])->name('checkout.paypal.subscription.confirm');
-    Route::get('/checkout/paypal/subscription/success', [PayPalSubscriptionController::class, 'success'])->name('checkout.paypal.subscription.success');
-    Route::delete( '/subscription/paypal', [PayPalSubscriptionController::class, 'cancel'])->name('subscription.paypal.cancel');
-    Route::patch('/subscription/paypal/plan',  [PayPalSubscriptionController::class, 'changePlan'])->name('subscription.paypal.plan.change');
-    Route::get('/subscription/paypal/plan/approved', [PayPalSubscriptionController::class, 'changePlanApproved'])->name('subscription.paypal.plan.approved');
+/*
+|--------------------------------------------------------------------------
+| Checkout - PayPal
+|--------------------------------------------------------------------------
+*/
+
+Route::middleware('auth')->group(function () {
+    // One-time
+    Route::post('/checkout/paypal/create-order', [PayPalController::class, 'createOrder'])
+        ->name('checkout.paypal.create-order');
+
+    Route::post('/checkout/paypal/capture', [PayPalController::class, 'capture'])
+        ->name('checkout.paypal.capture');
+
+    Route::get('/checkout/paypal/success', [PayPalController::class, 'success'])
+        ->name('checkout.paypal.success');
+
+    // Subscription
+    Route::post('/checkout/paypal/subscription/create', [PayPalSubscriptionController::class, 'create'])
+        ->name('checkout.paypal.subscription.create');
+
+    Route::post('/checkout/paypal/subscription/confirm', [PayPalSubscriptionController::class, 'confirm'])
+        ->name('checkout.paypal.subscription.confirm');
+
+    Route::get('/checkout/paypal/subscription/success', [PayPalSubscriptionController::class, 'success'])
+        ->name('checkout.paypal.subscription.success');
 });
 
+/*
+|--------------------------------------------------------------------------
+| Settings
+|--------------------------------------------------------------------------
+*/
 
-//Route Settings
-Route::middleware(['auth', 'verified'])->prefix('settings')->name('settings.')->group(function () {
-    //Page Profile
-    Route::get('/profile', [SettingsController::class, 'profile'])->name('profile');
-    Route::patch('/profile', [SettingsController::class, 'updateProfile'])->name('profile.update');
+Route::middleware(['auth', 'verified'])
+    ->prefix('settings')
+    ->name('settings.')
+    ->group(function () {
 
-    //Page Security
-    Route::get('/security', [SettingsController::class, 'security'])->name('security');
-    Route::put('/security/password', [SecurityController::class, 'updatePassword'])->name('security.password.update');
-    Route::delete('/security/sessions/{sessionKey}', [securityController::class, 'destroySession'])->name('security.sessions.destroy');
-    Route::delete('/security/account', [SecurityController::class, 'destroyAccount'])->name('security.account.destroy');
+        /*
+        |--------------------------------------------------------------------------
+        | Profile
+        |--------------------------------------------------------------------------
+        */
 
-    //Page Connected Accounts
-    Route::get('/connected-accounts', [SettingsController::class, 'connectedAccounts'])->name('connected-accounts');
-    Route::get('/connected-accounts/{provider}/redirect', [ConnectedAccountController::class, 'redirect'])->name('connected-accounts.redirect');
-    Route::get('/connected-accounts/{provider}/callback', [ConnectedAccountController::class, 'callback'])->name('connected-accounts.callback');
-    Route::delete('/connected-accounts/{provider}', [ConnectedAccountController::class, 'destroy'])->name('connected-accounts.destroy');
-    //Page Purchase History
-    Route::get('/purchase-history', [SettingsController::class, 'purchaseHistory'])->name('purchase-history');
+        Route::get('/profile', [SettingsController::class, 'profile'])
+            ->name('profile');
 
-    //page Subscription
-    Route::get('/subscription', [SettingsController::class, 'subscription'])->name('subscription');
+        Route::patch('/profile', [SettingsController::class, 'updateProfile'])
+            ->name('profile.update');
 
-    
-    Route::get('/help', [SettingsController::class, 'help'])->name('help');
-});
+        /*
+        |--------------------------------------------------------------------------
+        | Security
+        |--------------------------------------------------------------------------
+        */
+
+        Route::get('/security', [SettingsController::class, 'security'])
+            ->name('security');
+
+        Route::put('/security/password', [SecurityController::class, 'updatePassword'])
+            ->name('security.password.update');
+
+        Route::delete('/security/sessions/{sessionKey}', [SecurityController::class, 'destroySession'])
+            ->name('security.sessions.destroy');
+
+        Route::delete('/security/account', [SecurityController::class, 'destroyAccount'])
+            ->name('security.account.destroy');
+
+        /*
+        |--------------------------------------------------------------------------
+        | Connected Accounts
+        |--------------------------------------------------------------------------
+        */
+
+        Route::get('/connected-accounts', [SettingsController::class, 'connectedAccounts'])
+            ->name('connected-accounts');
+
+        Route::get('/connected-accounts/{provider}/redirect', [ConnectedAccountController::class, 'redirect'])
+            ->name('connected-accounts.redirect');
+
+        Route::get('/connected-accounts/{provider}/callback', [ConnectedAccountController::class, 'callback'])
+            ->name('connected-accounts.callback');
+
+        Route::delete('/connected-accounts/{provider}', [ConnectedAccountController::class, 'destroy'])
+            ->name('connected-accounts.destroy');
+
+        /*
+        |--------------------------------------------------------------------------
+        | Purchase History
+        |--------------------------------------------------------------------------
+        */
+
+        Route::get('/purchase-history', [SettingsController::class, 'purchaseHistory'])
+            ->name('purchase-history');
+
+        /*
+        |--------------------------------------------------------------------------
+        | Subscription
+        |--------------------------------------------------------------------------
+        */
+
+        Route::get('/subscription', [SettingsController::class, 'subscription'])
+            ->name('subscription');
+
+        /*
+        | Stripe
+        */
+
+        Route::post('/subscription/checkout', [StripeSubscriptionController::class, 'checkout'])
+            ->name('subscription.checkout');
+
+        Route::delete('/subscription', [StripeSubscriptionController::class, 'cancel'])
+            ->name('subscription.cancel');
+
+        Route::patch('/subscription/plan', [StripeSubscriptionController::class, 'changePlan'])
+            ->name('subscription.plan.change');
+
+        /*
+        | PayPal
+        */
+
+        Route::delete('/subscription/paypal', [PayPalSubscriptionController::class, 'cancel'])
+            ->name('subscription.paypal.cancel');
+
+        Route::patch('/subscription/paypal/plan', [PayPalSubscriptionController::class, 'changePlan'])
+            ->name('subscription.paypal.plan.change');
+
+        Route::get('/subscription/paypal/plan/approved', [PayPalSubscriptionController::class, 'changePlanApproved'])
+            ->name('subscription.paypal.plan.approved');
+
+        /*
+        |--------------------------------------------------------------------------
+        | Help
+        |--------------------------------------------------------------------------
+        */
+
+        Route::get('/help', [SettingsController::class, 'help'])
+            ->name('help');
+    });

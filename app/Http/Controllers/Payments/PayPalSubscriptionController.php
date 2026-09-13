@@ -228,22 +228,26 @@ class PayPalSubscriptionController extends Controller
 
     public function changePlan(Request $request, PayPalService $payPalService)
     {
-        $request->validated([
+        $request->validate([
             'plan' => ['required', 'string'],
         ]);
 
         $user = $request->user();
         $subscription = $user->activeSubscription();
 
-        if(! $subscription || $subscription->payment_method !== 'paypal' || ! $subscription->paypal_subscription_id) {
-            return back()->with('error', 'No active PayPal susbscription found.');
+        if(
+            ! $subscription ||
+            $subscription->payment_method !== 'paypal' ||
+            ! $subscription->paypal_subscription_id
+        ) {
+            return back()->with('error', 'No active PayPal subscription found.');
         }
 
         $planSlug = $request->string('plan')->toString();
         $plan = config("credit_plans.{$planSlug}");
 
         if(! $plan || $plan['type'] !== 'subscription') {
-            abort(422, 'Invalid usbscription plan.');
+            abort(422, 'Invalid subscription plan.');
         }
 
         if($subscription->plan_name === $planSlug) {
@@ -265,19 +269,32 @@ class PayPalSubscriptionController extends Controller
             'paypal_change' => 'cancelled',
         ]);
 
-        try{
-            $revision = $payPalService->reviseSubscripiton($subscription
-                ->paypal_subscription_id, $payPalPlanId, $returnUrl, $cancelUrl);
+        try {
+            $revision = $payPalService->reviseSubscription(
+                $subscription->paypal_subscription_id,
+                $payPalPlanId,
+                $returnUrl,
+                $cancelUrl
+            );
         } catch(\Throwable $e) {
             report($e);
 
-            return back()->with('error', 'Unable to change PayPal subscription plan.');
+            return back()->with(
+                'error',
+                'Unable to change PayPal subscription plan.'
+            );
         }
 
-        $approvalUrl = collect($revision['links'] ?? [])->firstWhere('rel', 'approve')['href'] ?? null;
+        $approvalLink = collect($revision['links'] ?? [])
+            ->firstWhere('rel', 'approve');
+
+        $approvalUrl = $approvalLink['href'] ?? null;
 
         if(! $approvalUrl) {
-            return back()->with('error', 'PayPal approval URL was not returned.');
+            return back()->with(
+                'error',
+                'PayPal approval URL was not returned.'
+            );
         }
 
         return Inertia::location($approvalUrl);
@@ -285,60 +302,64 @@ class PayPalSubscriptionController extends Controller
 
     public function changePlanApproved(Request $request, PayPalService $payPalService)
     {
-        $request->validated([
+        $request->validate([
+            'subscription_id' => ['required', 'string'],
             'plan' => ['required', 'string'],
         ]);
 
         $user = $request->user();
-    $subscriptionId = $request->string('subscription_id')->toString();
-    $planSlug = $request->string('plan')->toString();
+        $subscriptionId = $request->string('subscription_id')->toString();
+        $planSlug = $request->string('plan')->toString();
 
-    $subscription = $user->subscriptions()
-        ->where('paypal_subscription_id', $subscriptionId)
-        ->first();
+        $subscription = $user->subscriptions()
+            ->where('paypal_subscription_id', $subscriptionId)
+            ->first();
 
-    if(! $subscription) abort(403);
+        if(! $subscription) abort(403);
 
-    $plan = config("credit_plans.{$planSlug}");
+        $plan = config("credit_plans.{$planSlug}");
 
-    if(! $plan || $plan['type'] !== 'subscription') {
-        abort(422, 'Invalid subscription plan.');
-    }
+        if(! $plan || $plan['type'] !== 'subscription') {
+            abort(422, 'Invalid subscription plan.');
+        }
 
-    try {
-        $paypalSubscription = $payPalService->getSubscription($subscriptionId);
-    } catch(\Throwable $e) {
-        report($e);
+        try {
+            $paypalSubscription = $payPalService->getSubscription($subscriptionId);
+        } catch(\Throwable $e) {
+            report($e);
+
+            return redirect()
+                ->route('settings.subscription')
+                ->with('error', 'Unable to verify PayPal plan change.');
+        }
+
+        if(
+            ($paypalSubscription['plan_id'] ?? null)
+            !== ($plan['paypal_plan_id'] ?? null)
+        ) {
+            return redirect()
+                ->route('settings.subscription')
+                ->with('error', 'PayPal plan change was not confirmed.');
+        }
+
+        $effectiveAt = isset($paypalSubscription['billing_info']['next_billing_time'])
+            ? Carbon::parse($paypalSubscription['billing_info']['next_billing_time'])
+            : $subscription->current_period_end;
+
+        $subscription->update([
+            'pending_plan_name' => $planSlug,
+            'pending_paypal_plan_id' => $plan['paypal_plan_id'],
+            'pending_price' => $plan['amount_minor'] / 100,
+            'pending_monthly_credits' => $plan['credits'],
+            'pending_plan_effective_at' => $effectiveAt,
+        ]);
 
         return redirect()
             ->route('settings.subscription')
-            ->with('error', 'Unable to verify PayPal plan change.');
-    }
-
-    if(
-        ($paypalSubscription['plan_id'] ?? null)
-        !== ($plan['paypal_plan_id'] ?? null)
-    ) {
-        return redirect()
-            ->route('settings.subscription')
-            ->with('error', 'PayPal plan change was not confirmed.');
-    }
-
-    $effectiveAt = isset($paypalSubscription['billing_info']['next_billing_time'])
-        ? Carbon::parse($paypalSubscription['billing_info']['next_billing_time'])
-        : $subscription->current_period_end;
-
-    $subscription->update([
-        'pending_plan_name' => $planSlug,
-        'pending_paypal_plan_id' => $plan['paypal_plan_id'],
-        'pending_price' => $plan['amount_minor'] / 100,
-        'pending_monthly_credits' => $plan['credits'],
-        'pending_plan_effective_at' => $effectiveAt,
-    ]);
-
-    return redirect()
-        ->route('settings.subscription')
-        ->with('success', 'Your new plan will start on the next billing cycle.');
+            ->with(
+                'success',
+                'Your new plan will start on the next billing cycle.'
+            );
     }
 
     public function cancel(Request $request, PayPalService $payPalService)
