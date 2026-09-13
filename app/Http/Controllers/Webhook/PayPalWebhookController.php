@@ -320,6 +320,12 @@ class PayPalWebhookController extends Controller
                 'cancel_at_period_end' => true,
                 'cancelled_at' => now(),
                 'end_date' => $subscription->current_period_end,
+
+                'pending_plan_name' => null,
+                'pending_paypal_plan_id' => null,
+                'pending_price' => null,
+                'pending_monthly_credits' => null,
+                'pending_plan_effective_at' => null,
             ]);
 
             return;

@@ -391,6 +391,12 @@ class PayPalSubscriptionController extends Controller
             'cancel_at_period_end' => true,
             'cancelled_at' => now(),
             'end_date' => $accessUntil,
+
+            'pending_plan_name' => null,
+            'pending_paypal_plan_id' => null,
+            'pending_price' => null,
+            'pending_monthly_credits' => null,
+            'pending_plan_effective_at' => null,
         ]);
 
         return back()->with(
