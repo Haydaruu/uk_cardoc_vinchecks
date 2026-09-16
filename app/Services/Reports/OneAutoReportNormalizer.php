@@ -261,6 +261,7 @@ class OneAutoReportNormalizer
                 ],
 
                 'colour_changes' => [
+                    'available' => true,
                     'count' => data_get(
                         $autoCheck,
                         'result.colour_changes_qty',
