@@ -105,9 +105,14 @@ class CheckCarDetailsReportNormalizer
                     'V5CCertificateCount'
                 ] ?? null,
 
-                'history' => $vehicleHistory[
-                    'V5CCertificateList'
-                ] ?? [],
+                'history' => collect(
+                    $vehicleHistory['V5CCertificateList'] ?? []
+                )
+                    ->map(fn (array $item) => [
+                        'issue_date' => $item['CertificateDate'] ?? null,
+                    ])
+                    ->values()
+                    ->all(),
 
                 'latest_issue_date' =>
                     $registration['dateOfLastV5CIssued']
@@ -157,9 +162,15 @@ class CheckCarDetailsReportNormalizer
                         'KeeperChangesCount'
                     ] ?? 0,
 
-                    'records' => $vehicleHistory[
-                        'KeeperChangesList'
-                    ] ?? [],
+                    'records' => collect(
+                        $vehicleHistory['KeeperChangesList'] ?? []
+                    )
+                        ->map(fn (array $item) => [
+                            'previous_keepers' => $item['NumberOfPreviousKeepers'] ?? null,
+                            'change_date' => $item['DateOfLastKeeperChange'] ?? null,
+                        ])
+                        ->values()
+                        ->all(),
                 ],
 
                 'plate_changes' => [
@@ -168,9 +179,18 @@ class CheckCarDetailsReportNormalizer
                         'PlateChangeCount'
                     ] ?? 0,
 
-                    'records' => $vehicleHistory[
-                        'PlateChangeList'
-                    ] ?? [],
+                    'records' => collect(
+                        $vehicleHistory['PlateChangeList'] ?? []
+                    )
+                        ->map(fn (array $item) => [
+                            'current_vrm' => $item['CurrentVRM'] ?? null,
+                            'previous_vrm' => $item['PreviousVRM'] ?? null,
+                            'transfer_date' => $item['DateOfTransaction'] ?? null,
+                            'receipt_date' => $item['DateOfReceipt'] ?? null,
+                            'transfer_type' => $item['TransferType'] ?? null,
+                        ])
+                        ->values()
+                        ->all(),
                 ],
 
                 'colour_changes' => [
@@ -194,6 +214,8 @@ class CheckCarDetailsReportNormalizer
                     $performance,
                     'Power.Bhp'
                 ),
+
+                'power_ps' => null,
 
                 'power_kw' => data_get(
                     $performance,
@@ -253,25 +275,25 @@ class CheckCarDetailsReportNormalizer
             ],
 
             'valuation' => [
-                'retail' => data_get(
+                'retail' => ($value = data_get(
                     $valuation,
                     'ValuationList.DealerForecourt'
-                ),
+                )) !== null ? (int) $value : null,
 
-                'trade_in' => data_get(
+                'trade_in' => ($value = data_get(
                     $valuation,
                     'ValuationList.PartExchange'
-                ),
+                )) !== null ? (int) $value : null,
 
-                'private' => data_get(
+                'private' => ($value = data_get(
                     $valuation,
                     'ValuationList.PrivateClean'
-                ),
+                )) !== null ? (int) $value : null,
 
-                'trade' => data_get(
+                'trade' => ($value = data_get(
                     $valuation,
                     'ValuationList.TradeRetail'
-                ),
+                )) !== null ? (int) $value : null,
             ],
 
             'recalls' => [
@@ -357,7 +379,30 @@ class CheckCarDetailsReportNormalizer
                     'motHistorySummary'
                 ] ?? null,
 
-                'tests' => $motHistory,
+                'tests' => collect($motHistory)
+                    ->map(fn (array $test) => [
+                        'test_number' => $test['motTestNumber'] ?? null,
+                        'date' => $test['completedDate'] ?? null,
+                        'expiry_date' => $test['expiryDate'] ?? null,
+                        'result' => $test['testResult'] ?? null,
+
+                        'mileage' => isset($test['odometerValue'])
+                            ? (int) $test['odometerValue']
+                            : null,
+
+                        'mileage_unit' => $test['odometerUnit'] ?? null,
+
+                        'defects' => collect($test['defects'] ?? [])
+                            ->map(fn (array $defect) => [
+                                'type' => $defect['type'] ?? null,
+                                'description' => $defect['text'] ?? null,
+                                'dangerous' => $defect['dangerous'] ?? false,
+                            ])
+                            ->values()
+                            ->all(),
+                    ])
+                    ->values()
+                    ->all(),
 
                 'mileage_history' => collect($motHistory)
                     ->map(fn (array $test) => [

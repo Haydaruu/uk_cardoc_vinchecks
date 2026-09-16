@@ -73,6 +73,8 @@ class OneAutoReportNormalizer
                     $specs,
                     'result.engine_data.engine_capacity_cc'
                 ),
+
+                'image_url' => null,
             ],
 
             'status' => [
@@ -108,10 +110,22 @@ class OneAutoReportNormalizer
                     'result.v5c_data_qty'
                 ),
 
-                'history' => data_get(
+                'history' => collect(
+                    data_get(
+                        $autoCheck,
+                        'result.v5c_data_items',
+                        []
+                    )
+                )
+                    ->map(fn (array $item) => [
+                        'issue_date' => $item['date_v5c_issued'] ?? null,
+                    ])
+                    ->values()
+                    ->all(),
+
+                'latest_issue_date' => data_get(
                     $autoCheck,
-                    'result.v5c_data_items',
-                    []
+                    'result.v5c_data_items.0.date_v5c_issued'
                 ),
 
                 'serial_verified' => null,
@@ -131,6 +145,8 @@ class OneAutoReportNormalizer
                         'result.finance_data_items',
                         []
                     ),
+
+                    'available' => true,
                 ],
 
                 'stolen' => [
@@ -145,6 +161,8 @@ class OneAutoReportNormalizer
                         'result.stolen_vehicle_data_items',
                         []
                     ),
+
+                    'available' => true,
                 ],
 
                 'write_off' => [
@@ -159,6 +177,8 @@ class OneAutoReportNormalizer
                         'result.condition_data_items',
                         []
                     ),
+
+                    'available' => true,
                 ],
 
                 'high_risk' => [
@@ -173,34 +193,71 @@ class OneAutoReportNormalizer
                         'result.high_risk_data_items',
                         []
                     ),
+
+                    'available' => true,
                 ],
 
                 'keepers' => [
+                    'available' => true,
+
                     'count' => data_get(
                         $autoCheck,
                         'result.keeper_changes_qty',
                         0
                     ),
 
-                    'records' => data_get(
-                        $autoCheck,
-                        'result.keeper_data_items',
-                        []
-                    ),
+                    'records' => collect(
+                        data_get(
+                            $autoCheck,
+                            'result.keeper_data_items',
+                            []
+                        )
+                    )
+                        ->map(fn (array $item) => [
+                            'previous_keepers' =>
+                                $item['number_previous_keepers'] ?? null,
+
+                            'change_date' =>
+                                $item['date_of_last_keeper_change'] ?? null,
+                        ])
+                        ->values()
+                        ->all(),
                 ],
 
                 'plate_changes' => [
+                    'available' => true,
+
                     'count' => data_get(
                         $autoCheck,
                         'result.cherished_data_qty',
                         0
                     ),
 
-                    'records' => data_get(
-                        $autoCheck,
-                        'result.cherished_data_items',
-                        []
-                    ),
+                    'records' => collect(
+                        data_get(
+                            $autoCheck,
+                            'result.cherished_data_items',
+                            []
+                        )
+                    )
+                        ->map(fn (array $item) => [
+                            'current_vrm' =>
+                                $item['current_vehicle_registration_mark'] ?? null,
+
+                            'previous_vrm' =>
+                                $item['previous_vehicle_registration_mark'] ?? null,
+
+                            'transfer_date' =>
+                                $item['cherished_plate_transfer_date'] ?? null,
+
+                            'receipt_date' =>
+                                $item['date_of_receipt'] ?? null,
+
+                            'transfer_type' =>
+                                $item['transfer_type'] ?? null,
+                        ])
+                        ->values()
+                        ->all(),
                 ],
 
                 'colour_changes' => [
@@ -230,6 +287,8 @@ class OneAutoReportNormalizer
                     'result.salvage_auction_records',
                     []
                 ),
+
+                'available' => true,
             ],
 
             'specifications' => [
@@ -242,6 +301,8 @@ class OneAutoReportNormalizer
                     $specs,
                     'result.engine_data.power_ps'
                 ),
+
+                'power_kw' => null,
 
                 'torque_nm' => data_get(
                     $specs,
@@ -336,6 +397,8 @@ class OneAutoReportNormalizer
                     $recall,
                     'result.manufacturer_recall_check_url'
                 ),
+
+                'available' => true,
             ],
 
             'emissions_compliance' => [
@@ -385,6 +448,8 @@ class OneAutoReportNormalizer
                         $tax,
                         'result.is_premium'
                     ),
+
+                    'available' => true,
                 ],
 
                 'insurance' => [
@@ -409,6 +474,8 @@ class OneAutoReportNormalizer
                     ),
 
                     'assessment_type' => 'estimate',
+
+                    'available' => true,
                 ],
 
                 'fuel' => [
@@ -421,6 +488,8 @@ class OneAutoReportNormalizer
                     ),
 
                     'assessment_type' => 'derived',
+
+                    'available' => true,
                 ],
             ],
 
@@ -471,13 +540,40 @@ class OneAutoReportNormalizer
                         $mot,
                         'result.dvsa_data.dvsa_vehicle_Data.colour'
                     ),
+
+                    'image_url' => null,
+
                 ],
 
-                'tests' => data_get(
-                    $mot,
-                    'result.dvsa_data.mot_tests',
-                    []
-                ),
+                'tests' => collect(
+                    data_get(
+                        $mot,
+                        'result.dvsa_data.mot_tests',
+                        []
+                    )
+                )
+                    ->map(fn (array $test) => [
+                        'test_number' => $test['mot_test_number'] ?? null,
+                        'date' => $test['mot_test_date'] ?? null,
+                        'expiry_date' => $test['mot_expiry_date'] ?? null,
+                        'result' => $test['mot_test_result'] ?? null,
+
+                        'mileage' => $test['observation_mileage'] ?? null,
+                        'mileage_unit' => 'MI',
+
+                        'defects' => collect(
+                            $test['reason_for_refusal_and_comments'] ?? []
+                        )
+                            ->map(fn (array $defect) => [
+                                'type' => $defect['type'] ?? null,
+                                'description' => $defect['comments'] ?? null,
+                                'dangerous' => false,
+                            ])
+                            ->values()
+                            ->all(),
+                    ])
+                    ->values()
+                    ->all(),
 
                 'mileage_history' => collect(
                     data_get($mot, 'result.dvsa_data.mot_tests', [])
