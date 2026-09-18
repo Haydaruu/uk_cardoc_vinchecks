@@ -51,6 +51,12 @@ return [
         'base_url' => env('CHECKCARDETAILS_BASE_URL'),
     ],
 
+    'oneauto' => [
+        'api_key' => env('ONEAUTO_API_KEY'),
+        'base_url' => env('ONEAUTO_BASE_URL', 'https://sandbox.oneautoapi.com'),
+        'environment' => env('ONEAUTO_ENVIRONMENT', 'sandbox'),
+    ],
+
     'stripe' => [
         'key' => env('STRIPE_KEY'),
         'secret' => env('STRIPE_SECRET'),
