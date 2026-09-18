@@ -71,7 +71,7 @@ class ProviderComparisonController extends Controller
                 'provider' => $validated['provider'],
                 'vrm' => $vrm,
 
-                'durration_ms' => (int) ((microtime(true) - $startedAt) * 1000),
+                'duration_ms' => (int) ((microtime(true) - $startedAt) * 1000),
 
                 'meta' => $result['meta'] ?? [],
                 'normalized' => $result['normalized'],
