@@ -1,5 +1,6 @@
 import { Head } from '@inertiajs/react';
-import { FormEvent, useState } from 'react';
+import { useState } from 'react';
+import type { FormEvent } from 'react';
 
 import NormalizedReportPreview from '@/components/report/normalized-report-preview';
 import type { NormalizedReport } from '@/types/normalized-report';
@@ -50,7 +51,9 @@ const coverageRows: CoverageRow[] = [
         key: 'salvage',
         label: 'Salvage Auction History & Photos',
         getStatus: (report) => {
-            if (!report) return 'not_run';
+            if (!report) {
+                return 'not_run';
+            }
 
             return report.salvage?.available
                 ? 'available'
@@ -62,7 +65,9 @@ const coverageRows: CoverageRow[] = [
         key: 'v5c',
         label: 'V5C / Logbook History',
         getStatus: (report) => {
-            if (!report) return 'not_run';
+            if (!report) {
+                return 'not_run';
+            }
 
             return report.v5c
                 ? 'available'
@@ -74,7 +79,9 @@ const coverageRows: CoverageRow[] = [
         key: 'v5c_serial',
         label: 'V5C Serial Verification',
         getStatus: (report) => {
-            if (!report) return 'not_run';
+            if (!report) {
+                return 'not_run';
+            }
 
             return report.v5c
                 ?.verification_available
@@ -87,7 +94,9 @@ const coverageRows: CoverageRow[] = [
         key: 'scrapped',
         label: 'Scrapped Status',
         getStatus: (report) => {
-            if (!report) return 'not_run';
+            if (!report) {
+                return 'not_run';
+            }
 
             return report.status
                 ? 'available'
@@ -99,7 +108,9 @@ const coverageRows: CoverageRow[] = [
         key: 'high_risk',
         label: 'High-Risk Record',
         getStatus: (report) => {
-            if (!report) return 'not_run';
+            if (!report) {
+                return 'not_run';
+            }
 
             return report.history
                 ?.high_risk?.available
@@ -112,7 +123,9 @@ const coverageRows: CoverageRow[] = [
         key: 'valuation',
         label: 'Market Valuation',
         getStatus: (report) => {
-            if (!report) return 'not_run';
+            if (!report) {
+                return 'not_run';
+            }
 
             return report.valuation?.retail != null
                 ? 'available'
@@ -124,7 +137,9 @@ const coverageRows: CoverageRow[] = [
         key: 'emissions',
         label: 'ULEZ / CAZ Compliance',
         getStatus: (report) => {
-            if (!report) return 'not_run';
+            if (!report) {
+                return 'not_run';
+            }
 
             if (
                 report.emissions_compliance
@@ -143,7 +158,9 @@ const coverageRows: CoverageRow[] = [
         key: 'specifications',
         label: 'Vehicle Specifications',
         getStatus: (report) => {
-            if (!report) return 'not_run';
+            if (!report) {
+                return 'not_run';
+            }
 
             return report.specifications
                 ? 'available'
@@ -155,7 +172,9 @@ const coverageRows: CoverageRow[] = [
         key: 'recall',
         label: 'Recall Check',
         getStatus: (report) => {
-            if (!report) return 'not_run';
+            if (!report) {
+                return 'not_run';
+            }
 
             return report.recalls?.available
                 ? 'available'
@@ -167,7 +186,9 @@ const coverageRows: CoverageRow[] = [
         key: 'running_costs',
         label: 'Estimated Running Costs',
         getStatus: (report) => {
-            if (!report) return 'not_run';
+            if (!report) {
+                return 'not_run';
+            }
 
             const costs =
                 report.running_costs;
@@ -209,7 +230,9 @@ const coverageRows: CoverageRow[] = [
         key: 'plate_history',
         label: 'Plate Transfer History',
         getStatus: (report) => {
-            if (!report) return 'not_run';
+            if (!report) {
+                return 'not_run';
+            }
 
             return report.history
                 ?.plate_changes?.available
@@ -222,7 +245,9 @@ const coverageRows: CoverageRow[] = [
         key: 'mot',
         label: 'MOT History',
         getStatus: (report) => {
-            if (!report) return 'not_run';
+            if (!report) {
+                return 'not_run';
+            }
 
             return report.mot
                 ?.service_available
@@ -235,7 +260,9 @@ const coverageRows: CoverageRow[] = [
         key: 'mileage',
         label: 'Mileage History',
         getStatus: (report) => {
-            if (!report) return 'not_run';
+            if (!report) {
+                return 'not_run';
+            }
 
             return Array.isArray(
                 report.mot?.mileage_history,
