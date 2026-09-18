@@ -15,6 +15,7 @@ class VinCheck extends Model
         'check_type',
         'ip_address',
         'status',
+        'stage',
         'cached_until',
     ];
 

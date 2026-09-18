@@ -20,10 +20,10 @@ class NormalizedReportBuilder
     ) {
     }
 
-    public function build(string $vrm, string $provider,): array 
+    public function build(string $vrm, ?string $provider = null, ): array 
     {
-        $provider ??= config('services.vehilce_reports.provider', 'checkcardetails');
-         
+        $provider ??= config('services.vehicle_reports.provider', 'checkcardetails');
+
         $vrm = strtoupper(preg_replace('/\s+/', '', $vrm));
 
         $result = match ($provider) {
