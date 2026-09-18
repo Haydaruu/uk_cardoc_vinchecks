@@ -6,6 +6,8 @@ export type AvailabilitySection<T = unknown> = {
 
 export type NormalizedReport = {
     meta: {
+        scheme_version: number;
+        format: 'normalized';
         provider: string;
         environment?: string;
         generated_at?: string;

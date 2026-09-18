@@ -71,4 +71,11 @@ return [
         'webhook_id' => env('PAYPAL_WEBHOOK_ID'),
     ],
 
+    'vehicle_reports' => [
+        'provider' => env(
+            'VEHICLE_REPORT_PROVIDER',
+            'checkcardetails'
+        ),
+    ],
+
 ];
