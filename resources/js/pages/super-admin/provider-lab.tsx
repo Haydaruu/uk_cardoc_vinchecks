@@ -485,6 +485,15 @@ export default function ProviderLab({
 
         setLoading(true);
         setError(null);
+        setResults((current) => {
+            const next = {
+                ...current,
+            };
+
+            delete next[provider];
+
+            return next;
+        });
 
         try {
             const payload =

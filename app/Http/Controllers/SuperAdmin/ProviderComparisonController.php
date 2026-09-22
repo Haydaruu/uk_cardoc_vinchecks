@@ -7,6 +7,7 @@ use App\Services\Reports\NormalizedReportBuilder;
 use App\Services\Reports\CompositeReportBuilder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -69,19 +70,49 @@ class ProviderComparisonController extends Controller
 
     public function run(Request $request): JsonResponse
     {
+        /*
+        * Ambil provider langsung dari registry.
+        *
+        * Jadi nanti ketika UK Vehicle Data / MotorCheck
+        * ditambahkan ke config, validation tidak perlu
+        * di-hardcode ulang.
+        */
+        $registeredProviders = array_keys(
+            config(
+                'provider-lab.providers',
+                []
+            )
+        );
+
+        $allowedProviders = [
+            ...$registeredProviders,
+            'hybrid',
+        ];
+
         $validated = $request->validate([
             'provider' => [
                 'required',
-                'in:checkcardetails,oneauto,hybrid',
+                Rule::in(
+                    $allowedProviders
+                ),
             ],
 
             'mode' => [
                 'nullable',
-                'in:live,fixture',
+                Rule::in([
+                    'live',
+                    'fixture',
+                ]),
             ],
 
+            /*
+            * Tidak boleh required di sini.
+            *
+            * Fixture mode memang tidak mengirim satu VRM utama,
+            * karena masing-masing sandbox memakai VRM berbeda.
+            */
             'vrm' => [
-                'required',
+                'nullable',
                 'string',
                 'max:10',
             ],
@@ -99,19 +130,31 @@ class ProviderComparisonController extends Controller
             ],
         ]);
 
-        $mode = $validated['mode']?? 'live';
+        $mode =
+            $validated['mode']
+            ?? 'live';
 
+        /*
+        * HYBRID FIXTURE
+        *
+        * Tidak membutuhkan `vrm`.
+        * Tapi dua sandbox registration wajib tersedia.
+        */
         if (
             $validated['provider'] === 'hybrid'
             && $mode === 'fixture'
         ) {
             if (
                 blank(
-                    $validated['checkcardetails_vrm']
+                    $validated[
+                        'checkcardetails_vrm'
+                    ]
                     ?? null
                 )
                 || blank(
-                    $validated['oneauto_vrm']
+                    $validated[
+                        'oneauto_vrm'
+                    ]
                     ?? null
                 )
             ) {
@@ -120,8 +163,22 @@ class ProviderComparisonController extends Controller
                         'Both CheckCarDetails and OneAuto test registrations are required for fixture mode.',
                 ]);
             }
-        } elseif (
-            blank($validated['vrm'] ?? null)
+        }
+
+        /*
+        * Semua mode selain hybrid fixture wajib punya
+        * satu registration utama.
+        *
+        * Berlaku untuk:
+        * - CheckCarDetails
+        * - OneAuto
+        * - Hybrid Same Vehicle
+        */
+        else if (
+            blank(
+                $validated['vrm']
+                ?? null
+            )
         ) {
             throw ValidationException::withMessages([
                 'vrm' =>
@@ -129,7 +186,9 @@ class ProviderComparisonController extends Controller
             ]);
         }
 
-        $vrm = isset($validated['vrm'])
+        $vrm = isset(
+            $validated['vrm']
+        )
             ? strtoupper(
                 preg_replace(
                     '/\s+/',
@@ -139,14 +198,20 @@ class ProviderComparisonController extends Controller
             )
             : null;
 
-        $startedAt = microtime(true);
+        $startedAt =
+            microtime(true);
 
-        try{
+        try {
             $result = match (true) {
+
+                /*
+                * PLAN C - Sandbox Fixture
+                */
                 $validated['provider'] === 'hybrid'
                     && $mode === 'fixture' =>
 
-                    $this->compositeReportBuilder
+                    $this
+                        ->compositeReportBuilder
                         ->buildFixture(
                             checkCarDetailsVrm:
                                 $validated[
@@ -159,40 +224,79 @@ class ProviderComparisonController extends Controller
                                 ],
                         ),
 
+                /*
+                * PLAN C - Same real vehicle
+                */
                 $validated['provider'] === 'hybrid' =>
 
-                    $this->compositeReportBuilder
+                    $this
+                        ->compositeReportBuilder
                         ->build(
                             vrm:
-                                $validated['vrm'],
+                                $validated[
+                                    'vrm'
+                                ],
                         ),
 
+                /*
+                * PLAN D - Single provider comparison
+                */
                 default =>
 
-                    $this->reportBuilder->build(
-                        vrm:
-                            $validated['vrm'],
+                    $this
+                        ->reportBuilder
+                        ->build(
+                            vrm:
+                                $validated[
+                                    'vrm'
+                                ],
 
-                        provider:
-                            $validated['provider'],
-                    ),
+                            provider:
+                                $validated[
+                                    'provider'
+                                ],
+                        ),
             };
 
             return response()->json([
-                'provider' => $validated['provider'],
-                'vrm' => $result['vrm'] ?? $vrm,
+                'provider' =>
+                    $validated[
+                        'provider'
+                    ],
 
-                'duration_ms' => (int) ((microtime(true) - $startedAt) * 1000),
+                'vrm' =>
+                    $result['vrm']
+                    ?? $vrm,
 
-                'meta' => $result['meta'] ?? [],
-                'normalized' => $result['normalized'],
-                'raw' => $result['raw'],
+                'duration_ms' =>
+                    (int) (
+                        (
+                            microtime(true)
+                            - $startedAt
+                        )
+                        * 1000
+                    ),
+
+                'meta' =>
+                    $result['meta']
+                    ?? [],
+
+                'normalized' =>
+                    $result[
+                        'normalized'
+                    ],
+
+                'raw' =>
+                    $result[
+                        'raw'
+                    ],
             ]);
         } catch (Throwable $e) {
             report($e);
 
             return response()->json([
-                'message' => $e->getMessage(),
+                'message' =>
+                    $e->getMessage(),
             ], 422);
         }
     }

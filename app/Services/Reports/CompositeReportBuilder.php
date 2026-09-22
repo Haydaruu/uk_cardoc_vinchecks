@@ -132,7 +132,7 @@ class CompositeReportBuilder
         $ccdVin = $this->normalizeVin(
             data_get(
                 $checkCarDetails,
-                'vehicle.vrm',
+                'vehicle.vin',
                 ''
             )
         );
@@ -140,7 +140,7 @@ class CompositeReportBuilder
         $oneAutoVin = $this->normalizeVin(
             data_get(
                 $oneAuto,
-                'vehicle.vrm',
+                'vehicle.vin',
                 ''
             )
         );
