@@ -45,7 +45,11 @@ class NormalizedReportBuilder
 
             'schema_version' => 2,
             'format' => 'normalized',
+            'strategy' => 'single',
             'provider' => $provider,
+            'providers' => [
+                $provider,
+            ],
         ];
 
         return [

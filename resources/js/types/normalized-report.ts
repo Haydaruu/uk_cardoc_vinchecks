@@ -1,3 +1,14 @@
+export type SourceCriticality =
+    | 'low'
+    | 'medium'
+    | 'high'
+    | 'critical';
+
+export type SourceProfile = {
+    criticality: SourceCriticality;
+    purpose: string;
+};
+
 export type AvailabilitySection<T = unknown> = {
     available: boolean;
     count?: number | null;
@@ -6,9 +17,20 @@ export type AvailabilitySection<T = unknown> = {
 
 export type NormalizedReport = {
     meta: {
-        scheme_version: number;
+        schema_version: number;
         format: 'normalized';
         provider: string;
+        strategy?: 'single' | 'hybrid';
+        providers?: string[];
+        sources?: Record<string,string>;
+        source_profiles?: Record<string,SourceProfile>;
+        lab_fixture?: boolean;
+        identity_verified?: boolean;
+        fixture_inputs?: {
+            checkcardetails: string;
+            oneauto: string;
+        } | null;
+        warning?: string | null;
         environment?: string;
         generated_at?: string;
     };
