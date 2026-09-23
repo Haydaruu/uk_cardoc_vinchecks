@@ -5,6 +5,7 @@ namespace App\Services\Reports;
 use App\Services\EmissionsComplianceService;
 use App\Services\VehicleDataService;
 use App\Services\VehicleProviders\OneAutoProvider;
+use RuntimeException;
 use InvalidArgumentException;
 class NormalizedReportBuilder
 {
@@ -40,12 +41,22 @@ class NormalizedReportBuilder
 
         $normalized = $result['normalized'];
 
+        $this->assertRequestedVehicle(
+            requestedVrm: $vrm,
+            normalized: $normalized,
+            provider: $provider,
+        );
+
         $normalized['meta'] = [
             ...($normalized['meta'] ?? []),
 
             'schema_version' => 2,
             'format' => 'normalized',
+            'strategy' => 'single',
             'provider' => $provider,
+            'providers' => [
+                $provider,
+            ],
         ];
 
         return [
@@ -264,5 +275,69 @@ class NormalizedReportBuilder
                     $effectiveDate,
             ],
         ];
+    }
+
+    private function assertRequestedVehicle(
+        string $requestedVrm,
+        array $normalized,
+        string $provider,
+    ): void {
+        $requestedVrm = $this->normalizeVrm(
+            $requestedVrm
+        );
+
+        $returnedVrm = $this->normalizeVrm(
+            data_get(
+                $normalized,
+                'vehicle.vrm',
+                ''
+            )
+        );
+
+        /*
+        * Kita tidak boleh menganggap response valid
+        * kalau provider bahkan tidak mengembalikan
+        * identitas kendaraan.
+        */
+        if ($returnedVrm === '') {
+            throw new RuntimeException(
+                sprintf(
+                    '%s did not return a vehicle registration. '
+                    . 'Vehicle identity could not be verified.',
+                    $provider,
+                )
+            );
+        }
+
+        /*
+        * HTTP 200 tidak cukup.
+        *
+        * Provider harus benar-benar mengembalikan
+        * kendaraan yang diminta.
+        */
+        if ($returnedVrm !== $requestedVrm) {
+            throw new RuntimeException(
+                sprintf(
+                    'Provider vehicle mismatch. '
+                    . 'Requested %s but %s returned %s. '
+                    . 'Report generation was stopped.',
+                    $requestedVrm,
+                    $provider,
+                    $returnedVrm,
+                )
+            );
+        }
+    }
+
+    private function normalizeVrm(
+        ?string $vrm
+    ): string {
+        return strtoupper(
+            preg_replace(
+                '/\s+/',
+                '',
+                trim((string) $vrm)
+            )
+        );
     }
 }
