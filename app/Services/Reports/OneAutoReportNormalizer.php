@@ -2,6 +2,8 @@
 
 namespace App\Services\Reports;
 
+use Carbon\Carbon;
+
 class OneAutoReportNormalizer
 {
     public function normalize(array $data): array
@@ -15,6 +17,35 @@ class OneAutoReportNormalizer
         $tax = $data['tax'] ?? [];
         $compliance = $data['compliance'] ?? [];
         $mot = $data['mot'] ?? [];
+        $motTests = collect(
+            data_get(
+                $mot,
+                'result.dvsa_data.mot_tests',
+                []
+            )
+        );
+
+        $latestMot = $motTests
+            ->sortByDesc(
+                fn (array $test) =>
+                    $test['mot_test_date']
+                    ?? ''
+            )
+            ->first();
+
+        $latestMotResult =
+            $latestMot['mot_test_result']
+            ?? null;
+
+        $latestMotExpiry =
+            $latestMot['mot_expiry_date']
+            ?? null;
+
+        $currentMotStatus =
+            $this->deriveMotStatus(
+                $latestMotResult,
+                $latestMotExpiry,
+            );
 
         return [
             'meta' => [
@@ -283,11 +314,60 @@ class OneAutoReportNormalizer
                     false
                 ),
 
-                'records' => data_get(
-                    $salvage,
-                    'result.salvage_auction_records',
-                    []
-                ),
+                'records' => collect(
+                    data_get(
+                        $salvage,
+                        'result.salvage_auction_records',
+                        []
+                    )
+                )
+                    ->map(fn (array $record) => [
+                        'salvage_auction_record_id' =>
+                            $record['salvage_auction_record_id']
+                            ?? null,
+
+                        'salvage_auction_reference' =>
+                            $record['salvage_auction_reference']
+                            ?? null,
+
+                        'salvage_auction_lot_desc' =>
+                            $record['salvage_auction_lot_desc']
+                            ?? null,
+
+                        'salvage_auction_lot_date' =>
+                            $record['salvage_auction_lot_date']
+                            ?? null,
+
+                        'mileage' =>
+                            isset($record['mileage'])
+                                ? (int) $record['mileage']
+                                : null,
+
+                        'primary_damage_desc' =>
+                            $record['primary_damage_desc']
+                            ?? null,
+
+                        'secondary_damage_desc' =>
+                            $record['secondary_damage_desc']
+                            ?? null,
+
+                        'salvage_auction_location' =>
+                            $record['salvage_auction_location']
+                            ?? null,
+
+                        'external_image_urls' =>
+                            array_values(
+                                array_filter(
+                                    $record['external_image_urls']
+                                    ?? [],
+                                    fn ($url) =>
+                                        is_string($url)
+                                        && $url !== ''
+                                )
+                            ),
+                    ])
+                    ->values()
+                    ->all(),
 
                 'available' => true,
             ],
@@ -546,6 +626,38 @@ class OneAutoReportNormalizer
 
                 ],
 
+                'current' => [
+                    'mot_status' =>
+                        $currentMotStatus,
+
+                    'mot_status_source' =>
+                        $currentMotStatus !== null
+                            ? 'derived'
+                            : 'unavailable',
+
+                    'mot_expiry_date' =>
+                        $latestMotExpiry,
+
+                    'tax_service_available' =>
+                        (bool) data_get(
+                            $mot,
+                            'result.is_dvla_service_available',
+                            false
+                        ),
+
+                    'tax_status' =>
+                        data_get(
+                            $mot,
+                            'result.dvla_data.tax_status'
+                        ),
+
+                    'tax_expiry_date' =>
+                        data_get(
+                            $mot,
+                            'result.dvla_data.tax_expiry_date'
+                        ),
+                ],
+
                 'tests' => collect(
                     data_get(
                         $mot,
@@ -631,4 +743,64 @@ class OneAutoReportNormalizer
             ],
         ];
     }
+
+    private function deriveMotStatus(
+        ?string $result,
+        ?string $expiryDate,
+    ): ?string {
+        $normalizedResult = strtoupper(
+            trim(
+                (string) $result
+            )
+        );
+
+        /*
+        * Latest test failed:
+        * langsung dianggap failed.
+        */
+        if (
+            str_contains(
+                $normalizedResult,
+                'FAIL'
+            )
+        ) {
+            return 'Failed';
+        }
+
+        /*
+        * Kalau punya expiry,
+        * kita bisa menentukan valid / expired.
+        */
+        if ($expiryDate) {
+            try {
+                $expiry = Carbon::parse(
+                    $expiryDate
+                )->endOfDay();
+
+                return $expiry->isPast()
+                    ? 'Expired'
+                    : 'Valid';
+            } catch (\Throwable) {
+                // fallback below
+            }
+        }
+
+        /*
+        * Kita masih bisa expose latest result,
+        * tapi jangan mengarang current validity.
+        */
+        if (
+            $normalizedResult !== ''
+        ) {
+            return ucfirst(
+                strtolower(
+                    $normalizedResult
+                )
+            );
+        }
+
+        return null;
+    }
 }
+
+

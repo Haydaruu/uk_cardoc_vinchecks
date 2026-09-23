@@ -379,6 +379,43 @@ class CheckCarDetailsReportNormalizer
                     'motHistorySummary'
                 ] ?? null,
 
+                'current' => [
+                    'mot_status' =>
+                        data_get(
+                            $mot,
+                            'mot.motStatus'
+                        ),
+
+                    'mot_status_source' =>
+                        data_get(
+                            $mot,
+                            'mot.motStatus'
+                        ) !== null
+                            ? 'provider'
+                            : 'unavailable',
+
+                    'mot_expiry_date' =>
+                        data_get(
+                            $mot,
+                            'mot.motDueDate'
+                        ),
+
+                    /*
+                    * Kita belum punya current tax-state
+                    * yang sudah diverifikasi dari CCD.
+                    *
+                    * Road-tax price ≠ current tax status.
+                    */
+                    'tax_service_available' =>
+                        false,
+
+                    'tax_status' =>
+                        null,
+
+                    'tax_expiry_date' =>
+                        null,
+                ],
+
                 'tests' => collect($motHistory)
                     ->map(fn (array $test) => [
                         'test_number' => $test['motTestNumber'] ?? null,

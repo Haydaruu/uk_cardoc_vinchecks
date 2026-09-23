@@ -4,6 +4,51 @@ export type AvailabilitySection<T = unknown> = {
     records?: T[];
 };
 
+export type SalvageRecord = {
+    salvage_auction_record_id:
+        | string
+        | number
+        | null;
+
+    salvage_auction_reference?:
+        | string
+        | number
+        | null;
+
+    salvage_auction_lot_desc:
+        | string
+        | null;
+
+    salvage_auction_lot_date:
+        | string
+        | null;
+
+    mileage:
+        | number
+        | null;
+
+    primary_damage_desc:
+        | string
+        | null;
+
+    secondary_damage_desc:
+        | string
+        | null;
+
+    salvage_auction_location:
+        | string
+        | null;
+
+    external_image_urls:
+        string[];
+
+    /*
+     * Tetap izinkan vendor menambah field
+     * yang belum kita normalize secara eksplisit.
+     */
+    [key: string]: unknown;
+};
+
 export type NormalizedReport = {
     meta: {
         scheme_version: number;
@@ -70,7 +115,7 @@ export type NormalizedReport = {
     salvage: {
         available: boolean;
         record_found: boolean | null;
-        records: Record<string, unknown>[];
+        records: SalvageRecord[];
     };
 
     specifications: {
@@ -152,6 +197,33 @@ export type NormalizedReport = {
     mot: {
         service_available: boolean;
 
+        current?: {
+            mot_status: string | null;
+
+            mot_status_source:
+                | 'provider'
+                | 'derived'
+                | 'unavailable';
+
+            mot_expiry_date: string | null;
+
+            tax_service_available: boolean;
+
+            tax_status: string | null;
+
+            tax_expiry_date: string | null;
+        };
+
+        /*
+        * Legacy compatibility.
+        */
+        status?: string | null;
+        expiry_date?: string | null;
+        summary?: unknown;
+
+        tax_status?: string | null;
+        tax_expiry_date?: string | null;
+
         tests: {
             test_number: string | number | null;
             date: string | null;
@@ -159,6 +231,7 @@ export type NormalizedReport = {
             result: string | null;
             mileage: number | null;
             mileage_unit: string | null;
+
             defects: {
                 type: string | null;
                 description: string | null;
