@@ -33,17 +33,12 @@ class OneAutoReportNormalizer
             )
             ->first();
 
-        $latestMotResult =
-            $latestMot['mot_test_result']
-            ?? null;
-
         $latestMotExpiry =
             $latestMot['mot_expiry_date']
             ?? null;
 
         $currentMotStatus =
             $this->deriveMotStatus(
-                $latestMotResult,
                 $latestMotExpiry,
             );
 
