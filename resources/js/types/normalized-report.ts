@@ -51,7 +51,7 @@ export type SalvageRecord = {
 
 export type NormalizedReport = {
     meta: {
-        scheme_version: number;
+        schema_version: number;
         format: 'normalized';
         provider: string;
         environment?: string;
@@ -242,6 +242,7 @@ export type NormalizedReport = {
         mileage_history: {
             date: string | null;
             mileage: number | null;
+            unit?: string | null;
             result: string | null;
         }[];
     };

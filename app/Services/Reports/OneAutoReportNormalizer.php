@@ -694,6 +694,7 @@ class OneAutoReportNormalizer
                     ->map(fn (array $test) => [
                         'date' => $test['mot_test_date'] ?? null,
                         'mileage' => $test['observation_mileage'] ?? null,
+                        'unit' => 'MI',
                         'result' => $test['mot_test_result'] ?? null,
                     ])
                     ->values()
@@ -745,32 +746,8 @@ class OneAutoReportNormalizer
     }
 
     private function deriveMotStatus(
-        ?string $result,
         ?string $expiryDate,
     ): ?string {
-        $normalizedResult = strtoupper(
-            trim(
-                (string) $result
-            )
-        );
-
-        /*
-        * Latest test failed:
-        * langsung dianggap failed.
-        */
-        if (
-            str_contains(
-                $normalizedResult,
-                'FAIL'
-            )
-        ) {
-            return 'Failed';
-        }
-
-        /*
-        * Kalau punya expiry,
-        * kita bisa menentukan valid / expired.
-        */
         if ($expiryDate) {
             try {
                 $expiry = Carbon::parse(
@@ -781,22 +758,8 @@ class OneAutoReportNormalizer
                     ? 'Expired'
                     : 'Valid';
             } catch (\Throwable) {
-                // fallback below
+                // Unable to determine current status.
             }
-        }
-
-        /*
-        * Kita masih bisa expose latest result,
-        * tapi jangan mengarang current validity.
-        */
-        if (
-            $normalizedResult !== ''
-        ) {
-            return ucfirst(
-                strtolower(
-                    $normalizedResult
-                )
-            );
         }
 
         return null;

@@ -65,6 +65,7 @@ type VehicleStoryEvent = {
 type MileagePoint = {
     date: string | null;
     mileage: number;
+    unit: string | null;
     result: string | null;
 };
 
@@ -155,16 +156,10 @@ export default function NormalizedReportPreview({
                     item.mileage != null,
             )
             .map((item) => ({
-                date:
-                    item.date ??
-                    null,
-
-                mileage:
-                    item.mileage,
-
-                result:
-                    item.result ??
-                    null,
+                date: item.date ?? null,
+                mileage: item.mileage,
+                unit: item.unit ?? null,
+                result: item.result ?? null,
             }))
             .sort(
                 (a, b) =>
@@ -949,6 +944,14 @@ export default function NormalizedReportPreview({
                     description="MOT test history, mileage progression and recorded defects."
                 >
                     <div className="p-6">
+                        <CurrentRoadStatus
+                            motStatus={currentMotStatus}
+                            motExpiry={currentMotExpiry}
+                            motSource={currentMotSource}
+                            taxAvailable={taxServiceAvailable}
+                            taxStatus={currentTaxStatus}
+                            taxExpiry={currentTaxExpiry}
+                        />
                         {!mot.service_available ? (
                             <UnavailableCard label="MOT service" />
                         ) : sortedMot.length ===
@@ -956,27 +959,6 @@ export default function NormalizedReportPreview({
                             <EmptyState text="No MOT tests are recorded for this vehicle." />
                         ) : (
                             <>
-                                <CurrentRoadStatus
-                                    motStatus={
-                                        currentMotStatus
-                                    }
-                                    motExpiry={
-                                        currentMotExpiry
-                                    }
-                                    motSource={
-                                        currentMotSource
-                                    }
-                                    taxAvailable={
-                                        taxServiceAvailable
-                                    }
-                                    taxStatus={
-                                        currentTaxStatus
-                                    }
-                                    taxExpiry={
-                                        currentTaxExpiry
-                                    }
-                                />
-
                                 <MileageIntegrityPanel
                                     state={
                                         mileageIntegrityState
@@ -5063,6 +5045,7 @@ function safeDateTimestamp(
 function findMileageAnomalies(
     points: MileagePoint[],
 ): MileageAnomaly[] {
+    
     const anomalies: MileageAnomaly[] =
         [];
 
@@ -5076,6 +5059,25 @@ function findMileageAnomalies(
 
         const current =
             points[index];
+
+        const previousUnit =
+            normalizeMileageUnit(
+                previous.unit
+            );
+
+        const currentUnit =
+            normalizeMileageUnit(
+                current.unit
+            );
+
+        if (
+            previousUnit &&
+            currentUnit &&
+            previousUnit !==
+                currentUnit
+        ) {
+            continue;
+        }
 
         if (
             current.mileage <
@@ -5102,6 +5104,36 @@ function findMileageAnomalies(
     }
 
     return anomalies;
+}
+
+function normalizeMileageUnit(
+    value: string | null,
+): string | null {
+    if (!value) {
+        return null;
+    }
+
+    const unit =
+        value
+            .trim()
+            .toUpperCase();
+
+    if (
+        unit === 'MI' ||
+        unit === 'MILES'
+    ) {
+        return 'MI';
+    }
+
+    if (
+        unit === 'KM' ||
+        unit === 'KILOMETRES' ||
+        unit === 'KILOMETERS'
+    ) {
+        return 'KM';
+    }
+
+    return unit;
 }
 
 /* ================================================================
@@ -5636,3 +5668,4 @@ function formatYear(
         date.getFullYear(),
     );
 }
+
