@@ -7,6 +7,7 @@ use App\Http\Controllers\Auth\GoogleAuthController;
 use App\Http\Controllers\Auth\MicrosoftAuthController;
 use App\Http\Controllers\Webhook\StripeWebhookController;
 use App\Http\Controllers\Webhook\PayPalWebhookController;
+use App\Http\Controllers\ReportPdfController;
 use App\Http\Controllers\ReportController;
 use Inertia\Inertia;
 
@@ -22,9 +23,10 @@ Route::get('/about-us', function(){return Inertia::render('about-us'); })->name(
 
 //iki Auth Report
 Route::get('/report/{report}', [ReportController::class, 'show'])->name('page.my-report.show');
+Route::get('/report/{report}/pdf', [ReportPdfController::class, 'download'])->name('report.pdf.download');
 Route::post('/reports/{report}/unlock', [VehicleCheckController::class, 'unlock'])->name('report.unlock');
 
-//Iki auth Google
+//Iki auth Google   
 Route::middleware('guest')->group(function () {
     Route::get('/auth-page', function(){ return Inertia::render('auth/auth-page'); })->name('authPage');
     Route::prefix('auth/google')->name('google.')->controller(GoogleAuthController::class)->group(function () {
