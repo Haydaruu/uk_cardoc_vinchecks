@@ -12,7 +12,6 @@ class ReportPdfController extends Controller
     {
         $user = $request->user();
 
-        // Report milik user lain tidak boleh diakses.
         if ($report->user_id && (!$user || $report->user_id !== $user->id)) {
             abort(403);
         }
@@ -22,7 +21,6 @@ class ReportPdfController extends Controller
         $isNormalized = data_get($reportData, 'meta.format') === 'normalized'
             && (int) data_get($reportData, 'meta.schema_version', 0) >= 2;
 
-        // PDF tahap pertama hanya untuk normalized premium report.
         abort_unless(
             $report->report_type === 'premium' && $isNormalized,
             404

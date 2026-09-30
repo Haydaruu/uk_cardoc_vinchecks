@@ -10,6 +10,15 @@ use App\Http\Middleware\PreventBackHistoryCache;
 use App\Http\Middleware\RedirectIfAuthenticated;
 use Illuminate\Http\Request;
 
+$runtimeTempDirectory = dirname(__DIR__) . '/storage/framework/tmp';
+
+if (! is_dir($runtimeTempDirectory)) {
+    mkdir($runtimeTempDirectory, 0777, true);
+}
+
+putenv('TEMP=' . $runtimeTempDirectory);
+putenv('TMP=' . $runtimeTempDirectory);
+
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
         web: __DIR__.'/../routes/web.php',

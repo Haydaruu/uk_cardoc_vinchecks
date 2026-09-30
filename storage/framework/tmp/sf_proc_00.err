@@ -1,0 +1,163 @@
+[Wed Sep 30 18:07:45 2026] PHP 8.5.10 Development Server (http://127.0.0.1:8000) started
+[Wed Sep 30 18:07:50 2026] 127.0.0.1:59245 Accepted
+[Wed Sep 30 18:07:57 2026] 127.0.0.1:59245 Closing
+[Wed Sep 30 18:07:57 2026] 127.0.0.1:61318 Accepted
+[Wed Sep 30 18:07:58 2026] 127.0.0.1:61318 [200]: GET /build/assets/instrument-sans-400-normal-DRC__1Mx.woff2
+[Wed Sep 30 18:07:58 2026] 127.0.0.1:56227 Accepted
+[Wed Sep 30 18:07:58 2026] 127.0.0.1:55815 Accepted
+[Wed Sep 30 18:07:58 2026] 127.0.0.1:61318 Closing
+[Wed Sep 30 18:07:58 2026] 127.0.0.1:55815 [200]: GET /build/assets/instrument-sans-500-normal-Dk9ku72i.woff2
+[Wed Sep 30 18:07:58 2026] 127.0.0.1:56227 [200]: GET /build/assets/instrument-sans-600-normal-B7fBEWYG.woff2
+[Wed Sep 30 18:07:58 2026] 127.0.0.1:55815 Closing
+[Wed Sep 30 18:07:58 2026] 127.0.0.1:56227 Closing
+[Wed Sep 30 18:08:35 2026] 127.0.0.1:58395 Accepted
+[Wed Sep 30 18:08:35 2026] 127.0.0.1:58395 Closing
+[Wed Sep 30 18:08:35 2026] 127.0.0.1:50532 Accepted
+[Wed Sep 30 18:08:35 2026] 127.0.0.1:50532 Closing
+[Wed Sep 30 18:11:17 2026] 127.0.0.1:63498 Accepted
+[Wed Sep 30 18:11:19 2026] 127.0.0.1:63498 Closing
+[Wed Sep 30 18:11:19 2026] 127.0.0.1:65373 Accepted
+[Wed Sep 30 18:11:22 2026] 127.0.0.1:65373 [200]: GET /favicon.svg
+[Wed Sep 30 18:11:22 2026] 127.0.0.1:65373 Closing
+[Wed Sep 30 18:11:22 2026] 127.0.0.1:63716 Accepted
+[Wed Sep 30 18:11:22 2026] 127.0.0.1:63716 [200]: GET /favicon.ico
+[Wed Sep 30 18:11:22 2026] 127.0.0.1:63716 Closing
+[Wed Sep 30 18:11:22 2026] 127.0.0.1:52172 Accepted
+[Wed Sep 30 18:11:23 2026] 127.0.0.1:52172 Closing
+[Wed Sep 30 18:12:04 2026] 127.0.0.1:55413 Accepted
+[Wed Sep 30 18:12:05 2026] 127.0.0.1:55413 Closing
+[Wed Sep 30 18:12:05 2026] 127.0.0.1:54086 Accepted
+[Wed Sep 30 18:12:05 2026] 127.0.0.1:54086 Closing
+[Wed Sep 30 18:12:06 2026] 127.0.0.1:62665 Accepted
+[Wed Sep 30 18:12:06 2026] 127.0.0.1:62665 Closing
+[Wed Sep 30 18:12:15 2026] 127.0.0.1:60047 Accepted
+[Wed Sep 30 18:12:23 2026] 127.0.0.1:60047 Closing
+[Wed Sep 30 18:12:23 2026] 127.0.0.1:60432 Accepted
+[Wed Sep 30 18:12:23 2026] 127.0.0.1:56272 Accepted
+[Wed Sep 30 18:12:28 2026] 127.0.0.1:60432 Closing
+[Wed Sep 30 18:12:28 2026] 127.0.0.1:50517 Accepted
+[Wed Sep 30 18:12:29 2026] 127.0.0.1:56272 Closing
+[Wed Sep 30 18:12:33 2026] 127.0.0.1:50517 [200]: GET /favicon.svg
+[Wed Sep 30 18:12:33 2026] 127.0.0.1:50517 Closing
+[Wed Sep 30 18:12:33 2026] 127.0.0.1:59880 Accepted
+[Wed Sep 30 18:12:33 2026] 127.0.0.1:59880 [200]: GET /favicon.ico
+[Wed Sep 30 18:12:33 2026] 127.0.0.1:59880 Closing
+[Wed Sep 30 18:12:33 2026] 127.0.0.1:50848 Accepted
+[Wed Sep 30 18:12:34 2026] 127.0.0.1:50848 Closing
+[Wed Sep 30 18:12:34 2026] 127.0.0.1:55003 Accepted
+[Wed Sep 30 18:12:34 2026] 127.0.0.1:57804 Accepted
+[Wed Sep 30 18:12:34 2026] 127.0.0.1:55003 Closing
+[Wed Sep 30 18:12:35 2026] 127.0.0.1:57804 Closing
+[Wed Sep 30 18:12:38 2026] 127.0.0.1:51966 Accepted
+[Wed Sep 30 18:12:38 2026] 127.0.0.1:51966 [200]: GET /favicon.svg
+[Wed Sep 30 18:12:38 2026] 127.0.0.1:51966 Closing
+[Wed Sep 30 18:12:38 2026] 127.0.0.1:55655 Accepted
+[Wed Sep 30 18:12:38 2026] 127.0.0.1:55655 [200]: GET /favicon.ico
+[Wed Sep 30 18:12:38 2026] 127.0.0.1:55655 Closing
+[Wed Sep 30 18:12:38 2026] 127.0.0.1:60159 Accepted
+[Wed Sep 30 18:12:39 2026] 127.0.0.1:60159 Closing
+[Wed Sep 30 18:12:39 2026] 127.0.0.1:54368 Accepted
+[Wed Sep 30 18:12:40 2026] 127.0.0.1:54368 Closing
+[Wed Sep 30 18:12:40 2026] 127.0.0.1:49429 Accepted
+[Wed Sep 30 18:12:40 2026] 127.0.0.1:49429 Closing
+[Wed Sep 30 18:12:44 2026] 127.0.0.1:61645 Accepted
+[Wed Sep 30 18:12:44 2026] 127.0.0.1:61645 [200]: GET /favicon.svg
+[Wed Sep 30 18:12:44 2026] 127.0.0.1:61645 Closing
+[Wed Sep 30 18:12:44 2026] 127.0.0.1:49877 Accepted
+[Wed Sep 30 18:12:44 2026] 127.0.0.1:49877 [200]: GET /favicon.ico
+[Wed Sep 30 18:12:44 2026] 127.0.0.1:49877 Closing
+[Wed Sep 30 18:12:44 2026] 127.0.0.1:55861 Accepted
+[Wed Sep 30 18:12:45 2026] 127.0.0.1:55861 Closing
+[Wed Sep 30 18:12:45 2026] 127.0.0.1:60467 Accepted
+[Wed Sep 30 18:12:45 2026] 127.0.0.1:54415 Accepted
+[Wed Sep 30 18:12:45 2026] 127.0.0.1:60467 Closing
+[Wed Sep 30 18:12:46 2026] 127.0.0.1:54415 Closing
+[Wed Sep 30 18:12:48 2026] 127.0.0.1:61906 Accepted
+[Wed Sep 30 18:12:48 2026] 127.0.0.1:61906 [200]: GET /favicon.svg
+[Wed Sep 30 18:12:48 2026] 127.0.0.1:61906 Closing
+[Wed Sep 30 18:12:49 2026] 127.0.0.1:60193 Accepted
+[Wed Sep 30 18:12:49 2026] 127.0.0.1:60193 [200]: GET /favicon.ico
+[Wed Sep 30 18:12:49 2026] 127.0.0.1:60193 Closing
+[Wed Sep 30 18:12:49 2026] 127.0.0.1:59349 Accepted
+[Wed Sep 30 18:12:49 2026] 127.0.0.1:54493 Accepted
+[Wed Sep 30 18:12:50 2026] 127.0.0.1:59349 Closing
+[Wed Sep 30 18:12:50 2026] 127.0.0.1:61409 Accepted
+[Wed Sep 30 18:12:50 2026] 127.0.0.1:54493 Closing
+[Wed Sep 30 18:12:50 2026] 127.0.0.1:61409 Closing
+[Wed Sep 30 18:12:53 2026] 127.0.0.1:51481 Accepted
+[Wed Sep 30 18:12:53 2026] 127.0.0.1:51481 [200]: GET /favicon.svg
+[Wed Sep 30 18:12:53 2026] 127.0.0.1:51481 Closing
+[Wed Sep 30 18:12:56 2026] 127.0.0.1:63354 Accepted
+[Wed Sep 30 18:12:56 2026] 127.0.0.1:63354 [200]: GET /favicon.ico
+[Wed Sep 30 18:12:56 2026] 127.0.0.1:63354 Closing
+[Wed Sep 30 18:12:56 2026] 127.0.0.1:55293 Accepted
+[Wed Sep 30 18:12:57 2026] 127.0.0.1:55293 Closing
+[Wed Sep 30 18:12:57 2026] 127.0.0.1:64050 Accepted
+[Wed Sep 30 18:12:57 2026] 127.0.0.1:63766 Accepted
+[Wed Sep 30 18:12:57 2026] 127.0.0.1:64050 Closing
+[Wed Sep 30 18:12:58 2026] 127.0.0.1:63766 Closing
+[Wed Sep 30 18:13:01 2026] 127.0.0.1:57997 Accepted
+[Wed Sep 30 18:13:01 2026] 127.0.0.1:57997 [200]: GET /favicon.svg
+[Wed Sep 30 18:13:01 2026] 127.0.0.1:57997 Closing
+[Wed Sep 30 18:13:01 2026] 127.0.0.1:64098 Accepted
+[Wed Sep 30 18:13:01 2026] 127.0.0.1:64098 [200]: GET /favicon.ico
+[Wed Sep 30 18:13:01 2026] 127.0.0.1:64098 Closing
+[Wed Sep 30 18:13:01 2026] 127.0.0.1:63161 Accepted
+[Wed Sep 30 18:13:02 2026] 127.0.0.1:63161 Closing
+[Wed Sep 30 18:13:02 2026] 127.0.0.1:56747 Accepted
+[Wed Sep 30 18:13:04 2026] 127.0.0.1:56747 Closing
+[Wed Sep 30 18:13:04 2026] 127.0.0.1:55110 Accepted
+[Wed Sep 30 18:13:04 2026] 127.0.0.1:55110 Closing
+[Wed Sep 30 18:13:11 2026] 127.0.0.1:60111 Accepted
+[Wed Sep 30 18:13:12 2026] 127.0.0.1:60111 Closing
+[Wed Sep 30 18:13:12 2026] 127.0.0.1:58418 Accepted
+[Wed Sep 30 18:13:12 2026] 127.0.0.1:61628 Accepted
+[Wed Sep 30 18:13:18 2026] 127.0.0.1:58418 Closing
+[Wed Sep 30 18:13:18 2026] 127.0.0.1:61726 Accepted
+[Wed Sep 30 18:13:18 2026] 127.0.0.1:61628 [200]: GET /favicon.svg
+[Wed Sep 30 18:13:18 2026] 127.0.0.1:63548 Accepted
+[Wed Sep 30 18:13:18 2026] 127.0.0.1:61726 Closing
+[Wed Sep 30 18:13:18 2026] 127.0.0.1:63548 Closing
+[Wed Sep 30 18:13:18 2026] 127.0.0.1:61628 Closing
+[Wed Sep 30 18:13:23 2026] 127.0.0.1:50403 Accepted
+[Wed Sep 30 18:13:23 2026] 127.0.0.1:50403 [200]: GET /favicon.svg
+[Wed Sep 30 18:13:23 2026] 127.0.0.1:50403 Closing
+[Wed Sep 30 18:13:23 2026] 127.0.0.1:52982 Accepted
+[Wed Sep 30 18:13:24 2026] 127.0.0.1:52982 Closing
+[Wed Sep 30 18:13:24 2026] 127.0.0.1:51872 Accepted
+[Wed Sep 30 18:13:24 2026] 127.0.0.1:65107 Accepted
+[Wed Sep 30 18:13:24 2026] 127.0.0.1:61212 Accepted
+[Wed Sep 30 18:13:24 2026] 127.0.0.1:51872 Closing
+[Wed Sep 30 18:13:25 2026] 127.0.0.1:65107 Closing
+[Wed Sep 30 18:13:25 2026] 127.0.0.1:61212 [200]: GET /favicon.ico
+[Wed Sep 30 18:13:25 2026] 127.0.0.1:61212 Closing
+[Wed Sep 30 18:13:28 2026] 127.0.0.1:52935 Accepted
+[Wed Sep 30 18:13:29 2026] 127.0.0.1:52935 Closing
+[Wed Sep 30 18:13:29 2026] 127.0.0.1:54553 Accepted
+[Wed Sep 30 18:13:29 2026] 127.0.0.1:62543 Accepted
+[Wed Sep 30 18:13:29 2026] 127.0.0.1:54553 Closing
+[Wed Sep 30 18:13:29 2026] 127.0.0.1:62543 Closing
+[Wed Sep 30 18:13:32 2026] 127.0.0.1:55765 Accepted
+[Wed Sep 30 18:13:32 2026] 127.0.0.1:55765 [200]: GET /favicon.svg
+[Wed Sep 30 18:13:32 2026] 127.0.0.1:55765 Closing
+[Wed Sep 30 18:13:33 2026] 127.0.0.1:49733 Accepted
+[Wed Sep 30 18:13:33 2026] 127.0.0.1:49733 [200]: GET /favicon.ico
+[Wed Sep 30 18:13:33 2026] 127.0.0.1:49733 Closing
+[Wed Sep 30 18:13:33 2026] 127.0.0.1:56073 Accepted
+[Wed Sep 30 18:13:34 2026] 127.0.0.1:56073 Closing
+[Wed Sep 30 18:13:34 2026] 127.0.0.1:57086 Accepted
+[Wed Sep 30 18:13:34 2026] 127.0.0.1:58775 Accepted
+[Wed Sep 30 18:13:34 2026] 127.0.0.1:57086 Closing
+[Wed Sep 30 18:13:36 2026] 127.0.0.1:58775 Closing
+[Wed Sep 30 18:13:39 2026] 127.0.0.1:54381 Accepted
+[Wed Sep 30 18:13:39 2026] 127.0.0.1:54381 [200]: GET /favicon.svg
+[Wed Sep 30 18:13:39 2026] 127.0.0.1:54381 Closing
+[Wed Sep 30 18:13:39 2026] 127.0.0.1:54573 Accepted
+[Wed Sep 30 18:13:39 2026] 127.0.0.1:54573 [200]: GET /favicon.ico
+[Wed Sep 30 18:13:39 2026] 127.0.0.1:54573 Closing
+[Wed Sep 30 18:13:39 2026] 127.0.0.1:55417 Accepted
+[Wed Sep 30 18:13:40 2026] 127.0.0.1:55417 Closing
+[Wed Sep 30 18:13:40 2026] 127.0.0.1:55406 Accepted
+[Wed Sep 30 18:13:40 2026] 127.0.0.1:59638 Accepted
+[Wed Sep 30 18:13:40 2026] 127.0.0.1:55406 Closing
+[Wed Sep 30 18:13:40 2026] 127.0.0.1:59638 Closing
