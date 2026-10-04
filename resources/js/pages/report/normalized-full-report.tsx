@@ -35,6 +35,7 @@ export default function NormalizedFullReport({
                 <div className="mt-10 flex flex-col justify-center gap-4 sm:flex-row">
                     <a
                         href={`/report/${report.id}/pdf`}
+                        download={`vehicle-report-${report.id}.pdf`}
                         className="flex items-center justify-center gap-2 rounded-md border-2 border-primary-container px-8 py-3 text-sm font-bold uppercase tracking-wider text-primary-container transition-all hover:bg-slate-50"
                     >
                         <Download className="size-4" />

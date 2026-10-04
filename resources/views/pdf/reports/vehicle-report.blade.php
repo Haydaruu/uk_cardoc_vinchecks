@@ -1539,7 +1539,7 @@
 
                     </div>
 
-                    @php
+                    <!-- @php
                         $photoUrls = collect(
                             $record['external_image_urls'] ?? []
                         )
@@ -1580,7 +1580,7 @@
 
                         </div>
 
-                    @endif
+                    @endif -->
 
                 </div>
 
