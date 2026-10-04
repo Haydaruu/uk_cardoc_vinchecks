@@ -26,3 +26,7 @@ yarn-error.log
 /.nova
 /.vscode
 /.zed
+/storage/framework/chrome/
+/storage/framework/chrome-test/
+/storage/framework/chrome-test-2/
+/storage/framework/tmp/
