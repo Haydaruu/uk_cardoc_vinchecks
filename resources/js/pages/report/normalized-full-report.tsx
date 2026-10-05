@@ -1,5 +1,6 @@
 import { Head } from '@inertiajs/react';
-import { Download, Share2 } from 'lucide-react';
+import { useState } from 'react';
+import { Download, Loader2 ,Share2 } from 'lucide-react';
 
 import NormalizedReportPreview from '@/components/report/normalized-report-preview';
 import BaseLayout from '@/layouts/base-layout';
@@ -19,6 +20,50 @@ export default function NormalizedFullReport({
 }: Props) {
     const vehicle = report.data.vehicle;
 
+    const [isDownloading, setIsDownloading] = useState(false);
+
+    async function handlePdfDownload() {
+        if (isDownloading) {
+            return;
+        }
+
+        setIsDownloading(true);
+
+        try{
+            const response = await fetch(`/report/${report.id}/pdf`, 
+                {
+                    method: 'GET',
+                    credentials: 'same-origin',
+                    cache: 'no-cache',
+                },
+            );
+
+            if (!response.ok) {
+                throw new Error(`PDF download failed: ${response.status}`);
+            }
+
+            const blob = await response.blob();
+            const contentDisposition = response.headers.get('Content-Disposition');
+            const filenameMatch = contentDisposition?.match(/filename="([^"]+)"/i);
+            const filename = filenameMatch?.[1] ?? `vehicle-report-${report.id}.pdf`;
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+
+            document.body.appendChild(link);
+
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error('Error downloading PDF:', error);
+            window.alert('Unable to download the PDF report. Please try again.');
+        } finally {
+            setIsDownloading(false);
+        }
+    }
+
     return (
         <>
             <Head
@@ -33,15 +78,26 @@ export default function NormalizedFullReport({
                 />
 
                 <div className="mt-10 flex flex-col justify-center gap-4 sm:flex-row">
-                    <a
-                        href={`/report/${report.id}/pdf`}
-                        download={`vehicle-report-${report.id}.pdf`}
-                        className="flex items-center justify-center gap-2 rounded-md border-2 border-primary-container px-8 py-3 text-sm font-bold uppercase tracking-wider text-primary-container transition-all hover:bg-slate-50"
+                    <button
+                        type="button"
+                        onClick={handlePdfDownload}
+                        disabled={isDownloading}
+                        className="flex items-center justify-center gap-2 rounded-md border-2 border-primary-container px-8 py-3 text-sm font-bold uppercase tracking-wider text-primary-container transition-all hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-70"
                     >
-                        <Download className="size-4" />
+                        {isDownloading ? (
+                            <>
+                                <Loader2 className="size-4 animate-spin" />
 
-                        Download PDF Report
-                    </a>
+                                Generating PDF...
+                            </>
+                        ) : (
+                            <>
+                                <Download className="size-4" />
+
+                                Download PDF Report
+                            </>
+                        )}
+                    </button>
 
                     <button
                         type="button"
