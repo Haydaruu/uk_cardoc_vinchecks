@@ -28,4 +28,12 @@ export default defineConfig({
             formVariants: true,
         }),
     ],
+
+    server:{
+        watch: {
+            ignored: [
+                '**/storage/framework/**',
+            ],
+        },
+    },
 });
