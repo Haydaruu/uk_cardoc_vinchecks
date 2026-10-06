@@ -3,7 +3,8 @@
 namespace App\Http\Controllers\Payments;
 
 use App\Http\Controllers\Controller;
-use App\Models\Report; 
+use App\Models\Report;
+use App\Models\Transaction;
 use Illuminate\Http\Request;
 use Stripe\StripeClient;
 use Stripe\Exception\ApiErrorException;
@@ -86,12 +87,61 @@ class StripeController extends Controller
                 idempotencyKey: $intent->id,
                 description: "Stripe purchase: {$intent->id}",
             );
+
+            $paidAt = $intent->created
+                ? date('Y-m-d H:i:s', $intent->created)
+                : now();
+
+            $transaction = Transaction::updateOrCreate(
+                [
+                    'payment_gateway_ref' => $intent->id,
+                ],
+                [
+                    'user_id' => $user->id,
+
+                    'invoice_id' =>
+                        'UKC-' .
+                        strtoupper(
+                            substr(
+                                $intent->id,
+                                3,
+                                8
+                            )
+                        ),
+
+                    'currency' =>
+                        strtoupper($intent->currency),
+
+                    'amount' =>
+                        $intent->amount / 100,
+
+                    'payment_method' =>
+                        'stripe',
+
+                    'type' =>
+                        'payment',
+
+                    'category' =>
+                        'credit_purchase',
+
+                    'description' =>
+                        $intent->metadata->product_name
+                        ?? "{$credits} Credit Top-up",
+
+                    'status' =>
+                        'success',
+
+                    'paid_at' =>
+                        $paidAt,
+                ]
+            );
         }
 
         $card = $intent->payment_method->card ?? null;
 
         return Inertia::render('user/checkout/checkout-success', [
             'order' => [
+                'transactionId' => $transaction->id,
                 'number' => 'UKC-' . strtoupper(substr($intent->id, 3, 8)),
                 'date' => now()->format('F j, Y'),
                 'item' => $intent->metadata->product_name ?? "{$credits} Credit Top-up",

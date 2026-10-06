@@ -1,6 +1,6 @@
 import { Head } from '@inertiajs/react';
 import { useState } from 'react';
-import { Download, Loader2 ,Share2 } from 'lucide-react';
+import { Download, Loader2, Share2 } from 'lucide-react';
 
 import NormalizedReportPreview from '@/components/report/normalized-report-preview';
 import BaseLayout from '@/layouts/base-layout';

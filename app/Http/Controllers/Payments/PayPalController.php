@@ -216,9 +216,57 @@ class PayPalController extends Controller
         $captureId = $capture['id'];
         $paidAt = isset($capture['create_time']) ? Carbon::parse($capture['create_time']):now();
 
+        $transaction = Transaction::updateOrCreate(
+            [
+                'payment_gateway_ref' =>
+                    $captureId,
+            ],
+            [
+                'user_id' =>
+                    $user->id,
+
+                'invoice_id' =>
+                    'UKC-PPL-' .
+                    strtoupper(
+                        substr(
+                            $captureId,
+                            0,
+                            8
+                        )
+                    ),
+
+                'currency' =>
+                    strtoupper(
+                        $capture['amount']['currency_code']
+                    ),
+
+                'amount' =>
+                    $capture['amount']['value'],
+
+                'payment_method' =>
+                    'paypal',
+
+                'type' =>
+                    'payment',
+
+                'category' =>
+                    'credit_purchase',
+
+                'description' =>
+                    $plan['label'],
+
+                'status' =>
+                    'success',
+
+                'paid_at' =>
+                    $paidAt,
+            ]
+        );
+
         return Inertia::render('user/checkout/checkout-success',
             [
                 'order' => [
+                    'transactionId' => $transaction->id,
                     'number' => 'UKC-PPL-'. strtoupper(substr($captureId, 0,8)),
                     'date' => $paidAt->format('F j, Y'),
                     'item' => $plan['label'],

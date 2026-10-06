@@ -62,15 +62,13 @@ class ReportPdfController extends Controller
             ),
         ]);
 
-        $pdf = Pdf::view('pdf.reports.vehicle-report', [
+        Pdf::view('pdf.reports.vehicle-report', [
             'report' => $report,
             'data' => $reportData,
         ])
             ->format('a4')
             ->margins(12, 12, 14, 12)
             ->save($outputPath);
-        
-        $pdf->save($outputPath);
         
         Log::info('PDF DEBUG: actual render finished', [
             'elapsed_ms' => round(

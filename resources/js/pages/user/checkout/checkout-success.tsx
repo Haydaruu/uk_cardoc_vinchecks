@@ -1,7 +1,4 @@
-import {
-    Head,
-    router,
-} from '@inertiajs/react';
+import {Head, router, Link} from '@inertiajs/react';
 
 import {
     ArrowRight,
@@ -19,6 +16,8 @@ type PurchaseType = 'credit_purchase' | 'subscription';
 type CheckoutSuccessProps = {
     purchaseType?: PurchaseType;
 
+    transactionId?: number | null;
+
     order: {
         number: string;
         date: string;
@@ -33,10 +32,12 @@ type CheckoutSuccessProps = {
 export default function CheckoutSuccess({
     order,
     purchaseType = 'credit_purchase',
+    transactionId = null,
 }: CheckoutSuccessProps) {
     const isSubscription = purchaseType === 'subscription';
     const isCardPayment = !!order.cardBrand && !!order.cardLast4;
     const formattedAmount = formatCurrency(order.amount, order.currency);
+    const invoiceUrl = transactionId ? `/settings/purchase-history/${transactionId}/invoice/pdf` : null;
 
     function handleDashboard() {
         router.visit('/dashboard');
@@ -228,15 +229,23 @@ export default function CheckoutSuccess({
                             </p>
 
                             <div className="flex flex-col gap-3 sm:flex-row">
-                                <button
-                                    type="button"
-                                    disabled
-                                    title="Coming soon"
-                                    className="flex cursor-not-allowed items-center justify-center gap-2 rounded-md border border-outline-variant bg-white px-5 py-3 text-sm font-semibold text-outline opacity-60"
-                                >
-                                    <Download className="size-4" />
-                                    Download receipt
-                                </button>
+                                {invoiceUrl ? (
+                                    <a
+                                        href={invoiceUrl}
+                                        className="flex items-center justify-center gap-2 rounded-md border border-outline-variant bg-white px-5 py-3 text-sm font-semibold text-primary transition-colors hover:bg-surface-container"
+                                    >
+                                        <Download className="size-4" />
+                                        Download Invoice
+                                    </a>
+                                ) : (
+                                    <Link
+                                        href="/settings/purchase-history"
+                                        className="flex items-center justify-center gap-2 rounded-md border border-outline-variant bg-white px-5 py-3 text-sm font-semibold text-primary transition-colors hover:bg-surface-container"
+                                    >
+                                        <ReceiptText className="size-4" />
+                                        View Purchase History
+                                    </Link>
+                                )}
 
                                 <button
                                     type="button"

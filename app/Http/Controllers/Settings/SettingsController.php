@@ -177,6 +177,22 @@ class SettingsController extends Controller
                 'status' => $transaction->status,
                 'payment_method' => $transaction->payment_method,
                 'paid_at' => $transaction->paid_at,
+
+                 'invoice_url' =>
+                    $transaction->status === 'success'
+                        ? route(
+                            'invoice.show',
+                            $transaction
+                        )
+                        : null,
+
+                'invoice_download_url' =>
+                    $transaction->status === 'success'
+                        ? route(
+                            'invoice.download',
+                            $transaction
+                        )
+                        : null,
             ]);
 
         return Inertia::render('user/settings/purchase-history',[ 

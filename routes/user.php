@@ -15,6 +15,8 @@ use App\Http\Controllers\Settings\SettingsController;
 use App\Http\Controllers\Settings\SecurityController;
 use App\Http\Controllers\Settings\ConnectedAccountController;
 
+use App\Http\Controllers\InvoiceController;
+
 /*
 |--------------------------------------------------------------------------
 | Authenticated User Pages
@@ -50,6 +52,12 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/checkout/subscription/success', [StripeSubscriptionController::class, 'success'])
         ->name('checkout.subscription.success');
+
+    Route::get('/settings/purchase-history/{transaction}/invoice', [InvoiceController::class, 'show'])
+        ->name('invoice.show');
+
+    Route::get('/settings/purchase-history/{transaction}/invoice/pdf', [InvoiceController::class, 'download'])
+        ->name('invoice.download');
 });
 
 /*

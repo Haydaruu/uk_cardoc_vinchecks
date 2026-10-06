@@ -6,6 +6,7 @@ import {
     Database,
     Download,
     Filter,
+    ReceiptText,
     RefreshCw,
     Search,
     WalletCards,
@@ -25,6 +26,9 @@ type Transaction = {
     status: 'pending' | 'success' | 'failed' | 'refunded';
     payment_method: string | null;
     paid_at: string | null;
+
+    invoice_url: string | null;
+    invoice_download_url: string | null;
 };
 
 type PaginationLink = {
@@ -409,19 +413,30 @@ function TransactionRow({
             </td>
 
             <td className="px-6 py-4 text-center">
-                {transaction.status === 'success' ? (
-                    /*
-                     * Invoice PDF belum punya route/backend.
-                     * Untuk sementara visual only.
-                     */
-                    <button
-                        type="button"
-                        disabled
-                        title="Invoice download coming soon"
-                        className="cursor-not-allowed text-primary opacity-40"
-                    >
-                        <Download className="h-5 w-5" />
-                    </button>
+                {transaction.status === 'success' &&
+                transaction.invoice_url &&
+                transaction.invoice_download_url ? (
+                    <div className="inline-flex items-center gap-2">
+                        <a
+                            href={
+                                transaction.invoice_url
+                            }
+                            title="View invoice"
+                            className="inline-flex items-center justify-center rounded-md p-2 text-primary transition-colors hover:bg-surface-container hover:text-primary-container"
+                        >
+                            <ReceiptText className="h-5 w-5" />
+                        </a>
+
+                        <a
+                            href={
+                                transaction.invoice_download_url
+                            }
+                            title="Download invoice"
+                            className="inline-flex items-center justify-center rounded-md p-2 text-primary transition-colors hover:bg-surface-container hover:text-primary-container"
+                        >
+                            <Download className="h-5 w-5" />
+                        </a>
+                    </div>
                 ) : (
                     <span className="inline-flex text-outline-variant">
                         <Ban className="h-5 w-5" />

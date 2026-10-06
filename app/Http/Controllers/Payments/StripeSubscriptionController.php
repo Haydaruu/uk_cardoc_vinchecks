@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Payments;
 
 use App\Http\Controllers\Controller;
 use App\Models\Subscription;
+use App\Models\Transaction;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Stripe\StripeClient;
@@ -210,6 +211,75 @@ class StripeSubscriptionController extends Controller
             return redirect('/')->with('modal', 'payment_failed');
         }
 
+        $billingPlanSlug =
+            $stripeSubscription
+                ->metadata
+                ->plan
+                ?? null;
+
+        $billingPlan =
+            $billingPlanSlug
+                ? config(
+                    "credit_plans.{$billingPlanSlug}"
+                )
+                : null;
+
+        $paidAt =
+            $invoice->status_transitions?->paid_at
+            ?? $invoice->created
+            ?? time();
+
+        $transaction = Transaction::updateOrCreate(
+            [
+                'payment_gateway_ref' =>
+                    $invoice->id,
+            ],
+            [
+                'user_id' =>
+                    $user->id,
+
+                'invoice_id' =>
+                    'UKC-SUB-' .
+                    strtoupper(
+                        substr(
+                            $invoice->id,
+                            3,
+                            8
+                        )
+                    ),
+
+                'currency' =>
+                    strtoupper(
+                        $invoice->currency
+                    ),
+
+                'amount' =>
+                    $invoice->amount_paid / 100,
+
+                'payment_method' =>
+                    'stripe',
+
+                'type' =>
+                    'payment',
+
+                'category' =>
+                    'subscription',
+
+                'description' =>
+                    $billingPlan['label']
+                    ?? $plan['label'],
+
+                'status' =>
+                    'success',
+
+                'paid_at' =>
+                    date(
+                        'Y-m-d H:i:s',
+                        $paidAt
+                    ),
+            ]
+        );
+
         $paidAt = $invoice->status_transitions?->paid_at ?? $invoice->created ?? time();
 
         $paymentMethod = $stripeSubscription->default_payment_method;
@@ -221,6 +291,7 @@ class StripeSubscriptionController extends Controller
             [
                 'purchaseType' => 'subscription',
                 'order' => [
+                    'transactionId' => $transaction->id,
                     'number' => 'UKC-SUB-' . strtoupper(substr($invoice->id, 3, 8)),
                     'date' => date('F j, Y', $paidAt),
                     'item' => $plan['label'],
