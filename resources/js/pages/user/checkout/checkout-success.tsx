@@ -13,10 +13,22 @@ import {
 
 type PurchaseType = 'credit_purchase' | 'subscription';
 
+type TransactionSummary = {
+    id: number;
+    invoice_id: string;
+    description: string;
+    amount: string;
+    currency: string;
+    status: 'success';
+    payment_method: string;
+    payment_gateway_ref: string | null;
+    paid_at: string | null;
+};
+
 type CheckoutSuccessProps = {
     purchaseType?: PurchaseType;
 
-    transactionId?: number | null;
+    transaction?: TransactionSummary | null;
 
     order: {
         number: string;
@@ -32,12 +44,21 @@ type CheckoutSuccessProps = {
 export default function CheckoutSuccess({
     order,
     purchaseType = 'credit_purchase',
-    transactionId = null,
+    transaction = null,
 }: CheckoutSuccessProps) {
     const isSubscription = purchaseType === 'subscription';
+
     const isCardPayment = !!order.cardBrand && !!order.cardLast4;
+
     const formattedAmount = formatCurrency(order.amount, order.currency);
-    const invoiceUrl = transactionId ? `/settings/purchase-history/${transactionId}/invoice/pdf` : null;
+
+    const invoiceViewUrl = transaction
+    ? `/settings/purchase-history/${transaction.id}/invoice`
+    : null;
+
+    const invoiceDownloadUrl = transaction
+        ? `/settings/purchase-history/${transaction.id}/invoice/pdf`
+        : null;
 
     function handleDashboard() {
         router.visit('/dashboard');
@@ -131,12 +152,19 @@ export default function CheckoutSuccess({
                                 <div className="mt-7 grid gap-6 border-t border-outline-variant/40 pt-6 sm:grid-cols-2">
                                     <ReceiptField
                                         label="Transaction date"
-                                        value={order.date}
+                                        value={
+                                            transaction?.paid_at
+                                                ? formatDateTime(transaction.paid_at)
+                                                : order.date
+                                        }
                                     />
 
                                     <ReceiptField
-                                        label="Reference number"
-                                        value={order.number}
+                                        label="Invoice number"
+                                        value={
+                                            transaction?.invoice_id ??
+                                            order.number
+                                        }
                                     />
 
                                     <div>
@@ -156,15 +184,36 @@ export default function CheckoutSuccess({
                                             ) : (
                                                 <>
                                                     <Wallet className="size-4" />
-                                                    <span>PayPal</span>
+
+                                                    <span>
+                                                        {formatPaymentMethod(
+                                                            transaction?.payment_method,
+                                                        )}
+                                                    </span>
                                                 </>
                                             )}
                                         </div>
                                     </div>
 
                                     <ReceiptField
+                                        label="Payment gateway reference"
+                                        value={
+                                            transaction?.payment_gateway_ref ??
+                                            'Pending'
+                                        }
+                                    />
+
+                                    <ReceiptField
+                                        label="Description"
+                                        value={
+                                            transaction?.description ??
+                                            order.item
+                                        }
+                                    />
+
+                                    <ReceiptField
                                         label="Status"
-                                        value={isSubscription ? 'Active' : 'Paid'}
+                                        value="Paid"
                                     />
                                 </div>
 
@@ -221,41 +270,43 @@ export default function CheckoutSuccess({
                         </div>
 
                         {/* Footer */}
-                        <div className="flex flex-col gap-3 border-t border-outline-variant/50 bg-surface-container-low/40 px-6 py-5 sm:flex-row sm:items-center sm:justify-between md:px-8">
-                            <p className="text-xs leading-5 text-on-surface-variant">
-                                {isSubscription
-                                    ? 'You can manage this membership from your account settings.'
-                                    : 'Keep this receipt for your records.'}
-                            </p>
+                        <div className="flex flex-col gap-3 sm:flex-row">
+                            {invoiceViewUrl && (
+                                <Link
+                                    href={invoiceViewUrl}
+                                    className="flex items-center justify-center gap-2 rounded-md border border-outline-variant bg-white px-5 py-3 text-sm font-semibold text-primary transition-colors hover:bg-surface-container"
+                                >
+                                    <ReceiptText className="size-4" />
+                                    View Invoice
+                                </Link>
+                            )}
 
-                            <div className="flex flex-col gap-3 sm:flex-row">
-                                {invoiceUrl ? (
-                                    <a
-                                        href={invoiceUrl}
-                                        className="flex items-center justify-center gap-2 rounded-md border border-outline-variant bg-white px-5 py-3 text-sm font-semibold text-primary transition-colors hover:bg-surface-container"
-                                    >
-                                        <Download className="size-4" />
-                                        Download Invoice
-                                    </a>
-                                ) : (
-                                    <Link
-                                        href="/settings/purchase-history"
-                                        className="flex items-center justify-center gap-2 rounded-md border border-outline-variant bg-white px-5 py-3 text-sm font-semibold text-primary transition-colors hover:bg-surface-container"
-                                    >
-                                        <ReceiptText className="size-4" />
-                                        View Purchase History
-                                    </Link>
-                                )}
-
-                                <button
-                                    type="button"
-                                    onClick={handleDashboard}
+                            {invoiceDownloadUrl ? (
+                                <a
+                                    href={invoiceDownloadUrl}
                                     className="flex items-center justify-center gap-2 rounded-md bg-secondary px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-secondary-container"
                                 >
-                                    Go to dashboard
-                                    <ArrowRight className="size-4" />
-                                </button>
-                            </div>
+                                    <Download className="size-4" />
+                                    Download Invoice
+                                </a>
+                            ) : (
+                                <Link
+                                    href="/settings/purchase-history"
+                                    className="flex items-center justify-center gap-2 rounded-md border border-outline-variant bg-white px-5 py-3 text-sm font-semibold text-primary transition-colors hover:bg-surface-container"
+                                >
+                                    <ReceiptText className="size-4" />
+                                    View Purchase History
+                                </Link>
+                            )}
+                            
+                            <button
+                                type="button"
+                                onClick={handleDashboard}
+                                className="flex items-center justify-center gap-2 rounded-md bg-primary px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-primary/90"
+                            >
+                                Go to dashboard
+                                <ArrowRight className="size-4" />
+                            </button>
                         </div>
                     </section>
 
@@ -307,4 +358,44 @@ function formatCurrency(
     } catch {
         return `${currency.toUpperCase()} ${amount}`;
     }
+}
+
+function formatDateTime(
+    value: string,
+): string {
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+        return '—';
+    }
+
+    return new Intl.DateTimeFormat(
+        'en-GB',
+        {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false,
+        },
+    ).format(date);
+}
+
+function formatPaymentMethod(
+    value?: string | null,
+): string {
+    if (!value) {
+        return '—';
+    }
+
+    if (value === 'stripe') {
+        return 'Stripe';
+    }
+
+    if (value === 'paypal') {
+        return 'PayPal';
+    }
+
+    return value;
 }

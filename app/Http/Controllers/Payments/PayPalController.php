@@ -240,42 +240,40 @@ class PayPalController extends Controller
                         $capture['amount']['currency_code']
                     ),
 
-                'amount' =>
-                    $capture['amount']['value'],
-
-                'payment_method' =>
-                    'paypal',
-
-                'type' =>
-                    'payment',
-
-                'category' =>
-                    'credit_purchase',
-
-                'description' =>
-                    $plan['label'],
-
-                'status' =>
-                    'success',
-
-                'paid_at' =>
-                    $paidAt,
+                'amount' => $capture['amount']['value'],
+                'payment_method' => 'paypal',
+                'type' => 'payment',
+                'category' => 'credit_purchase',
+                'description' => $plan['label'],
+                'status' => 'success',
+                'paid_at' => $paidAt,
             ]
         );
 
         return Inertia::render('user/checkout/checkout-success',
             [
+                'transaction' => [
+                    'id' => $transaction->id,
+                    'invoice_id' => $transaction->invoice_id,
+                    'description' => $transaction->description,
+                    'amount' => (string) $transaction->amount,
+                    'currency' => strtoupper($transaction->currency),
+                    'status' => $transaction->status,
+                    'payment_method' => $transaction->payment_method,
+                    'payment_gateway_ref' => $transaction->payment_gateway_ref,
+                    'paid_at' => $transaction->paid_at?->toISOString(),
+                ],
+
                 'order' => [
-                    'transactionId' => $transaction->id,
-                    'number' => 'UKC-PPL-'. strtoupper(substr($captureId, 0,8)),
-                    'date' => $paidAt->format('F j, Y'),
-                    'item' => $plan['label'],
-                    'amount' => number_format((float)$capture['amount']['value'],2),
-                    'currency' => strtoupper($capture['amount']['currency_code']),
+                    'number' => $transaction->invoice_id,
+                    'date' => $transaction->paid_at? $transaction->paid_at->format('F j, Y'): $paidAt->format('F j, Y'),
+                    'item' => $transaction->description,
+                    'amount' => number_format((float) $transaction->amount, 2),
+                    'currency' => strtoupper($transaction->currency),
                     'cardBrand' => null,
                     'cardLast4' => null,
                 ],
-                
+
                 'creditsAvailable' => $user->fresh()->credits,
             ],
         );

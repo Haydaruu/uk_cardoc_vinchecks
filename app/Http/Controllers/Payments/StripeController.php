@@ -79,6 +79,8 @@ class StripeController extends Controller
         $credits = (int) ($intent->metadata->credits ?? 0);
 
         if ($credits > 0) {
+            return redirect('/')->with('modal', 'payment_failed');
+        }
             app(CreditService::class)->grantCredits(
                 user: $user,
                 amount: $credits,
@@ -135,18 +137,34 @@ class StripeController extends Controller
                         $paidAt,
                 ]
             );
-        }
 
         $card = $intent->payment_method->card ?? null;
 
         return Inertia::render('user/checkout/checkout-success', [
+            'transaction' => [
+                'id' => $transaction->id,
+                'invoice_id' => $transaction->invoice_id,
+                'description' => $transaction->description,
+                'amount' => (string) $transaction->amount,
+                'currency' => strtoupper($transaction->currency),
+                'status' => $transaction->status,
+                'payment_method' => $transaction->payment_method,
+                'payment_gateway_ref' => $transaction->payment_gateway_ref,
+                'paid_at' => $transaction->paid_at?->toISOString(),
+            ],
+
             'order' => [
-                'transactionId' => $transaction->id,
-                'number' => 'UKC-' . strtoupper(substr($intent->id, 3, 8)),
-                'date' => now()->format('F j, Y'),
-                'item' => $intent->metadata->product_name ?? "{$credits} Credit Top-up",
-                'amount' => number_format($intent->amount / 100, 2),
-                'currency' => strtoupper($intent->currency),
+                'number' => $transaction->invoice_id,
+                'date' => $transaction->paid_at?->format('F j, Y')
+                    ?? now()->format('F j, Y'),
+                'item' => $transaction->description,
+                'amount' => number_format(
+                    (float) $transaction->amount,
+                    2
+                ),
+                'currency' => strtoupper(
+                    $transaction->currency
+                ),
                 'cardBrand' => $card->brand ?? null,
                 'cardLast4' => $card->last4 ?? null,
             ],

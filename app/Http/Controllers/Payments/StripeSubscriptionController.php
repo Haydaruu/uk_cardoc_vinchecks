@@ -289,19 +289,59 @@ class StripeSubscriptionController extends Controller
         return Inertia::render(
             'user/checkout/checkout-success',
             [
-                'purchaseType' => 'subscription',
-                'order' => [
-                    'transactionId' => $transaction->id,
-                    'number' => 'UKC-SUB-' . strtoupper(substr($invoice->id, 3, 8)),
-                    'date' => date('F j, Y', $paidAt),
-                    'item' => $plan['label'],
-                    'amount' => number_format($invoice->amount_paid / 100, 2),
-                    'currency' => strtoupper($invoice->currency),
-                    'cardBrand' => $card?->brand,
-                    'cardLast4' => $card?->last4,
-                ],
+                'transaction' => [
+                'id' => $transaction->id,
+                'invoice_id' => $transaction->invoice_id,
+                'description' => $transaction->description,
+                'amount' => (string) $transaction->amount,
+                'currency' => strtoupper(
+                    $transaction->currency
+                ),
+                'status' => $transaction->status,
+                'payment_method' =>
+                    $transaction->payment_method,
+                'payment_gateway_ref' =>
+                    $transaction->payment_gateway_ref,
+                'paid_at' =>
+                    $transaction->paid_at?->toISOString(),
+            ],
 
-                'creditsAvailable' => $user->fresh()->credits,
+            'order' => [
+                'number' =>
+                    $transaction->invoice_id,
+
+                'date' =>
+                    $transaction->paid_at
+                        ? $transaction->paid_at->format(
+                            'F j, Y'
+                        )
+                        : now()->format(
+                            'F j, Y'
+                        ),
+
+                'item' =>
+                    $transaction->description,
+
+                'amount' =>
+                    number_format(
+                        (float) $transaction->amount,
+                        2
+                    ),
+
+                'currency' =>
+                    strtoupper(
+                        $transaction->currency
+                    ),
+
+                'cardBrand' =>
+                    $card?->brand,
+
+                'cardLast4' =>
+                    $card?->last4,
+            ],
+
+            'creditsAvailable' =>
+                $user->fresh()->credits,
             ]
         );
     }
