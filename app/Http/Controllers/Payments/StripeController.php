@@ -78,7 +78,7 @@ class StripeController extends Controller
         $user = $request->user();
         $credits = (int) ($intent->metadata->credits ?? 0);
 
-        if ($credits > 0) {
+        if ($credits <= 0) {
             return redirect('/')->with('modal', 'payment_failed');
         }
             app(CreditService::class)->grantCredits(
