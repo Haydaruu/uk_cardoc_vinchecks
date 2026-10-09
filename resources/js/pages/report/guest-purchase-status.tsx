@@ -11,6 +11,7 @@ type Props = {
         registrationNumber: string | null;
         reportUrl: string | null;
         checkoutUrl: string;
+        paid: boolean;
     };
     paymentStatus?: 'pending' | 'success';
     cancelled?: boolean;
@@ -55,7 +56,7 @@ export default function GuestPurchaseStatus({ purchase, paymentStatus, cancelled
                             : purchase.status === 'processing'
                                 ? 'Your payment has been confirmed. We are retrieving the full vehicle history now. This page will update automatically.'
                                 : purchase.status === 'failed'
-                                    ? 'Your payment may have completed, but report generation needs attention. Please try again shortly or contact support if this continues.'
+                                    ? 'Payment was received, but report generation needs attention. Please contact support and quote the report reference below. Do not pay again.'
                                     : 'You can pay securely without creating an account. You will return here after checkout.'}
                     </p>
 
@@ -81,6 +82,10 @@ export default function GuestPurchaseStatus({ purchase, paymentStatus, cancelled
                             <span className="inline-flex items-center justify-center gap-2 rounded-md bg-surface-container px-6 py-3 text-sm font-semibold text-on-surface-variant">
                                 <Clock3 className="size-4" />
                                 Processing report…
+                            </span>
+                        ) : purchase.status === 'failed' && purchase.paid ? (
+                            <span className="inline-flex items-center justify-center rounded-md border border-outline-variant px-6 py-3 text-sm font-semibold text-primary">
+                                Payment received — contact support
                             </span>
                         ) : (
                             <button
