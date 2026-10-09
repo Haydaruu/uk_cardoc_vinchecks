@@ -180,6 +180,7 @@ class GuestReportCheckoutController extends Controller
         return Inertia::render('report/guest-purchase-status', [
             'purchase' => [
                 'status' => $purchase->status,
+                'paid' => (bool) $purchase->paid_at,
                 'reportId' => $report->id,
                 'registrationNumber' => $report->vinCheck?->registration_number,
                 'checkoutUrl' => route('guest-report.checkout', $report->id) . '?token=' . $request->query('token'),
