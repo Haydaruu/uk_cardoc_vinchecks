@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Webhook;
 
 use App\Models\User;
+use App\Models\GuestReportPurchase;
+use App\Services\GuestReportPurchaseService;
 use App\Http\Controllers\Controller;
 use App\Services\CreditService;
 use App\Models\Transaction;
@@ -16,7 +18,7 @@ use UnexpectedValueException;
 
 class StripeWebhookController extends Controller
 {
-    public function handle(Request $request, CreditService $creditService)
+    public function handle(Request $request, CreditService $creditService, GuestReportPurchaseService $guestPurchaseService)
     {
         $payload = $request->getContent();
         $sigHeader = $request->header('Stripe-Signature');
@@ -86,6 +88,33 @@ class StripeWebhookController extends Controller
             
             case 'checkout.session.completed':
                 $session = $event->data->object;
+                $guestPurchaseId = $session->metadata->guest_report_purchase_id ?? null;
+
+                if ($guestPurchaseId) {
+                    if (($session->payment_status ?? null) !== 'paid') {
+                        break;
+                    }
+
+                    $purchase = GuestReportPurchase::find($guestPurchaseId);
+                    if (!$purchase || (string) ($session->metadata->report_id ?? '') !== (string) $purchase->report_id) {
+                        Log::warning('Stripe guest report checkout metadata mismatch', ['session_id' => $session->id]);
+                        break;
+                    }
+
+                    if ((int) ($session->amount_total ?? 0) !== (int) $purchase->amount_minor
+                        || strtoupper((string) ($session->currency ?? '')) !== strtoupper($purchase->currency)) {
+                        Log::warning('Stripe guest report checkout amount mismatch', ['purchase_id' => $purchase->id, 'session_id' => $session->id]);
+                        break;
+                    }
+
+                    $purchase->update([
+                        'gateway_reference' => $session->payment_intent ?: $session->id,
+                        'paid_at' => $purchase->paid_at ?? now(),
+                    ]);
+                    $guestPurchaseService->markPaidAndDispatch($purchase);
+                    break;
+                }
+
                 $userId = $session->metadata->user_id ?? null;
                 $planSlug = $session->metadata->plan ?? null;
 
