@@ -11,6 +11,7 @@ type Props = {
         id: number;
         report_type: 'premium';
         generated_at?: string | null;
+        pdf_url?: string | null;
         data: NormalizedReport;
     };
 };
@@ -30,7 +31,7 @@ export default function NormalizedFullReport({
         setIsDownloading(true);
 
         try{
-            const response = await fetch(`/report/${report.id}/pdf`, 
+            const response = await fetch(report.pdf_url ?? `/report/${report.id}/pdf`, 
                 {
                     method: 'GET',
                     credentials: 'same-origin',

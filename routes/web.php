@@ -9,6 +9,7 @@ use App\Http\Controllers\Webhook\StripeWebhookController;
 use App\Http\Controllers\Webhook\PayPalWebhookController;
 use App\Http\Controllers\ReportPdfController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\Payments\GuestReportCheckoutController;
 use Inertia\Inertia;
 
 
@@ -23,6 +24,10 @@ Route::get('/about-us', function(){return Inertia::render('about-us'); })->name(
 
 //iki Auth Report
 Route::get('/report/{report}', [ReportController::class, 'show'])->name('page.my-report.show');
+Route::post('/guest-report/{report}/checkout', [GuestReportCheckoutController::class, 'start'])->name('guest-report.checkout');
+Route::get('/guest-report-purchase/{purchase}/success', [GuestReportCheckoutController::class, 'paymentSuccess'])->name('guest-report.payment-success');
+Route::get('/guest-report-purchase/{purchase}', [GuestReportCheckoutController::class, 'show'])->name('guest-report.show');
+Route::get('/guest-report-purchase/{purchase}/view', [GuestReportCheckoutController::class, 'view'])->name('guest-report.view');
 Route::get('/report/{report}/pdf', [ReportPdfController::class, 'download'])->name('report.pdf.download');
 Route::post('/reports/{report}/unlock', [VehicleCheckController::class, 'unlock'])->name('report.unlock');
 
