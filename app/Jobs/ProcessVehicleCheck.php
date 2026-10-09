@@ -7,6 +7,7 @@ use App\Models\Report;
 use App\Models\Vehicle;
 use App\Models\VinCheck;
 use App\Services\CreditService;
+use App\Services\GuestReportPurchaseService;
 use App\Services\Reports\NormalizedReportBuilder;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -37,6 +38,7 @@ class ProcessVehicleCheck implements ShouldQueue
         VehicleDataProviderInterface $provider,
         NormalizedReportBuilder $reportBuilder,
         CreditService $creditService,
+        GuestReportPurchaseService $guestPurchaseService,
     ): void {
         $vinCheck = VinCheck::findOrFail(
             $this->vinCheckId
@@ -220,6 +222,10 @@ class ProcessVehicleCheck implements ShouldQueue
                         'stage' => 'completed',
                         'status' => 'success',
                     ]);
+
+                    if ($actualReportType === 'premium') {
+                        $guestPurchaseService->markCompleted($report->id);
+                    }
                 }
             );
         } catch (\Throwable $e) {
@@ -244,6 +250,10 @@ class ProcessVehicleCheck implements ShouldQueue
                 'stage' => 'failed',
                 'status' => 'failed',
             ]);
+
+            if ($this->existingReportId) {
+                app(GuestReportPurchaseService::class)->markFailed($this->existingReportId);
+            }
 
             if (
                 $this->attempts()
