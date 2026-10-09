@@ -80,7 +80,7 @@ class GuestReportCheckoutController extends Controller
                 'success_url' => route('guest-report.payment-success', $purchase) . '?token=' . $accessToken . '&session_id={CHECKOUT_SESSION_ID}',
                 'cancel_url' => route('guest-report.show', $purchase) . '?token=' . $accessToken . '&cancelled=1',
             ], [
-                'idempotency_key' => 'guest-report-' . $purchase->id,
+                'idempotency_key' => 'guest-report-' . $purchase->id . '-' . hash('sha256', $accessToken),
             ]);
         } catch (ApiErrorException $exception) {
             Log::error('Unable to create guest report checkout session', [
@@ -166,6 +166,7 @@ class GuestReportCheckoutController extends Controller
                 'status' => $purchase->status,
                 'reportId' => $report->id,
                 'registrationNumber' => $report->vinCheck?->registration_number,
+                'checkoutUrl' => route('guest-report.checkout', $report->id) . '?token=' . $request->query('token'),
                 'reportUrl' => $purchase->status === 'completed'
                     ? route('guest-report.view', [
                         'purchase' => $purchase,
