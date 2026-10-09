@@ -41,8 +41,22 @@ class GuestReportCheckoutController extends Controller
             return redirect()->route('guest-report.show', $purchase);
         }
 
-        if ($purchase->status === 'processing') {
-            return redirect()->route('guest-report.show', $purchase);
+        if ($purchase->status === 'processing' || ($purchase->status === 'failed' && $purchase->paid_at)) {
+            return back()->withErrors(['checkout' => 'A payment was already received for this report. Please use your report access link or contact support.']);
+        }
+
+        if ($purchase->status === 'pending' && $purchase->checkout_session_id) {
+            try {
+                $existingSession = (new StripeClient(config('services.stripe.secret')))->checkout->sessions->retrieve($purchase->checkout_session_id);
+                if ($existingSession->status === 'open' && $existingSession->url) {
+                    return Inertia::location($existingSession->url);
+                }
+                if ($existingSession->status === 'complete' && $existingSession->success_url) {
+                    return redirect()->away(str_replace('{CHECKOUT_SESSION_ID}', $existingSession->id, $existingSession->success_url));
+                }
+            } catch (ApiErrorException $exception) {
+                Log::warning('Unable to reuse guest checkout session', ['purchase_id' => $purchase->id]);
+            }
         }
 
         $accessToken = Str::random(64);
@@ -58,6 +72,7 @@ class GuestReportCheckoutController extends Controller
             abort_unless($price->active && $price->unit_amount > 0, 503, 'Direct report price is not available.');
 
             $purchase->update([
+                'checkout_session_id' => null,
                 'amount_minor' => $price->unit_amount,
                 'currency' => strtoupper($price->currency),
                 'provider' => 'stripe',
@@ -82,6 +97,7 @@ class GuestReportCheckoutController extends Controller
             ], [
                 'idempotency_key' => 'guest-report-' . $purchase->id . '-' . hash('sha256', $accessToken),
             ]);
+            $purchase->update(['checkout_session_id' => $session->id]);
         } catch (ApiErrorException $exception) {
             Log::error('Unable to create guest report checkout session', [
                 'purchase_id' => $purchase->id,
