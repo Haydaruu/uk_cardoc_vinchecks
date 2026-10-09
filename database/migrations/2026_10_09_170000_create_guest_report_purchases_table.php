@@ -13,6 +13,7 @@ return new class extends Migration
             $table->foreignId('report_id')->unique()->constrained()->cascadeOnDelete();
             $table->string('provider')->nullable();
             $table->string('gateway_reference')->nullable()->unique();
+            $table->string('checkout_session_id')->nullable()->unique();
             $table->unsignedInteger('amount_minor');
             $table->char('currency', 3);
             $table->string('status')->default('pending')->index();
