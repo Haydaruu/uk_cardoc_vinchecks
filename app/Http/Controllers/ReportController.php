@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Report;
+use App\Models\GuestReportPurchase;
 use Inertia\Inertia;
 
 class ReportController extends Controller
@@ -14,6 +15,19 @@ class ReportController extends Controller
 
         if ($report->user_id && (!$user || $report->user_id !== $user->id)){
             abort(403);
+        }
+
+        $guestPurchase = $report->user_id ? null : GuestReportPurchase::where('report_id', $report->id)->first();
+
+        if ($guestPurchase) {
+            $token = (string) $request->query('token', '');
+            abort_unless(
+                $guestPurchase->status === 'completed'
+                && $token !== ''
+                && $guestPurchase->access_token_hash
+                && hash_equals($guestPurchase->access_token_hash, hash('sha256', $token)),
+                404,
+            );
         }
 
         $reportData = $report->report_data ?? [];
@@ -35,6 +49,7 @@ class ReportController extends Controller
                 'report_type' => $report->report_type, 
                 'data' => $reportData,
                 'generated_at' => $report->generated_at,
+                'pdf_url' => $guestPurchase ? route('report.pdf.download', $report->id) . '?token=' . urlencode((string) $request->query('token')) : null,
             ],
         ]);
     }
