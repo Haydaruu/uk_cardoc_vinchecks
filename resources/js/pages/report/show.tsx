@@ -28,6 +28,7 @@ type ReportProps = {
 
 type PageProps = {
     flash: { modal?: 'login_required' | 'credits_exhausted' };
+    auth?: { user?: { id: number } | null };
 };
 
 function isUlezCompliant(fuelType: string, year: number): boolean {
@@ -73,12 +74,21 @@ export default function ShowReport({ report }: ReportProps) {
                             </p>
                         </div>
 
-                        {!isPremium && (
+                        {!isPremium && props.auth?.user && (
                             <button
                                 onClick={handleUnlock}
                                 className="flex items-center gap-2 rounded-md bg-secondary px-6 py-3.5 text-sm font-bold uppercase tracking-wide text-white shadow-md transition-transform hover:bg-secondary-container active:scale-[0.98]"
                             >
                                 <Lock className="size-4" /> Unlock Full Report
+                            </button>
+                        )}
+
+                        {!isPremium && !props.auth?.user && (
+                            <button
+                                onClick={() => router.post(`/guest-report/${report.id}/checkout`)}
+                                className="flex items-center gap-2 rounded-md bg-secondary px-6 py-3.5 text-sm font-bold uppercase tracking-wide text-white shadow-md transition-transform hover:bg-secondary-container active:scale-[0.98]"
+                            >
+                                <LockKeyholeOpen className="size-4" /> Buy Full Report — No Account Needed
                             </button>
                         )}
                     </div>
