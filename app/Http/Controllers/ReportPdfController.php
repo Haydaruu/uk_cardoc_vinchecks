@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Report;
+use App\Models\GuestReportPurchase;
 use Illuminate\Http\Request;
 use Spatie\LaravelPdf\Facades\Pdf;
 use Illuminate\Support\Facades\Log;
@@ -21,6 +22,21 @@ class ReportPdfController extends Controller
 
         if ($report->user_id && (!$user || $report->user_id !== $user->id)) {
             abort(403);
+        }
+
+        if (!$report->user_id) {
+            $purchase = GuestReportPurchase::where('report_id', $report->id)->first();
+
+            if ($purchase) {
+                $token = (string) $request->query('token', '');
+                abort_unless(
+                    $purchase->status === 'completed'
+                    && $token !== ''
+                    && $purchase->access_token_hash
+                    && hash_equals($purchase->access_token_hash, hash('sha256', $token)),
+                    404,
+                );
+            }
         }
 
         $reportData = $report->report_data ?? [];
