@@ -4,16 +4,21 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Report;
+use App\Services\GuestReportAccessService;
 use Inertia\Inertia;
 
 class ReportController extends Controller
 {
-    public function show(Report $report, Request $request)
+    public function show(Report $report, Request $request, GuestReportAccessService $guestReportAccess)
     {
         $user = $request->user();
 
-        if ($report->user_id && (!$user || $report->user_id !== $user->id)){
+        if ($report->user_id !== null && (!$user || (int) $report->user_id !== $user->id)){
             abort(403);
+        }
+
+        if ($report->user_id === null && $report->report_type === 'premium') {
+            abort_unless($guestReportAccess->hasCompletedPurchase($report, $request->query('guest_token'),),403,);
         }
 
         $reportData = $report->report_data ?? [];

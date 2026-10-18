@@ -6,9 +6,11 @@ use App\Contracts\VehicleDataProviderInterface;
 use App\Models\Report;
 use App\Models\Vehicle;
 use App\Models\VinCheck;
+use App\Models\GuestReportPurchase;
 use App\Services\CreditService;
 use App\Services\Reports\NormalizedReportBuilder;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Queue\InteractsWithQueue;
@@ -16,7 +18,7 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
-class ProcessVehicleCheck implements ShouldQueue
+class ProcessVehicleCheck implements ShouldQueue, ShouldBeUnique
 {
     use Queueable;
     use InteractsWithQueue;
@@ -27,12 +29,25 @@ class ProcessVehicleCheck implements ShouldQueue
 
     public int $backoff = 5;
 
+    public int $uniqueFor = 3600;
+
+    public function uniqueId(): string
+    {
+        if( $this->guestReportPurchaseId !== null) {
+            return 'guest-report-purchase-'.$this->guestReportPurchaseId;
+        }
+
+        return 'vehicle-check'.$this->vinCheckId.'_'.(
+            $this->existingReportId ?? 'new'
+        );
+    }
+
     public function __construct(
         private int $vinCheckId,
         private ?int $existingReportId = null,
+        private ?int $guestReportPurchaseId = null,
     ) {
     }
-
     public function handle(
         VehicleDataProviderInterface $provider,
         NormalizedReportBuilder $reportBuilder,
@@ -42,25 +57,73 @@ class ProcessVehicleCheck implements ShouldQueue
             $this->vinCheckId
         );
 
+        $isGuestFulfillment =
+            $this->guestReportPurchaseId !== null;
+
         $isPremium =
-            $vinCheck->check_type === 'premium';
+            $isGuestFulfillment
+            || $vinCheck->check_type === 'premium';
 
         $regNumber =
             $vinCheck->registration_number;
 
         try {
+            if ($isGuestFulfillment) {
+                if ($this->existingReportId === null) {
+                    throw new \RuntimeException('Guest Premium fulfillment requires an existing report.');
+                }
+
+                $alreadyCompleted = DB::transaction(
+                    function () use ($vinCheck): bool {
+                        $purchase = GuestReportPurchase::query()
+                            ->lockForUpdate()
+                            ->findOrFail($this->guestReportPurchaseId);
+                        if ($purchase->payment_status !== GuestReportPurchase::STATUS_PAID) {
+                            throw new \RuntimeException('Guest report purchase has not been paid.');
+                        }
+
+                        if ((int) $purchase->report_id !== (int) $this->existingReportId) {
+                            throw new \RuntimeException('Guest purchase does not match the report.');
+                        }
+
+                        if ($purchase->fulfillment_status === GuestReportPurchase::FULFILLMENT_COMPLETED) {
+                            return true;
+                        }
+
+                        if (! in_array($purchase->fulfillment_status,[
+                            GuestReportPurchase::FULFILLMENT_PENDING,
+                            GuestReportPurchase::FULFILLMENT_PROCESSING,
+                            GuestReportPurchase::FULFILLMENT_FAILED,
+                        ], true)) {
+                            throw new \RuntimeException('Guest report fulfillment is not eligible to run.');
+                        }
+
+                        $purchase->update([
+                            'fulfillment_status' => GuestReportPurchase::FULFILLMENT_PROCESSING,
+                            'fulfillment_attempts' => ((int) $purchase->fulfillment_attempts) + 1,
+                            'fulfillment_started_at' => now(),
+                        ]);
+
+                        $vinCheck->update([
+                            'check_type' => 'premium',
+                            'status' => 'pending',
+                            'stage' => 'queued',
+                        ]);
+
+                        return false;
+                    } 
+                );
+
+                if ($alreadyCompleted) {
+                    return;
+                }
+
+                $vinCheck->refresh();
+            }
             $vinCheck->update([
                 'stage' => 'connecting',
             ]);
 
-            /*
-             * ========================================
-             * BASIC / FREE REPORT
-             * ========================================
-             *
-             * Tetap menggunakan flow lama.
-             * Kita belum mengubah basic report.
-             */
             if (!$isPremium) {
                 $reportData =
                     $provider->getRegistrationDetails(
@@ -74,11 +137,7 @@ class ProcessVehicleCheck implements ShouldQueue
 
                 $actualReportType = 'basic';
             } else {
-                /*
-                 * ========================================
-                 * PREMIUM NORMALIZED REPORT
-                 * ========================================
-                 */
+
 
                 $vinCheck->update([
                     'stage' => 'verifying_history',
@@ -108,10 +167,6 @@ class ProcessVehicleCheck implements ShouldQueue
                 'stage' => 'finalizing',
             ]);
 
-            /*
-             * Vehicle table tetap dipertahankan sebagai
-             * summary/index dari vehicle report.
-             */
             $vehicle = Vehicle::updateOrCreate(
                 [
                     'registration_number' =>
@@ -119,6 +174,8 @@ class ProcessVehicleCheck implements ShouldQueue
                 ],
                 $vehicleData,
             );
+
+            $guestReportPurchaseId = $this->guestReportPurchaseId;
 
             DB::transaction(
                 function () use (
@@ -128,15 +185,10 @@ class ProcessVehicleCheck implements ShouldQueue
                     $actualReportType,
                     $reportData,
                     $creditService,
+                    $guestReportPurchaseId,
                 ) {
                     if ($this->existingReportId) {
-                        /*
-                         * Upgrade basic → premium.
-                         *
-                         * Existing report row digunakan
-                         * kembali, tapi report_data diganti
-                         * dengan normalized schema.
-                         */
+
                         $report = Report::findOrFail(
                             $this->existingReportId
                         );
@@ -189,16 +241,6 @@ class ProcessVehicleCheck implements ShouldQueue
                         ]);
                     }
 
-                    /*
-                     * Consume credit hanya kalau:
-                     *
-                     * - report benar-benar premium
-                     * - requested check premium
-                     * - ada authenticated user
-                     *
-                     * Jika builder gagal sebelum titik ini,
-                     * credit tidak terpotong.
-                     */
                     if (
                         $actualReportType === 'premium'
                         && $isPremium
@@ -214,6 +256,21 @@ class ProcessVehicleCheck implements ShouldQueue
                             description:
                                 "Vehicle check: {$vinCheck->registration_number}",
                         );
+                    }
+
+                    if ($guestReportPurchaseId !== null) {
+                        $purchase = GuestReportPurchase::query()
+                            ->lockForUpdate()
+                            ->findOrFail($guestReportPurchaseId);
+                        if ( $purchase->payment_status!== GuestReportPurchase::STATUS_PAID
+                            || (int) $purchase->report_id !== (int) $report->id) {
+                                throw new \RuntimeException('Guest purchase validation failed during fulfillment.');
+                        }
+
+                        $purchase->update([
+                            'fulfillment_status' => GuestReportPurchase::FULFILLMENT_COMPLETED,
+                            'fulfilled_at' => $purchase->fulfilled_at ?? now(),
+                        ]);
                     }
 
                     $vinCheck->update([
@@ -245,6 +302,18 @@ class ProcessVehicleCheck implements ShouldQueue
                 'status' => 'failed',
             ]);
 
+            if ( $this->guestReportPurchaseId !== null && $this->attempts() >= $this->tries) {
+                GuestReportPurchase::query()
+                    ->whereKey($this->guestReportPurchaseId)
+                    ->where('payment_status', GuestReportPurchase::STATUS_PAID)
+                    ->where('fulfillment_status', GuestReportPurchase::FULFILLMENT_PROCESSING
+                    )
+                    ->update([
+                        'fulfillment_status' =>
+                            GuestReportPurchase::FULFILLMENT_FAILED,
+                    ]);
+            }
+
             if (
                 $this->attempts()
                 >= $this->tries
@@ -256,10 +325,6 @@ class ProcessVehicleCheck implements ShouldQueue
         }
     }
 
-    /**
-     * Map legacy registration response
-     * untuk basic/free report.
-     */
     private function mapBasicApiDataToVehicle(
         array $apiData
     ): array {
