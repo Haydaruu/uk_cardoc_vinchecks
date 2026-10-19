@@ -1,15 +1,16 @@
 
 <?php
 
+use App\Models\GuestReportAccessToken;
 use App\Models\GuestReportPurchase;
-use Spatie\LaravelPdf\Facades\Pdf;
-use Spatie\LaravelPdf\PdfBuilder;
 use App\Models\Report;
 use App\Models\Vehicle;
+use Spatie\LaravelPdf\Facades\Pdf;
+use Spatie\LaravelPdf\PdfBuilder;
 
 function createGuestPremiumReportForAccessTest(): Report
 {
-    
+
     $vehicle = Vehicle::create([
         'registration_number' => 'GUEST-ACCESS-TEST',
     ]);
@@ -55,18 +56,21 @@ it('allows guest access with a matching paid completed purchase', function () {
         'payment_status' => GuestReportPurchase::STATUS_PAID,
         'amount_minor' => 2000,
         'currency' => 'gbp',
-        'fulfillment_status' =>
-            GuestReportPurchase::FULFILLMENT_COMPLETED,
+        'fulfillment_status' => GuestReportPurchase::FULFILLMENT_COMPLETED,
         'fulfilled_at' => now(),
-        'access_token_hash' => hash('sha256', $accessToken),
-        'access_token_encrypted' => $accessToken,
+    ]);
+
+    GuestReportAccessToken::create([
+        'guest_report_id' => $report->id,
+        'token_hash' => hash('sha256', $accessToken),
+        'created_at' => now(),
     ]);
 
     $url = route('page.my-report.show', [
         'report' => $report->id,
     ]);
 
-    $this->get($url . '?guest_token=' . urlencode($accessToken))
+    $this->get($url.'?guest_token='.urlencode($accessToken))
         ->assertOk();
 });
 
@@ -92,11 +96,14 @@ it('allows guest to download PDF with a matching paid completed purchase', funct
         'payment_status' => GuestReportPurchase::STATUS_PAID,
         'amount_minor' => 2000,
         'currency' => 'gbp',
-        'fulfillment_status' =>
-            GuestReportPurchase::FULFILLMENT_COMPLETED,
+        'fulfillment_status' => GuestReportPurchase::FULFILLMENT_COMPLETED,
         'fulfilled_at' => now(),
-        'access_token_hash' => hash('sha256', $accessToken),
-        'access_token_encrypted' => $accessToken,
+    ]);
+
+    GuestReportAccessToken::create([
+        'guest_report_id' => $report->id,
+        'token_hash' => hash('sha256', $accessToken),
+        'created_at' => now(),
     ]);
 
     $renderer = Mockery::mock(PdfBuilder::class);
@@ -111,18 +118,18 @@ it('allows guest to download PDF with a matching paid completed purchase', funct
         ->with(12, 12, 14, 12)
         ->andReturnSelf();
 
-   $renderer->shouldReceive('save')
-    ->once()
-    ->with(Mockery::type('string'))
-    ->andReturnUsing(function (string $path) use ($renderer) {
-        if (! is_dir(dirname($path))) {
-            mkdir(dirname($path), 0777, true);
-        }
+    $renderer->shouldReceive('save')
+        ->once()
+        ->with(Mockery::type('string'))
+        ->andReturnUsing(function (string $path) use ($renderer) {
+            if (! is_dir(dirname($path))) {
+                mkdir(dirname($path), 0777, true);
+            }
 
-        file_put_contents($path, "%PDF-1.4\n%%EOF");
+            file_put_contents($path, "%PDF-1.4\n%%EOF");
 
-        return $renderer;
-    });
+            return $renderer;
+        });
 
     Pdf::shouldReceive('view')
         ->once()
@@ -134,7 +141,7 @@ it('allows guest to download PDF with a matching paid completed purchase', funct
 
     $response = $this->get(route('report.pdf.download', [
         'report' => $report->id,
-        'session_id' => $accessToken,
+        'guest_token' => $accessToken,
     ]));
 
     $response

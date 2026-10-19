@@ -9,15 +9,23 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class GuestReportPurchase extends Model
 {
     public const STATUS_PENDING = 'pending';
+
     public const STATUS_PAID = 'paid';
+
     public const STATUS_FAILED = 'failed';
+
     public const STATUS_EXPIRED = 'expired';
+
     public const STATUS_REFUNDED = 'refunded';
 
     public const FULFILLMENT_LOCKED = 'locked';
+
     public const FULFILLMENT_PENDING = 'pending';
+
     public const FULFILLMENT_PROCESSING = 'processing';
+
     public const FULFILLMENT_COMPLETED = 'completed';
+
     public const FULFILLMENT_FAILED = 'failed';
 
     protected $fillable = [
@@ -38,8 +46,6 @@ class GuestReportPurchase extends Model
         'fulfillment_attempts',
         'fulfillment_started_at',
         'fulfilled_at',
-        'access_token_hash',
-        'access_token_encrypted',
     ];
 
     protected $casts = [
@@ -51,7 +57,6 @@ class GuestReportPurchase extends Model
         'fulfillment_attempts' => 'integer',
         'fulfillment_started_at' => 'datetime',
         'fulfilled_at' => 'datetime',
-        'access_token_encrypted' => 'encrypted',
     ];
 
     public function report(): BelongsTo
@@ -63,4 +68,4 @@ class GuestReportPurchase extends Model
     {
         return $this->hasMany(GuestReportRecoveryToken::class);
     }
-}   
+}
