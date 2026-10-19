@@ -6,6 +6,7 @@ use App\Models\Report;
 use App\Models\Vehicle;
 use App\Models\VinCheck;
 use App\Services\GuestReportCheckoutService;
+use Illuminate\Support\Facades\DB;
 use Stripe\ApiRequestor;
 use Stripe\HttpClient\ClientInterface;
 
@@ -716,4 +717,181 @@ test('guest checkout replaces an open session when its access token is invalid',
 
     expect($capturedRequests[3]['params']['success_url'])
         ->toContain('guest_token='.rawurlencode($newToken));
+});
+
+test('guest checkout retry preserves the same token when saving the Stripe session ID fails', function () {
+    config([
+        'services.stripe.secret' => 'sk_test_fake_key',
+        'services.stripe.guest_report_price_id' => 'price_guest_test_001',
+    ]);
+
+    $vinCheck = VinCheck::create([
+        'registration_number' => 'GUEST-STRIPE-IDEMPOTENT-001',
+        'check_type' => 'free',
+        'status' => 'success',
+        'stage' => 'completed',
+    ]);
+
+    $vehicle = Vehicle::create([
+        'registration_number' => 'GUEST-STRIPE-IDEMPOTENT-001',
+    ]);
+
+    $report = Report::create([
+        'vehicle_id' => $vehicle->id,
+        'vin_check_id' => $vinCheck->id,
+        'report_type' => 'basic',
+    ]);
+
+    $fakePrice = [
+        'id' => 'price_guest_test_001',
+        'object' => 'price',
+        'active' => true,
+        'currency' => 'gbp',
+        'livemode' => false,
+        'product' => 'prod_guest_test_001',
+        'type' => 'one_time',
+        'unit_amount' => 2000,
+    ];
+
+    // Stripe mengembalikan sesi yang sama untuk request
+    // yang diulang dengan idempotency key dan parameter sama.
+    $fakeSession = [
+        'id' => 'cs_test_guest_idempotent',
+        'object' => 'checkout.session',
+        'url' => 'https://checkout.stripe.com/c/pay/cs_test_guest_idempotent',
+        'status' => 'open',
+    ];
+
+    $responses = [
+        json_encode($fakePrice),
+        json_encode($fakeSession),
+        json_encode($fakePrice),
+        json_encode($fakeSession),
+    ];
+
+    $capturedRequests = [];
+
+    $httpClient = Mockery::mock(ClientInterface::class);
+
+    $httpClient->shouldReceive('request')
+        ->times(4)
+        ->andReturnUsing(function (
+            $method,
+            $absUrl,
+            $headers,
+            $params,
+            $hasFile,
+            $apiMode = 'v1',
+            $maxNetworkRetries = null,
+        ) use (&$responses, &$capturedRequests) {
+            $capturedRequests[] = [
+                'method' => $method,
+                'url' => $absUrl,
+                'headers' => $headers,
+                'params' => $params,
+            ];
+
+            return [
+                array_shift($responses),
+                200,
+                [
+                    'Request-Id' => 'req_test_checkout_idempotent',
+                    'Content-Type' => 'application/json',
+                ],
+            ];
+        });
+
+    $triggerName = 'fail_guest_purchase_session_link';
+
+    DB::statement("
+        CREATE TRIGGER {$triggerName}
+        BEFORE UPDATE OF provider_order_id ON guest_report_purchases
+        BEGIN
+            SELECT RAISE(ABORT, 'simulated session link failure');
+        END
+    ");
+
+    ApiRequestor::setHttpClient($httpClient);
+
+    try {
+        try {
+            expect(fn () => app(GuestReportCheckoutService::class)
+                ->startCheckout(
+                    report: $report,
+                    email: 'guest@example.com',
+                    successUrl: "https://example.com/reports/{$report->id}?checkout=return",
+                    cancelUrl: "https://example.com/reports/{$report->id}?checkout=cancelled",
+                ))
+                ->toThrow(
+                    RuntimeException::class,
+                    'Checkout was created but could not be linked locally.',
+                );
+        } finally {
+            // Hilangkan kegagalan simulasi sebelum retry.
+            DB::statement("DROP TRIGGER IF EXISTS {$triggerName}");
+        }
+
+        // Retry menggunakan purchase pending yang sama.
+        $result = app(GuestReportCheckoutService::class)
+            ->startCheckout(
+                report: $report,
+                email: 'guest@example.com',
+                successUrl: "https://example.com/reports/{$report->id}?checkout=return",
+                cancelUrl: "https://example.com/reports/{$report->id}?checkout=cancelled",
+            );
+    } finally {
+        DB::statement("DROP TRIGGER IF EXISTS {$triggerName}");
+        ApiRequestor::setHttpClient(null);
+    }
+
+    $purchase = $result['purchase']->fresh();
+
+    expect($result['checkout_url'])
+        ->toBe('https://checkout.stripe.com/c/pay/cs_test_guest_idempotent');
+
+    expect($purchase->provider_order_id)
+        ->toBe('cs_test_guest_idempotent');
+
+    // Request pembuatan sesi terjadi dua kali.
+    expect($capturedRequests)->toHaveCount(4);
+
+    $firstCreateRequest = $capturedRequests[1];
+    $secondCreateRequest = $capturedRequests[3];
+
+    expect($firstCreateRequest['method'])->toBe('post');
+    expect($secondCreateRequest['method'])->toBe('post');
+
+    // Pastikan token dan parameter success URL tidak berubah.
+    $firstToken = guestCheckoutSessionToken(
+        $firstCreateRequest['params']['success_url'],
+    );
+
+    $secondToken = guestCheckoutSessionToken(
+        $secondCreateRequest['params']['success_url'],
+    );
+
+    expect($secondToken)->toBe($firstToken);
+
+    expect($secondCreateRequest['params']['success_url'])
+        ->toBe($firstCreateRequest['params']['success_url']);
+
+    // Idempotency key harus identik pada kedua request create.
+    $firstHeaders = implode("\n", $firstCreateRequest['headers']);
+    $secondHeaders = implode("\n", $secondCreateRequest['headers']);
+
+    expect($firstHeaders)
+        ->toContain('Idempotency-Key: guest-report-checkout-'.$purchase->id);
+
+    expect($secondHeaders)
+        ->toContain('Idempotency-Key: guest-report-checkout-'.$purchase->id);
+
+    // Tidak membuat purchase atau access token duplikat.
+    $this->assertDatabaseCount('guest_report_purchases', 1);
+    $this->assertDatabaseCount('guest_report_access_tokens', 1);
+
+    $this->assertDatabaseHas('guest_report_access_tokens', [
+        'guest_report_id' => $report->id,
+        'token_hash' => hash('sha256', $firstToken),
+        'revoked_at' => null,
+    ]);
 });
