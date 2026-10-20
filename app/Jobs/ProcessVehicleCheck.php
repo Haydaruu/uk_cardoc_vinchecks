@@ -314,13 +314,6 @@ class ProcessVehicleCheck implements ShouldQueue, ShouldBeUnique
                     ]);
             }
 
-            if (
-                $this->attempts()
-                >= $this->tries
-            ) {
-                return;
-            }
-
             throw $e;
         }
     }

@@ -8,6 +8,7 @@ use App\Models\Vehicle;
 use App\Models\VinCheck;
 use App\Services\CreditService;
 use App\Services\Reports\NormalizedReportBuilder;
+use Illuminate\Contracts\Queue\Job as QueueJob;
 
 test('paid guest purchase upgrades its existing report to premium', function () {
     $registrationNumber = 'GUEST-FULFILLMENT-001';
@@ -180,4 +181,70 @@ test('completed guest fulfillment does not process the report again', function (
         ->toBe(GuestReportPurchase::FULFILLMENT_COMPLETED);
 
     expect($purchase->fresh()->fulfillment_attempts)->toBe(1);
+});
+
+test('terminal guest fulfillment failure is rethrown after marking purchase failed', function () {
+    $registrationNumber = 'GUEST-FULFILLMENT-FAIL-001';
+
+    $vehicle = Vehicle::create([
+        'registration_number' => $registrationNumber,
+    ]);
+
+    $vinCheck = VinCheck::create([
+        'registration_number' => $registrationNumber,
+        'check_type' => 'free',
+        'status' => 'success',
+        'stage' => 'completed',
+    ]);
+
+    $report = Report::create([
+        'vehicle_id' => $vehicle->id,
+        'vin_check_id' => $vinCheck->id,
+        'report_type' => 'basic',
+    ]);
+
+    $purchase = GuestReportPurchase::create([
+        'report_id' => $report->id,
+        'email' => 'guest@example.com',
+        'payment_provider' => 'stripe',
+        'payment_status' => GuestReportPurchase::STATUS_PAID,
+        'amount_minor' => 2000,
+        'currency' => 'gbp',
+        'provider_order_id' => 'cs_test_fulfillment_fail_001',
+        'fulfillment_status' => GuestReportPurchase::FULFILLMENT_PENDING,
+    ]);
+
+    $provider = Mockery::mock(VehicleDataProviderInterface::class);
+
+    $reportBuilder = Mockery::mock(NormalizedReportBuilder::class);
+
+    $reportBuilder
+        ->shouldReceive('build')
+        ->once()
+        ->with($registrationNumber)
+        ->andThrow(new RuntimeException('Simulated provider failure'));
+
+    $creditService = Mockery::mock(CreditService::class);
+    $creditService->shouldNotReceive('consume');
+
+    $job = new ProcessVehicleCheck($vinCheck->id, $report->id, $purchase->id);
+
+    $queueJob = Mockery::mock(QueueJob::class);
+    $queueJob->shouldReceive('attempts')->andReturn(3);
+
+    $job->setJob($queueJob);
+
+    expect(fn () => $job->handle(
+        $provider,
+        $reportBuilder,
+        $creditService,
+    ))->toThrow(
+        RuntimeException::class,
+        'Simulated provider failure',
+    );
+
+    expect($purchase->fresh()->fulfillment_status)
+        ->toBe(GuestReportPurchase::FULFILLMENT_FAILED);
+
+    expect($vinCheck->fresh()->status)->toBe('failed');
 });
