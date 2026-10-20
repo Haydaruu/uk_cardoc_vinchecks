@@ -9,6 +9,8 @@ use App\Models\VinCheck;
 use App\Services\CreditService;
 use App\Services\Reports\NormalizedReportBuilder;
 use Illuminate\Contracts\Queue\Job as QueueJob;
+use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 
 test('paid guest purchase upgrades its existing report to premium', function () {
     $registrationNumber = 'GUEST-FULFILLMENT-001';
@@ -247,4 +249,99 @@ test('terminal guest fulfillment failure is rethrown after marking purchase fail
         ->toBe(GuestReportPurchase::FULFILLMENT_FAILED);
 
     expect($vinCheck->fresh()->status)->toBe('failed');
+});
+
+test('terminal guest fulfillment failure is recorded by the Laravel queue worker', function () {
+    config([
+        'queue.default' => 'database',
+        'queue.connections.database.connection' => null,
+        'queue.connections.database.table' => 'jobs',
+        'queue.connections.database.queue' => 'default',
+        'queue.connections.database.retry_after' => 90,
+        'queue.connections.database.after_commit' => false,
+        'queue.failed.driver' => 'database-uuids',
+        'queue.failed.database' => config('database.default'),
+        'queue.failed.table' => 'failed_jobs',
+    ]);
+
+    $registrationNumber = 'GUEST-WORKER-FAIL-001';
+
+    $vehicle = Vehicle::create([
+        'registration_number' => $registrationNumber,
+    ]);
+
+    $vinCheck = VinCheck::create([
+        'registration_number' => $registrationNumber,
+        'check_type' => 'free',
+        'status' => 'success',
+        'stage' => 'completed',
+    ]);
+
+    $report = Report::create([
+        'vehicle_id' => $vehicle->id,
+        'vin_check_id' => $vinCheck->id,
+        'report_type' => 'basic',
+    ]);
+
+    $purchase = GuestReportPurchase::create([
+        'report_id' => $report->id,
+        'email' => 'guest@example.com',
+        'payment_provider' => 'stripe',
+        'payment_status' => GuestReportPurchase::STATUS_PAID,
+        'amount_minor' => 2000,
+        'currency' => 'gbp',
+        'provider_order_id' => 'cs_test_fulfillment_fail_001',
+        'fulfillment_status' => GuestReportPurchase::FULFILLMENT_PENDING,
+    ]);
+
+    $provider = Mockery::mock(VehicleDataProviderInterface::class);
+
+    $reportBuilder = Mockery::mock(NormalizedReportBuilder::class);
+
+    $reportBuilder
+        ->shouldReceive('build')
+        ->once()
+        ->with($registrationNumber)
+        ->andThrow(new RuntimeException('Simulated queue worker provider failure'));
+
+    $creditService = Mockery::mock(CreditService::class);
+    $creditService->shouldNotReceive('consume');
+
+    $this->app->instance(VehicleDataProviderInterface::class, $provider);
+    $this->app->instance(NormalizedReportBuilder::class, $reportBuilder);
+    $this->app->instance(CreditService::class, $creditService);
+
+    ProcessVehicleCheck::dispatch(
+        $vinCheck->id,
+        $report->id,
+        $purchase->id,
+    );
+
+    $this->assertDatabaseCount('jobs', 1);
+
+    DB::table('jobs')->update([
+        'attempts' => 2,
+    ]);
+
+    Artisan::call('queue:work', [
+        'connection' => 'database',
+        '--once' => true,
+        '--queue' => 'default',
+        '--tries' => 3,
+        '--sleep' => 0,
+    ]);
+
+    expect($purchase->fresh()->fulfillment_status)
+        ->toBe(GuestReportPurchase::FULFILLMENT_FAILED);
+
+    expect($vinCheck->fresh()->status)->toBe('failed');
+
+    $this->assertDatabaseCount('jobs', 0);
+    $this->assertDatabaseCount('failed_jobs', 1);
+
+    $failedJob = DB::table('failed_jobs')->first();
+
+    expect($failedJob)->not->toBeNull();
+    expect($failedJob->exception)
+        ->toContain('Simulated queue worker provider failure');
 });
