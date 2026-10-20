@@ -895,3 +895,8 @@ test('guest checkout retry preserves the same token when saving the Stripe sessi
         'revoked_at' => null,
     ]);
 });
+
+test('Stripe services configuration exposes a dedicated guest report price ID', function () {
+    expect(config('services.stripe'))
+        ->toHaveKey('guest_report_price_id');
+});
