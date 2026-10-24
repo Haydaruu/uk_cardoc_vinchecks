@@ -1,4 +1,4 @@
-import { Head, router, usePage } from '@inertiajs/react';
+import { Head, router, useForm ,usePage } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
 import {
     Lock, Leaf, CheckCircle2, TrendingDown, AlertTriangle, Gauge, LockKeyholeOpen,
@@ -27,6 +27,13 @@ type ReportProps = {
 };
 
 type PageProps = {
+    auth?: {
+        user: {
+            name: string;
+            credits: number;
+            is_premium: boolean;
+        } | null;
+    };
     flash: { modal?: 'login_required' | 'credits_exhausted' };
 };
 
@@ -42,6 +49,16 @@ export default function ShowReport({ report }: ReportProps) {
     const isPremium = report.report_type === 'premium';
     const { props } = usePage<PageProps>();
     const [modal, setModal] = useState<string | null>(null);
+    const [showGuestCheckout, setShowGuestCheckout] = useState(false);
+    const {
+        data: checkoutData,
+        setData: setCheckoutData,
+        post: postCheckout,
+        processing: checkoutProcessing,
+        errors: checkoutErrors,
+    } = useForm({
+        email: '',
+    });
     const ulezCompliant = isUlezCompliant(data.fuelType, data.yearOfManufacture);
 
     useEffect(() => {
@@ -49,7 +66,18 @@ export default function ShowReport({ report }: ReportProps) {
     }, [props.flash?.modal]);
 
     function handleUnlock() {
+        if (!props.auth?.user) {
+            setShowGuestCheckout(true);
+            return;
+        }
+
         router.post(`/reports/${report.id}/unlock`);
+    }
+
+    function handleGuestCheckout(e: React.FormEvent<HTMLFormElement>) {
+        e.preventDefault();
+
+        postCheckout(`/reports/${report.id}/guest-checkout`);
     }
 
     return (
@@ -80,6 +108,60 @@ export default function ShowReport({ report }: ReportProps) {
                             >
                                 <Lock className="size-4" /> Unlock Full Report
                             </button>
+                        )}
+                        {showGuestCheckout && (
+                            <form onSubmit={handleGuestCheckout} className="mt-6 space-y-4">
+                                <div>
+                                    <label
+                                        htmlFor="guest-email"
+                                        className="mb-2 block text-sm font-medium"
+                                    >
+                                        Email address
+                                    </label>
+
+                                    <input
+                                        id="guest-email"
+                                        type="email"
+                                        name="email"
+                                        autoComplete="email"
+                                        required
+                                        value={checkoutData.email}
+                                        onChange={(e) => setCheckoutData('email', e.target.value)}
+                                        placeholder="you@example.com"
+                                        className="w-full rounded-lg border px-4 py-3"
+                                    />
+
+                                    {checkoutErrors.email && (
+                                        <p className="mt-1 text-sm text-red-600">
+                                            {checkoutErrors.email}
+                                        </p>
+                                    )}
+                                </div>
+
+                                {checkoutErrors.checkout && (
+                                    <p className="text-sm text-red-600">
+                                        {checkoutErrors.checkout}
+                                    </p>
+                                )}
+
+                                <div className="flex flex-wrap gap-3">
+                                    <button
+                                        type="submit"
+                                        disabled={checkoutProcessing}
+                                        className="rounded-lg bg-black px-5 py-3 text-white disabled:opacity-50"
+                                    >
+                                        {checkoutProcessing ? 'Redirecting...' : 'Continue to Payment'}
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowGuestCheckout(false)}
+                                        className="rounded-lg border px-5 py-3"
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            </form>
                         )}
                     </div>
                     <div className="sovereign-line" />

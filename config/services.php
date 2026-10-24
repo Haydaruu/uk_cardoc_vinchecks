@@ -77,6 +77,10 @@ return [
             'VEHICLE_REPORT_PROVIDER',
             'checkcardetails'
         ),
-    ],
 
+        'strategy' => env(
+            'VEHICLE_REPORT_STRATEGY',
+            'single'
+        ),
+    ],
 ];

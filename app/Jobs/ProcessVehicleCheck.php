@@ -9,6 +9,7 @@ use App\Models\VinCheck;
 use App\Models\GuestReportPurchase;
 use App\Services\CreditService;
 use App\Services\Reports\NormalizedReportBuilder;
+use App\Services\Reports\CompositeReportBuilder;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -52,6 +53,7 @@ class ProcessVehicleCheck implements ShouldQueue, ShouldBeUnique
         VehicleDataProviderInterface $provider,
         NormalizedReportBuilder $reportBuilder,
         CreditService $creditService,
+        ?CompositeReportBuilder $compositeReportBuilder = null,
     ): void {
         $vinCheck = VinCheck::findOrFail(
             $this->vinCheckId
@@ -143,21 +145,29 @@ class ProcessVehicleCheck implements ShouldQueue, ShouldBeUnique
                     'stage' => 'verifying_history',
                 ]);
 
-                $builtReport =
-                    $reportBuilder->build(
+                $strategy = config(
+                    'services.vehicle_reports.strategy',
+                    'single'
+                );
+
+                if ($strategy === 'hybrid') {
+                    $builder = $compositeReportBuilder
+                        ?? app(CompositeReportBuilder::class);
+
+                    $builtReport = $builder->build($regNumber);
+                } else {
+                    $builtReport = $reportBuilder->build(
                         vrm: $regNumber,
                     );
+                }
 
                 $reportData =
                     $builtReport['normalized'];
 
                 $vehicleData =
                     $this->mapNormalizedReportToVehicle(
-                        normalized:
-                            $reportData,
-
-                        raw:
-                            $builtReport['raw'],
+                        normalized: $reportData,
+                        raw: $builtReport['raw'],
                     );
 
                 $actualReportType = 'premium';
