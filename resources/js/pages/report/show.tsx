@@ -17,7 +17,7 @@ type ReportProps = {
             model: string;
             colour: string;
             fuelType: string;
-            engineCapacity: number;
+            engineCapacity: number | null;
             yearOfManufacture: number;
             co2Emissions?: number;
             tax?: { taxStatus: string };
@@ -176,7 +176,14 @@ export default function ShowReport({ report }: ReportProps) {
                         </div>
                         <div className="absolute inset-x-0 bottom-0 flex gap-3 bg-gradient-to-t from-black/60 to-transparent p-6">
                             <StatChip label="Fuel Type" value={data.fuelType} />
-                            <StatChip label="Engine" value={`${data.engineCapacity}cc`} />
+                            <StatChip
+                                label="Engine"
+                                value={
+                                    data.engineCapacity != null
+                                        ? `${data.engineCapacity}cc`
+                                        : '—'
+                                }
+                            />
                             <StatChip label="Year" value={`${data.yearOfManufacture}`} />
                         </div>
                     </div>

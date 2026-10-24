@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Contracts\VehicleDataProviderInterface;
+use App\Services\VehicleProviders\OneAutoProvider;
 use App\Models\Report;
 use App\Models\Vehicle;
 use App\Models\VinCheck;
@@ -54,6 +55,7 @@ class ProcessVehicleCheck implements ShouldQueue, ShouldBeUnique
         NormalizedReportBuilder $reportBuilder,
         CreditService $creditService,
         ?CompositeReportBuilder $compositeReportBuilder = null,
+        ?OneAutoProvider $oneAutoProvider = null,
     ): void {
         $vinCheck = VinCheck::findOrFail(
             $this->vinCheckId
@@ -126,21 +128,31 @@ class ProcessVehicleCheck implements ShouldQueue, ShouldBeUnique
                 'stage' => 'connecting',
             ]);
 
-            if (!$isPremium) {
-                $reportData =
-                    $provider->getRegistrationDetails(
+            if (! $isPremium) {
+                $selectedProvider = config(
+                    'services.vehicle_reports.provider',
+                    'checkcardetails'
+                );
+
+                if ($selectedProvider === 'oneauto') {
+                    $oneAutoProvider ??= app(OneAutoProvider::class);
+
+                    $reportData = $this->buildOneAutoBasicReportData(
+                        $regNumber,
+                        $oneAutoProvider,
+                    );
+                } else {
+                    $reportData = $provider->getRegistrationDetails(
                         $regNumber
                     );
+                }
 
-                $vehicleData =
-                    $this->mapBasicApiDataToVehicle(
-                        $reportData
-                    );
+                $vehicleData = $this->mapBasicApiDataToVehicle(
+                    $reportData
+                );
 
                 $actualReportType = 'basic';
             } else {
-
-
                 $vinCheck->update([
                     'stage' => 'verifying_history',
                 ]);
@@ -328,70 +340,163 @@ class ProcessVehicleCheck implements ShouldQueue, ShouldBeUnique
         }
     }
 
+    private function buildOneAutoBasicReportData(
+        string $requestedVrm,
+        OneAutoProvider $oneAuto,
+    ): array {
+        // 1. Ambil identitas kendaraan terlebih dahulu.
+        $details = $oneAuto->getVehicleDetails($requestedVrm);
+
+        if (data_get($details, 'success') !== true) {
+            throw new \RuntimeException(
+                'OneAuto vehicle details response was unsuccessful.'
+            );
+        }
+
+        $identity = data_get(
+            $details,
+            'result.vehicle_identification',
+            []
+        );
+
+        $normalizeVrm = static fn ($value): string => strtoupper(
+            preg_replace(
+                '/\s+/',
+                '',
+                trim((string) $value)
+            )
+        );
+
+        $expectedVrm = $normalizeVrm($requestedVrm);
+
+        $detailsVrm = $normalizeVrm(
+            data_get($identity, 'vehicle_registration_mark')
+        );
+
+        // 2. Tolak kendaraan yang tidak cocok sebelum meminta MOT.
+        if ($detailsVrm === '' || $detailsVrm !== $expectedVrm) {
+            throw new \RuntimeException(
+                "OneAuto vehicle mismatch. Requested {$expectedVrm}, "
+                . "but Vehicle Details returned {$detailsVrm}."
+            );
+        }
+
+        // 3. Baru ambil MOT setelah identitas pertama lolos.
+        $mot = $oneAuto->getMotHistory($requestedVrm);
+
+        if (data_get($mot, 'success') !== true) {
+            throw new \RuntimeException(
+                'OneAuto MOT response was unsuccessful.'
+            );
+        }
+
+        $motVehicle = data_get(
+            $mot,
+            'result.dvsa_data.dvsa_vehicle_Data',
+            []
+        );
+
+        $motVrm = $normalizeVrm(
+            data_get($motVehicle, 'vehicle_registration_mark')
+        );
+
+        // 4. Pastikan respons MOT juga milik kendaraan yang diminta.
+        if ($motVrm === '' || $motVrm !== $expectedVrm) {
+            throw new \RuntimeException(
+                "OneAuto MOT vehicle mismatch. Requested {$expectedVrm}, "
+                . "but MOT returned {$motVrm}."
+            );
+        }
+
+        // 5. Ambil hasil MOT terbaru.
+        $latestMot = collect(
+            data_get($mot, 'result.dvsa_data.mot_tests', [])
+        )
+            ->sortByDesc(
+                fn (array $test) => $test['mot_test_date'] ?? ''
+            )
+            ->first();
+
+        $motExpiry = $latestMot['mot_expiry_date'] ?? null;
+
+        $motStatus = $motExpiry
+            ? (
+                \Carbon\CarbonImmutable::parse($motExpiry)
+                    ->greaterThanOrEqualTo(now()->startOfDay())
+                    ? 'Valid'
+                    : 'Expired'
+            )
+            : 'Unknown';
+
+        // 6. Kembalikan struktur basic report yang digunakan aplikasi.
+        return [
+            'registrationNumber' => $detailsVrm,
+            'make' => data_get($identity, 'dvla_manufacturer_desc'),
+            'model' => data_get($identity, 'dvla_model_desc'),
+
+            'colour' => data_get(
+                $details,
+                'result.colour_details.colour'
+            ) ?? data_get($motVehicle, 'colour'),
+
+            'fuelType' => data_get(
+                $identity,
+                'dvla_fuel_desc'
+            ) ?? data_get($motVehicle, 'fuel_type_desc'),
+
+            'engineCapacity' => null,
+            'yearOfManufacture' => data_get(
+                $identity,
+                'manufactured_year'
+            ),
+
+            'co2Emissions' => data_get(
+                $details,
+                'result.vehicle_excise_duty_details.co2_gkm'
+            ),
+
+            'tax' => [
+                'taxStatus' => data_get(
+                    $mot,
+                    'result.dvla_data.tax_status'
+                ),
+                'taxDueDate' => data_get(
+                    $mot,
+                    'result.dvla_data.tax_expiry_date'
+                ),
+            ],
+
+            'mot' => [
+                'motStatus' => $motStatus,
+                'motDueDate' => $motExpiry,
+            ],
+
+            'vin' => data_get(
+                $identity,
+                'vehicle_identification_number'
+            ),
+        ];
+    }
+
     private function mapBasicApiDataToVehicle(
         array $apiData
     ): array {
         return [
-            'brand' =>
-                $apiData['make']
-                ?? null,
-
-            'model' =>
-                $apiData['model']
-                ?? null,
-
-            'colour' =>
-                $apiData['colour']
-                ?? null,
-
-            'fuel_type' =>
-                $apiData['fuelType']
-                ?? null,
-
-            'engine_capacity' =>
-                $apiData['engineCapacity']
-                ?? null,
-
-            'year' =>
-                $apiData['yearOfManufacture']
-                ?? null,
-
-            'year_of_manufacture' =>
-                $apiData['yearOfManufacture']
-                ?? null,
-
-            'co2_emissions' =>
-                $apiData['co2Emissions']
-                ?? null,
-
-            'tax_status' =>
-                data_get(
-                    $apiData,
-                    'tax.taxStatus'
-                ),
-
-            'mot_expiry_date' =>
-                data_get(
-                    $apiData,
-                    'mot.motDueDate'
-                ),
-
-            'vin' =>
-                $apiData['vin']
-                ?? 'NOT FOUND',
-
-            'raw_api_response' =>
-                $apiData,
-
-            'last_refreshed_at' =>
-                now(),
+            'brand' => $apiData['make'] ?? null,
+            'model' => $apiData['model'] ?? null,
+            'colour' => $apiData['colour'] ?? null,
+            'fuel_type' => $apiData['fuelType'] ?? null,
+            'engine_capacity' => $apiData['engineCapacity'] ?? null,
+            'year' => $apiData['yearOfManufacture'] ?? null,
+            'year_of_manufacture' => $apiData['yearOfManufacture'] ?? null,
+            'co2_emissions' => $apiData['co2Emissions'] ?? null,
+            'tax_status' => data_get($apiData, 'tax.taxStatus'),
+            'mot_expiry_date' => data_get($apiData, 'mot.motDueDate'),
+            'vin' => $apiData['vin'] ?? 'NOT FOUND',
+            'raw_api_response' => $apiData,
+            'last_refreshed_at' => now(),
         ];
     }
-
-    /**
-     * Map UKCarDoc normalized report
-     * ke Vehicle model.
-     */
     private function mapNormalizedReportToVehicle(
         array $normalized,
         array $raw,
