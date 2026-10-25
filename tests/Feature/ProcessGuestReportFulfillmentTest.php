@@ -3,6 +3,8 @@
 use App\Contracts\VehicleDataProviderInterface;
 use App\Jobs\ProcessVehicleCheck;
 use App\Models\GuestReportPurchase;
+use App\Jobs\SendGuestReportAccessEmail;
+use Illuminate\Support\Facades\Bus;
 use App\Models\Report;
 use App\Models\Vehicle;
 use App\Models\VinCheck;
@@ -11,6 +13,12 @@ use App\Services\Reports\NormalizedReportBuilder;
 use Illuminate\Contracts\Queue\Job as QueueJob;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+
+beforeEach(function () {
+    Bus::fake([
+        SendGuestReportAccessEmail::class,
+    ]);
+});
 
 test('paid guest purchase upgrades its existing report to premium', function () {
     $registrationNumber = 'GUEST-FULFILLMENT-001';

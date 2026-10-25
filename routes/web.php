@@ -10,6 +10,8 @@ use App\Http\Controllers\Webhook\PayPalWebhookController;
 use App\Http\Controllers\ReportPdfController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\Payments\GuestReportCheckoutController;
+use App\Http\Controllers\GuestReportInvoiceController;
+use App\Http\Controllers\Payments\GuestReportCheckoutSuccessController;
 use Inertia\Inertia;
 
 
@@ -22,11 +24,18 @@ Route::get('/support', [PageController::class, 'support'])->name('page.support')
 Route::get('/pricing', [PageController::class, 'pricing'])->name('page.pricing');
 Route::get('/about-us', function(){return Inertia::render('about-us'); })->name('page.about-us');
 
+Route::get('/guest-purchases/{purchase}/invoice',[GuestReportInvoiceController::class, 'show'],)->middleware('signed')->name('guest-report.invoice.show');
+Route::get('/guest-purchases/{purchase}/invoice/pdf',[GuestReportInvoiceController::class, 'download'],)->middleware('signed')->name('guest-report.invoice.download');
+Route::get('/guest-checkout/success',GuestReportCheckoutSuccessController::class,)->name('guest-report.checkout.success');
+Route::get('/guest-purchases/{purchase}/checkout-status',[GuestReportCheckoutSuccessController::class, 'status'],)->middleware('signed')->name('guest-report.checkout.status');
+
 //iki Auth Report
 Route::get('/report/{report}', [ReportController::class, 'show'])->name('page.my-report.show');
 Route::get('/report/{report}/pdf', [ReportPdfController::class, 'download'])->name('report.pdf.download');
 Route::post('/reports/{report}/unlock', [VehicleCheckController::class, 'unlock'])->name('report.unlock');
 Route::post('/reports/{report}/guest-checkout', [GuestReportCheckoutController::class, 'store'])->name('guest-report.checkout');
+Route::get('/reports/{report}/guest-checkout', [GuestReportCheckoutController::class, 'show'])->name('guest-report.checkout.show');
+Route::post('/reports/{report}/guest-checkout/prepare', [GuestReportCheckoutController::class, 'prepare'])->name('guest-report.checkout.prepare');
 
 //Iki auth Google   
 Route::middleware('guest')->group(function () {

@@ -119,6 +119,10 @@ class ProcessVehicleCheck implements ShouldQueue, ShouldBeUnique
                 );
 
                 if ($alreadyCompleted) {
+                    SendGuestReportAccessEmail::dispatch(
+                        $this->guestReportPurchaseId
+                    )->afterCommit();
+
                     return;
                 }
 
@@ -301,6 +305,12 @@ class ProcessVehicleCheck implements ShouldQueue, ShouldBeUnique
                     ]);
                 }
             );
+            if ($guestReportPurchaseId !== null) {
+                SendGuestReportAccessEmail::dispatch(
+                    $guestReportPurchaseId
+                )->afterCommit();
+            }
+
         } catch (\Throwable $e) {
             Log::error(
                 'Vehicle check failed',

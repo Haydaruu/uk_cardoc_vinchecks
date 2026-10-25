@@ -115,7 +115,9 @@ test('guest checkout creates a Stripe session and persists the matching access t
     try {
         $result = app(GuestReportCheckoutService::class)->startCheckout(
             report: $report,
+            name: 'Test Guest',
             email: 'guest@example.com',
+            phone: '+15551234567',
             successUrl: "https://example.com/reports/{$report->id}?checkout=return",
             cancelUrl: "https://example.com/reports/{$report->id}?checkout=cancelled",
         );
@@ -284,7 +286,9 @@ test('guest checkout reuses an open session with its existing valid access token
     try {
         $result = app(GuestReportCheckoutService::class)->startCheckout(
             report: $report,
+            name: 'Test Guest',
             email: 'guest@example.com',
+            phone: '+15551234567',
             successUrl: "https://example.com/reports/{$report->id}?checkout=return",
             cancelUrl: "https://example.com/reports/{$report->id}?checkout=cancelled",
         );
@@ -431,7 +435,9 @@ test('guest checkout creates a new purchase and rotates the access token when th
     try {
         $result = app(GuestReportCheckoutService::class)->startCheckout(
             report: $report,
+            name: 'Test Guest',
             email: 'guest@example.com',
+            phone: '+15551234567',
             successUrl: "https://example.com/reports/{$report->id}?checkout=return",
             cancelUrl: "https://example.com/reports/{$report->id}?checkout=cancelled",
         );
@@ -634,7 +640,9 @@ test('guest checkout replaces an open session when its access token is invalid',
     try {
         $result = app(GuestReportCheckoutService::class)->startCheckout(
             report: $report,
+            name: 'Test Guest',
             email: 'guest@example.com',
+            phone: '+15551234567',
             successUrl: "https://example.com/reports/{$report->id}?checkout=return",
             cancelUrl: "https://example.com/reports/{$report->id}?checkout=cancelled",
         );
@@ -818,6 +826,8 @@ test('guest checkout retry preserves the same token when saving the Stripe sessi
             expect(fn () => app(GuestReportCheckoutService::class)
                 ->startCheckout(
                     report: $report,
+                    name: 'Test Guest',
+                    phone: '+15551234567',
                     email: 'guest@example.com',
                     successUrl: "https://example.com/reports/{$report->id}?checkout=return",
                     cancelUrl: "https://example.com/reports/{$report->id}?checkout=cancelled",
@@ -835,6 +845,8 @@ test('guest checkout retry preserves the same token when saving the Stripe sessi
         $result = app(GuestReportCheckoutService::class)
             ->startCheckout(
                 report: $report,
+                name: 'Test Guest',
+                phone: '+15551234567',
                 email: 'guest@example.com',
                 successUrl: "https://example.com/reports/{$report->id}?checkout=return",
                 cancelUrl: "https://example.com/reports/{$report->id}?checkout=cancelled",

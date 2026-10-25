@@ -39,4 +39,47 @@ class GuestReportAccessService
             ->where('fulfillment_status', GuestReportPurchase::FULFILLMENT_COMPLETED)
             ->exists();
     }
+
+    public function tokenForCompletedPurchase(
+        GuestReportPurchase $purchase,
+    ): ?string {
+        if (
+            $purchase->payment_status !== GuestReportPurchase::STATUS_PAID
+            || $purchase->fulfillment_status !== GuestReportPurchase::FULFILLMENT_COMPLETED
+        ) {
+            return null;
+        }
+
+        $report = $purchase->report;
+
+        if (
+            ! $report
+            || $report->user_id !== null
+            || $report->report_type !== 'premium'
+        ) {
+            return null;
+        }
+
+        $appKey = config('app.key');
+
+        if (! is_string($appKey) || $appKey === '') {
+            return null;
+        }
+
+        $material = sprintf(
+            'vincheck-guest-report-access:report:%d:purchase:%d',
+            $purchase->report_id,
+            $purchase->id,
+        );
+
+        $token = hash_hmac('sha256', $material, $appKey);
+
+        $isActive = GuestReportAccessToken::query()
+            ->where('guest_report_id', $purchase->report_id)
+            ->where('token_hash', hash('sha256', $token))
+            ->whereNull('revoked_at')
+            ->exists();
+
+        return $isActive ? $token : null;
+    }
 }

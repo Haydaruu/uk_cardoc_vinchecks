@@ -17,7 +17,9 @@ class GuestReportCheckoutService
 {
     public function startCheckout(
         Report $report,
+        string $name,
         string $email,
+        string $phone,
         string $successUrl,
         string $cancelUrl,
     ): array {
@@ -45,11 +47,15 @@ class GuestReportCheckoutService
             $report->id,
         );
 
+        $normalizedName = trim($name);
         $normalizedEmail = mb_strtolower(trim($email));
+        $normalizedPhone = trim($phone);
 
         $purchase = $this->findOrCreatePendingPurchase(
             $report->id,
+            $normalizedName,
             $normalizedEmail,
+            $normalizedPhone,
             $configuredPrice,
         );
 
@@ -103,6 +109,21 @@ class GuestReportCheckoutService
                         $successParams,
                     );
 
+                    $sessionSuccessPath = parse_url(
+                        $existingSession->success_url ?? '',
+                        PHP_URL_PATH,
+                    );
+
+                    $requestedSuccessPath = parse_url(
+                        $successUrl,
+                        PHP_URL_PATH,
+                    );
+
+                    $sessionUsesCurrentSuccessPath =
+                        is_string($sessionSuccessPath)
+                        && is_string($requestedSuccessPath)
+                        && $sessionSuccessPath === $requestedSuccessPath;
+
                     $sessionAccessToken = $successParams['guest_token'] ?? null;
 
                     $sessionAccessTokenIsValid = is_string($sessionAccessToken)
@@ -123,6 +144,7 @@ class GuestReportCheckoutService
                         is_string($existingSession->url)
                         && $existingSession->url !== ''
                         && $sessionAccessTokenIsValid
+                        && $sessionUsesCurrentSuccessPath
                     ) {
                         return [
                             'purchase' => $purchase,
@@ -157,7 +179,9 @@ class GuestReportCheckoutService
 
                     $purchase = $this->findOrCreatePendingPurchase(
                         $report->id,
+                        $normalizedName,
                         $normalizedEmail,
+                        $normalizedPhone,
                         $configuredPrice,
                     );
 
@@ -175,7 +199,9 @@ class GuestReportCheckoutService
 
                     $purchase = $this->findOrCreatePendingPurchase(
                         $report->id,
+                        $normalizedName,
                         $normalizedEmail,
+                        $normalizedPhone,
                         $configuredPrice,
                     );
 
@@ -301,14 +327,54 @@ class GuestReportCheckoutService
         );
     }
 
+    public function getCheckoutSummary(Report $report): array
+    {
+        $this->assertReportCanBePurchased($report);
+
+        $stripeSecret = config('services.stripe.secret');
+        $priceId = config('services.stripe.guest_report_price_id');
+
+        if (
+            ! is_string($stripeSecret) || $stripeSecret === ''
+            || ! is_string($priceId) || $priceId === ''
+        ) {
+            throw new RuntimeException(
+                'Stripe is not configured for guest report checkout.'
+            );
+        }
+
+        $price = $this->retrieveValidPrice(
+            new StripeClient($stripeSecret),
+            $priceId,
+            $report->id,
+        );
+
+        $currency = strtoupper($price->currency);
+        $amount = (int) $price->unit_amount;
+
+        $amountDisplay = $currency === 'GBP'
+            ? '£'.number_format($amount / 100, 2)
+            : $currency.' '.number_format($amount / 100, 2);
+
+        return [
+            'amountMinor' => $amount,
+            'currency' => $currency,
+            'amountDisplay' => $amountDisplay,
+        ];
+    }
+
     private function findOrCreatePendingPurchase(
         int $reportId,
+        string $name,
         string $email,
+        string $phone,
         Price $price,
     ): GuestReportPurchase {
         return DB::transaction(function () use (
             $reportId,
+            $name,
             $email,
+            $phone,
             $price,
         ) {
             $report = Report::query()
@@ -333,18 +399,25 @@ class GuestReportCheckoutService
                     );
                 }
 
+                $pendingPurchase->update([
+                    'name' => $name,
+                    'phone' => $phone,
+                ]);
+
                 return $pendingPurchase;
             }
 
             return $report->guestReportPurchases()->create([
+                'name' => $name,
                 'email' => $email,
+                'phone' => $phone,
                 'payment_provider' => 'stripe',
                 'payment_status' => GuestReportPurchase::STATUS_PENDING,
                 'amount_minor' => $price->unit_amount,
                 'currency' => strtolower($price->currency),
                 'stripe_price_id' => $price->id,
-            ]);
-        });
+                ]);
+            });
     }
 
     private function retrieveValidPrice(

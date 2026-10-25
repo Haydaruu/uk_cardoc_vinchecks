@@ -30,6 +30,9 @@ class GuestReportPurchase extends Model
 
     protected $fillable = [
         'report_id',
+        'name',
+        'phone',
+        'access_email_sent_at',
         'email',
         'payment_status',
         'amount_minor',
@@ -54,6 +57,7 @@ class GuestReportPurchase extends Model
         'failed_at' => 'datetime',
         'expired_at' => 'datetime',
         'refunded_at' => 'datetime',
+        'access_email_sent_at' => 'datetime',
         'fulfillment_attempts' => 'integer',
         'fulfillment_started_at' => 'datetime',
         'fulfilled_at' => 'datetime',

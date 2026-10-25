@@ -74,6 +74,8 @@ test('guest checkout rejects a report that is not ready', function (){
     expect(fn () => app(GuestReportCheckoutService::class)
         ->startCheckout(
             report: $report,
+            name: 'Test Guest',
+            phone: '+15551234567',
             email: 'guest@example.com',
             successUrl: 'https://example.com/success',
             cancelUrl: 'https://example.com/cancel',
@@ -89,7 +91,9 @@ test('guest checkout rejects a report that is not ready', function (){
             'report' => $report->id,
         ]),
         [
+            'name' => 'Test Guest',
             'email' => 'guest@example.com',
+            'phone' => '+15551234567',
         ],
     );
 
@@ -129,6 +133,8 @@ test('guest checkout rejects a report with an existing paid purchase', function(
     expect(fn () => app(GuestReportCheckoutService::class)
         ->startCheckout(
             report: $report,
+            name: 'Test Guest',
+            phone: '+15551234567',
             email: 'guest@example.com',
             successUrl: 'https://example.com/success',
             cancelUrl: 'https://example.com/cancel',
@@ -144,7 +150,9 @@ test('guest checkout rejects a report with an existing paid purchase', function(
             'report' => $report->id,
         ]),
         [
+            'name' => 'Test Guest',
             'email' => 'guest@example.com',
+            'phone' => '+15551234567',
         ]
     );
 
