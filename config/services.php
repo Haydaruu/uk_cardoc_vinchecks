@@ -61,7 +61,8 @@ return [
         'key' => env('STRIPE_KEY'),
         'secret' => env('STRIPE_SECRET'),
         'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
-        'report_price_id' => env('STRIPE_REPORT_PRICE_ID')
+        'report_price_id' => env('STRIPE_REPORT_PRICE_ID'),
+        'guest_report_price_id' => env('STRIPE_GUEST_REPORT_PRICE_ID'),
     ],
 
     'paypal' => [
@@ -76,6 +77,10 @@ return [
             'VEHICLE_REPORT_PROVIDER',
             'checkcardetails'
         ),
-    ],
 
+        'strategy' => env(
+            'VEHICLE_REPORT_STRATEGY',
+            'single'
+        ),
+    ],
 ];

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use App\Models\Vehicle;
 
 class Report extends Model
@@ -40,5 +41,15 @@ class Report extends Model
     public function vehicle()
     {
          return $this->belongsTo(Vehicle::class);
+    }
+
+    public function guestReportPurchases(): HasMany
+    {
+        return $this->hasMany(GuestReportPurchase::class, 'report_id');
+    }
+
+    public function guestReportAccessTokens(): HasMany
+    {
+        return $this->hasMany(GuestReportAccessToken::class, 'guest_report_id');
     }
 }

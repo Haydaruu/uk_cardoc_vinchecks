@@ -23,46 +23,67 @@ export default function NormalizedFullReport({
     const [isDownloading, setIsDownloading] = useState(false);
 
     async function handlePdfDownload() {
-        if (isDownloading) {
-            return;
-        }
-
-        setIsDownloading(true);
-
-        try{
-            const response = await fetch(`/report/${report.id}/pdf`, 
-                {
-                    method: 'GET',
-                    credentials: 'same-origin',
-                    cache: 'no-cache',
-                },
-            );
-
-            if (!response.ok) {
-                throw new Error(`PDF download failed: ${response.status}`);
-            }
-
-            const blob = await response.blob();
-            const contentDisposition = response.headers.get('Content-Disposition');
-            const filenameMatch = contentDisposition?.match(/filename="([^"]+)"/i);
-            const filename = filenameMatch?.[1] ?? `vehicle-report-${report.id}.pdf`;
-            const url = window.URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = filename;
-
-            document.body.appendChild(link);
-
-            link.click();
-            link.remove();
-            window.URL.revokeObjectURL(url);
-        } catch (error) {
-            console.error('Error downloading PDF:', error);
-            window.alert('Unable to download the PDF report. Please try again.');
-        } finally {
-            setIsDownloading(false);
-        }
+    if (isDownloading) {
+        return;
     }
+
+    setIsDownloading(true);
+
+    try {
+        const currentUrl = new URL(window.location.href);
+
+        const pdfUrl = new URL(
+            `/report/${report.id}/pdf`,
+            currentUrl.origin,
+        );
+
+        const guestAccessToken =
+            currentUrl.searchParams.get('guest_token');
+
+        if (guestAccessToken) {
+            pdfUrl.searchParams.set('guest_token', guestAccessToken);
+        }
+
+        const response = await fetch(pdfUrl.toString(), {
+            method: 'GET',
+            credentials: 'same-origin',
+            cache: 'no-cache',
+        });
+
+        if (!response.ok) {
+            throw new Error(`PDF download failed: ${response.status}`);
+        }
+
+        const blob = await response.blob();
+        const contentDisposition =
+            response.headers.get('Content-Disposition');
+
+        const filenameMatch =
+            contentDisposition?.match(/filename="([^"]+)"/i);
+
+        const filename =
+            filenameMatch?.[1] ?? `vehicle-report-${report.id}.pdf`;
+
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+
+        link.href = url;
+        link.download = filename;
+
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+
+        window.URL.revokeObjectURL(url);
+    } catch (error) {
+        console.error('Error downloading PDF:', error);
+        window.alert(
+            'Unable to download the PDF report. Please try again.',
+        );
+    } finally {
+        setIsDownloading(false);
+    }
+}
 
     return (
         <>

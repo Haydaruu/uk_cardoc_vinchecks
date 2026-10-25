@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Webhook;
 
 use App\Models\User;
 use App\Http\Controllers\Controller;
+use App\Services\GuestReportPaymentService;
 use App\Services\CreditService;
 use App\Models\Transaction;
 use App\Models\Subscription;
@@ -16,7 +17,7 @@ use UnexpectedValueException;
 
 class StripeWebhookController extends Controller
 {
-    public function handle(Request $request, CreditService $creditService)
+    public function handle(Request $request, CreditService $creditService, GuestReportPaymentService $guestReportPaymentService)
     {
         $payload = $request->getContent();
         $sigHeader = $request->header('Stripe-Signature');
@@ -28,6 +29,44 @@ class StripeWebhookController extends Controller
             Log::warning('Stripe webhook signature verification failed', ['error' => $e->getMessage()]);
 
             return response()->json(['error' => 'invalid signature'], 400);
+        }
+
+        $guestCheckoutEvents = [
+            'checkout.session.completed',
+            'checkout.session.async_payment_succeeded',
+            'checkout.session.async_payment_failed',
+            'checkout.session.expired',
+        ];
+
+        if (in_array($event->type, $guestCheckoutEvents, true)) {
+            $session = $event->data->object;
+
+            $purpose = $session->metadata->purpose ?? null;
+
+            if ($purpose === 'guest_report_purchase') {
+                try {
+                    $guestReportPaymentService->handleCheckoutSession(
+                        $session,
+                        $event->type,
+                    );
+                } catch (\Throwable $exception) {
+                    Log::error('Failed to process guest report Stripe webhook.', [
+                        'event_id' => $event->id ?? null,
+                        'purchase_id' =>
+                            $session->metadata->guest_report_purchase_id ?? null,
+                        'exception' => $exception::class,
+                        'message' => $exception->getMessage(),
+                        'file' => $exception->getFile(),
+                        'line' => $exception->getLine(),
+                    ]);
+
+                    return response()->json([
+                        'error' => 'Unable to process guest report payment.',
+                    ], 500);
+                }
+
+                return response()->json(['received' => true]);
+            }
         }
 
         switch($event->type) {

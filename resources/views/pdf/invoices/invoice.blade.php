@@ -357,7 +357,14 @@
                         </div>
 
                         <div class="item-description">
-                            UKCarDoc account purchase
+                            @if (($invoice['purchase_type'] ?? null) === 'guest_report')
+                                Guest full vehicle report
+                                @if (!empty($invoice['vehicle']['registration_number']))
+                                    — {{ $invoice['vehicle']['registration_number'] }}
+                                @endif
+                            @else
+                                UKCarDoc account purchase
+                            @endif
                         </div>
                     </td>
 

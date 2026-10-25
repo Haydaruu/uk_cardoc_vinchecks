@@ -3,13 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Models\Report;
+use App\Services\GuestReportAccessService;
 use Illuminate\Http\Request;
-use Spatie\LaravelPdf\Facades\Pdf;
 use Illuminate\Support\Facades\Log;
+use Spatie\LaravelPdf\Facades\Pdf;
 
 class ReportPdfController extends Controller
 {
-    public function download(Report $report, Request $request)
+    public function download(Report $report, Request $request, GuestReportAccessService $guestReportAccess)
     {
         $startedAt = microtime(true);
 
@@ -19,8 +20,11 @@ class ReportPdfController extends Controller
 
         $user = $request->user();
 
-        if ($report->user_id && (!$user || $report->user_id !== $user->id)) {
+        if ($report->user_id !== null && (! $user || (int) $report->user_id !== $user->id)) {
             abort(403);
+        }
+        if ($report->user_id === null && $report->report_type === 'premium') {
+            abort_unless($guestReportAccess->hasCompletedPurchase($report, $request->query('guest_token')), 403);
         }
 
         $reportData = $report->report_data ?? [];
@@ -42,8 +46,8 @@ class ReportPdfController extends Controller
         ]);
 
         $filename =
-            'vehicle-report-' .
-            ($reportData['vehicle']['vrm'] ?? $report->id) .
+            'vehicle-report-'.
+            ($reportData['vehicle']['vrm'] ?? $report->id).
             '.pdf';
 
         $directory = storage_path('app/pdf-temp');
@@ -52,7 +56,7 @@ class ReportPdfController extends Controller
             mkdir($directory, 0777, true);
         }
 
-        $outputPath = $directory . DIRECTORY_SEPARATOR . $filename;
+        $outputPath = $directory.DIRECTORY_SEPARATOR.$filename;
 
         Log::info('PDF DEBUG: starting actual render', [
             'path' => $outputPath,
@@ -69,7 +73,7 @@ class ReportPdfController extends Controller
             ->format('a4')
             ->margins(12, 12, 14, 12)
             ->save($outputPath);
-        
+
         Log::info('PDF DEBUG: actual render finished', [
             'elapsed_ms' => round(
                 (microtime(true) - $startedAt) * 1000,
@@ -83,7 +87,7 @@ class ReportPdfController extends Controller
 
         return response()->file($outputPath, [
             'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
-        ]);   
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+        ]);
     }
 }

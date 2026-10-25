@@ -9,7 +9,7 @@ import {
 } from '@stripe/react-stripe-js';
 
 import { loadStripe } from '@stripe/stripe-js';
-import { Head } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 
 import {
     PayPalOneTimePaymentButton,
@@ -40,6 +40,14 @@ const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_KEY);
 
 type PaymentMethod = 'stripe' | 'paypal';
 type PlanType = 'one_time' | 'subscription';
+type CheckoutMode = 'credits' | 'guest_report';
+
+type GuestReportSummary = {
+    id: number;
+    make: string;
+    model: string;
+    registrationNumber: string;
+};
 
 type CheckoutProps = {
     plan: string;
@@ -49,6 +57,8 @@ type CheckoutProps = {
     credits: number;
     paypalClientId: string | null;
     paypalEnvironment: 'sandbox' | 'production';
+    checkoutMode?: CheckoutMode;
+    guestReport?: GuestReportSummary;
 };
 
 export default function Checkout({
@@ -59,11 +69,14 @@ export default function Checkout({
     credits,
     paypalClientId,
     paypalEnvironment,
+    checkoutMode = 'credits',
+    guestReport,
 }: CheckoutProps) {
     const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('stripe');
     const [clientSecret, setClientSecret] = useState<string | null>(null);
     const [subscriptionId, setSubscriptionId] = useState<string | null>(null);
     const [initError, setInitError] = useState<string | null>(null);
+    const isGuestReport = checkoutMode === 'guest_report';
 
     const isSubscription = planType === 'subscription';
 
@@ -78,7 +91,13 @@ export default function Checkout({
     }, [plan, planType]);
 
     useEffect(() => {
-        if(paymentMethod !== 'stripe' || clientSecret) return;
+        if (
+            paymentMethod !== 'stripe'
+            || clientSecret
+            || isGuestReport
+        ) {
+            return;
+        }
 
         let cancelled = false;
 
@@ -145,13 +164,17 @@ export default function Checkout({
                         </div>
 
                         <h1 className="text-3xl font-bold tracking-tight text-primary md:text-4xl">
-                            {isSubscription
+                            {isGuestReport
+                                ? 'Complete your Full Vehicle Report purchase'
+                                : isSubscription
                                 ? `Start your ${label} membership`
                                 : `Complete your ${label} purchase`}
                         </h1>
 
                         <p className="mt-3 max-w-xl text-sm leading-6 text-on-surface-variant">
-                            {isSubscription
+                            {isGuestReport
+                                ? 'Complete your secure payment. Your full report access link will be emailed to you when the report is ready.'
+                                : isSubscription
                                 ? `${credits} credits are added to your account every month. Cancel anytime from your subscription settings.`
                                 : `${credits} ${credits === 1 ? 'credit' : 'credits'} will be available after payment.`}
                         </p>
@@ -197,7 +220,10 @@ export default function Checkout({
 
                                     <button
                                         type="button"
+                                        disabled={isGuestReport}
                                         onClick={() => {
+                                            if (isGuestReport) return;
+
                                             setInitError(null);
                                             setPaymentMethod('paypal');
                                         }}
@@ -205,10 +231,16 @@ export default function Checkout({
                                             paymentMethod === 'paypal'
                                                 ? 'bg-white text-primary shadow-sm ring-1 ring-outline-variant/40'
                                                 : 'text-on-surface-variant hover:text-primary'
-                                        }`}
+                                        } disabled:cursor-not-allowed disabled:opacity-60`}
                                     >
                                         <Wallet className="size-4" />
-                                        PayPal
+                                        <span>PayPal</span>
+
+                                        {isGuestReport && (
+                                            <span className="rounded bg-surface-container px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-on-surface-variant">
+                                                Coming soon
+                                            </span>
+                                        )}
                                     </button>
                                 </div>
                             </div>
@@ -217,54 +249,61 @@ export default function Checkout({
                             <div className="px-6 py-7 md:px-8 md:py-8">
 
                                 {paymentMethod === 'stripe' && (
-                                    <>
-                                        {initError && (
-                                            <PaymentError message={initError} />
-                                        )}
+                                    isGuestReport ? (
+                                        <GuestReportStripeCheckout
+                                            reportId={guestReport?.id ?? null}
+                                            amountDisplay={amountDisplay}
+                                        />
+                                    ) : (
+                                        <>
+                                            {initError && (
+                                                <PaymentError message={initError} />
+                                            )}
 
-                                        {!initError && !clientSecret && (
-                                            <PaymentLoading />
-                                        )}
+                                            {!initError && !clientSecret && (
+                                                <PaymentLoading />
+                                            )}
 
-                                        {clientSecret && (
-                                            <Elements
-                                                stripe={stripePromise}
-                                                options={{
-                                                    clientSecret,
+                                            {clientSecret && (
+                                                <Elements
+                                                    stripe={stripePromise}
+                                                    options={{
+                                                        clientSecret,
 
-                                                    appearance: {
-                                                        variables: {
-                                                            colorPrimary: '#000d2f',
-                                                            colorDanger: '#ba1a1a',
-                                                            colorText: '#151c27',
-                                                            fontFamily: 'Inter, sans-serif',
-                                                            borderRadius: '6px',
-                                                            spacingUnit: '4px',
-                                                        },
-
-                                                        rules: {
-                                                            '.Input': {
-                                                                borderColor: '#d8dae2',
-                                                                boxShadow: 'none',
-                                                                padding: '13px 14px',
+                                                        appearance: {
+                                                            variables: {
+                                                                colorPrimary: '#000d2f',
+                                                                colorDanger: '#ba1a1a',
+                                                                colorText: '#151c27',
+                                                                fontFamily: 'Inter, sans-serif',
+                                                                borderRadius: '6px',
+                                                                spacingUnit: '4px',
                                                             },
 
-                                                            '.Input:focus': {
-                                                                borderColor: '#455c99',
-                                                                boxShadow: '0 0 0 1px #455c99',
+                                                            rules: {
+                                                                '.Input': {
+                                                                    borderColor: '#d8dae2',
+                                                                    boxShadow: 'none',
+                                                                    padding: '13px 14px',
+                                                                },
+
+                                                                '.Input:focus': {
+                                                                    borderColor: '#455c99',
+                                                                    boxShadow: '0 0 0 1px #455c99',
+                                                                },
                                                             },
                                                         },
-                                                    },
-                                                }}
-                                            >
-                                                <StripeCheckoutForm
-                                                    amountDisplay={amountDisplay}
-                                                    planType={planType}
-                                                    subscriptionId={subscriptionId}
-                                                />
-                                            </Elements>
-                                        )}
-                                    </>
+                                                    }}
+                                                >
+                                                    <StripeCheckoutForm
+                                                        amountDisplay={amountDisplay}
+                                                        planType={planType}
+                                                        subscriptionId={subscriptionId}
+                                                    />
+                                                </Elements>
+                                            )}
+                                        </>
+                                    )
                                 )}
 
                                 {paymentMethod === 'paypal' && (
@@ -289,6 +328,8 @@ export default function Checkout({
                             amountDisplay={amountDisplay}
                             credits={credits}
                             planType={planType}
+                            checkoutMode={checkoutMode}
+                            guestReport={guestReport}
                         />
                     </div>
                 </div>
@@ -297,23 +338,28 @@ export default function Checkout({
     );
 }
 
+
 function OrderSummary({
     label,
     amountDisplay,
     credits,
     planType,
+    checkoutMode = 'credits',
+    guestReport,
 }: {
     label: string;
     amountDisplay: string;
     credits: number;
     planType: PlanType;
+    checkoutMode?: CheckoutMode;
+    guestReport?: GuestReportSummary;
 }) {
     const isSubscription = planType === 'subscription';
+    const isGuestReport = checkoutMode === 'guest_report';
 
     return (
         <aside className="lg:sticky lg:top-8">
             <div className="overflow-hidden rounded-xl border border-outline-variant/60 bg-white shadow-[0_12px_35px_rgba(0,13,47,0.05)]">
-
                 <div className="border-b border-outline-variant/50 px-6 py-5">
                     <p className="text-xs font-semibold uppercase tracking-[0.15em] text-on-surface-variant">
                         Order summary
@@ -328,12 +374,22 @@ function OrderSummary({
                             </p>
 
                             <p className="mt-1 text-xs leading-5 text-on-surface-variant">
-                                {isSubscription
-                                    ? 'Monthly membership'
-                                    : credits === 1
-                                      ? '1 report credit'
-                                      : `${credits} report credits`}
+                                {isGuestReport
+                                    ? guestReport?.registrationNumber
+                                        ? `Registration: ${guestReport.registrationNumber}`
+                                        : 'Premium vehicle report'
+                                    : isSubscription
+                                      ? 'Monthly membership'
+                                      : credits === 1
+                                        ? '1 report credit'
+                                        : `${credits} report credits`}
                             </p>
+
+                            {isGuestReport && guestReport && (
+                                <p className="mt-1 text-xs text-on-surface-variant">
+                                    {guestReport.make} {guestReport.model}
+                                </p>
+                            )}
                         </div>
 
                         <p className="shrink-0 text-sm font-semibold text-primary">
@@ -344,18 +400,27 @@ function OrderSummary({
                     <div className="my-6 h-px bg-outline-variant/50" />
 
                     <div className="space-y-3">
-                        <SummaryBenefit
-                            text={
-                                isSubscription
-                                    ? `${credits} credits added every month`
-                                    : `${credits} ${credits === 1 ? 'credit' : 'credits'} added after payment`
-                            }
-                        />
+                        {isGuestReport ? (
+                            <>
+                                <SummaryBenefit text="Full vehicle report access" />
+                                <SummaryBenefit text="Report access link by email when ready" />
+                            </>
+                        ) : (
+                            <>
+                                <SummaryBenefit
+                                    text={
+                                        isSubscription
+                                            ? `${credits} credits added every month`
+                                            : `${credits} ${credits === 1 ? 'credit' : 'credits'} added after payment`
+                                    }
+                                />
 
-                        <SummaryBenefit text="Unused credits never expire" />
+                                <SummaryBenefit text="Unused credits never expire" />
 
-                        {isSubscription && (
-                            <SummaryBenefit text="Cancel anytime from your account" />
+                                {isSubscription && (
+                                    <SummaryBenefit text="Cancel anytime from your account" />
+                                )}
+                            </>
                         )}
                     </div>
 
@@ -367,7 +432,7 @@ function OrderSummary({
                                 {isSubscription ? 'Due today' : 'Total'}
                             </p>
 
-                            {isSubscription && (
+                            {isSubscription && !isGuestReport && (
                                 <p className="mt-1 text-[11px] text-outline">
                                     Then billed monthly
                                 </p>
@@ -390,13 +455,104 @@ function OrderSummary({
                             </p>
 
                             <p className="mt-1 text-xs leading-5 text-white/65">
-                                Your card or PayPal credentials are handled directly by the payment provider.
+                                {isGuestReport
+                                    ? 'Your payment is processed securely by Stripe.'
+                                    : 'Your card or PayPal credentials are handled directly by the payment provider.'}
                             </p>
                         </div>
                     </div>
                 </div>
             </div>
         </aside>
+    );
+}
+
+function GuestReportStripeCheckout({
+    reportId,
+    amountDisplay,
+}: {
+    reportId: number | null;
+    amountDisplay: string;
+}) {
+    const [isProcessing, setIsProcessing] = useState(false);
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+    function handleContinue() {
+        if (!reportId) {
+            setErrorMessage('The report could not be identified. Please return to the report page.');
+            return;
+        }
+
+        setErrorMessage(null);
+        setIsProcessing(true);
+
+        router.post(
+            `/reports/${reportId}/guest-checkout`,
+            {},
+            {
+                onError: (errors) => {
+                    setErrorMessage(
+                        errors.checkout
+                        ?? 'Unable to start checkout. Please try again.',
+                    );
+                },
+                onFinish: () => {
+                    setIsProcessing(false);
+                },
+            },
+        );
+    }
+
+    return (
+        <div className="mx-auto max-w-lg py-2">
+            <div className="mb-6 flex items-center gap-3">
+                <div className="flex size-11 items-center justify-center rounded-lg bg-surface-container">
+                    <Lock className="size-5 text-primary" />
+                </div>
+
+                <div>
+                    <h2 className="text-lg font-semibold text-primary">
+                        Secure payment with Stripe
+                    </h2>
+                    <p className="mt-1 text-sm text-on-surface-variant">
+                        Choose from the payment methods available at Stripe checkout.
+                    </p>
+                </div>
+            </div>
+
+            <div className="mb-6 rounded-lg border border-outline-variant/60 bg-surface-container-low p-4">
+                <div className="flex items-center justify-between gap-4">
+                    <span className="text-sm text-on-surface-variant">
+                        Full Vehicle Report
+                    </span>
+                    <span className="font-semibold text-primary">
+                        {amountDisplay}
+                    </span>
+                </div>
+            </div>
+
+            {errorMessage && (
+                <div className="mb-4">
+                    <PaymentError message={errorMessage} />
+                </div>
+            )}
+
+            <button
+                type="button"
+                onClick={handleContinue}
+                disabled={isProcessing || !reportId}
+                className="flex w-full items-center justify-center gap-2 rounded-lg bg-secondary px-6 py-4 text-sm font-semibold text-white shadow-[0_8px_20px_rgba(187,0,26,0.16)] transition-all hover:bg-secondary-container active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+                <Lock className="size-4" />
+                {isProcessing
+                    ? 'Redirecting to Stripe...'
+                    : `Continue to Stripe — ${amountDisplay}`}
+            </button>
+
+            <p className="mt-4 text-center text-xs leading-5 text-outline">
+                Your payment is processed securely by Stripe.
+            </p>
+        </div>
     );
 }
 
