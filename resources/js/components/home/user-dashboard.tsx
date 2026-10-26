@@ -1,6 +1,6 @@
 import { useForm, router } from '@inertiajs/react';
 import { store } from '@/actions/App/Http/Controllers/VehicleCheckController';
-import { ArrowRight, Award, Car, ExternalLink, Plus } from 'lucide-react';
+import { ArrowRight, Car, Crown, ExternalLink, Gem, Plus, Star } from 'lucide-react';
 import { FormEvent, useState } from 'react';
 
 type ReportBadgeTone = 'neutral' | 'alert';
@@ -26,6 +26,7 @@ type UserDashboardProps = {
         name: string;
         credits: number;
         is_premium: boolean;
+        subscription_plan?: string | null;
     };
     recentReports?: RecentReport[];
     recentSearches?: string[];
@@ -37,6 +38,16 @@ export default function UserDashboard({ user, recentReports = [], recentSearches
         registration_number: '',
     });
     const [isSearchFocused, setIsSearchFocused] = useState(false);
+
+    const planName = user.subscription_plan?.toLowerCase() ?? '';
+
+    const subscriptionTier = !user.is_premium
+        ? null
+        : planName.includes('max')
+        ? { name: 'Premium Max', badge: 'PREMIUM MAX', Icon: Crown }
+        : planName.includes('plus')
+            ? { name: 'Premium Plus', badge: 'PREMIUM PLUS', Icon: Gem }
+            : { name: 'Premium', badge: 'PREMIUM', Icon: Star };
 
     function handleCheck(e: FormEvent<HTMLFormElement>) {
         e.preventDefault();
@@ -131,36 +142,46 @@ export default function UserDashboard({ user, recentReports = [], recentSearches
                 {/* Premium / Credits Stats Module */}
                 <div className="relative overflow-hidden rounded-lg bg-primary-container p-6 text-white md:col-span-4">
                     <div className="relative z-10 flex h-full flex-col">
-                        <div className="mb-8 flex items-start justify-between">
-                            <span className="rounded bg-secondary px-3 py-1 text-[10px] font-bold tracking-widest text-white">
-                                {user.is_premium ? 'SOVEREIGN ACCESS' : 'STANDARD ACCESS'}
+                        <div className="mb-8 flex flex-wrap items-center gap-2">
+                            <span className="inline-flex items-center gap-2 rounded bg-secondary px-3 py-1 text-[10px] font-bold tracking-widest text-white">
+                                {subscriptionTier ? (
+                                    <subscriptionTier.Icon className="size-3.5" />
+                                ) : (
+                                    <Star className="size-3.5" />
+                                )}
+
+                                {subscriptionTier?.badge ?? 'STANDARD ACCESS'}
                             </span>
-                            <Award className="size-5 text-white/70" />
+
+                            <span className="rounded border border-white/20 bg-white/10 px-3 py-1 text-[10px] font-bold tracking-wide text-white">
+                                {user.credits} {user.credits === 1 ? 'CREDIT' : 'CREDITS'}
+                            </span>
                         </div>
+
                         <div className="mt-auto">
                             <p className="text-sm font-semibold uppercase tracking-widest text-white/70">
-                                {user.is_premium ? 'Reports Remaining' : 'Your Balance'}
+                                Credits Remaining
                             </p>
-                            <p className="mt-2 text-4xl font-black leading-none">{user.is_premium ? 'Unlimited' : user.credits}</p>
-                            {!user.is_premium && <p className="mt-1 text-sm text-white/70">Full History Credits</p>}
+
+                            <p className="mt-2 text-4xl font-black leading-none">
+                                {user.credits}
+                            </p>
+
+                            <p className="mt-1 text-sm text-white/70">
+                                Available for full vehicle history checks
+                            </p>
+
                             <button
                                 type="button"
-                                onClick={() => router.visit(user.is_premium ? '/billing' : '/pricing')}
-                                className="mt-6 w-full rounded bg-white py-2.5 text-sm font-bold text-primary-container hover:bg-slate-50"
+                                onClick={() =>
+                                    router.visit(user.is_premium ? '/billing' : '/pricing')
+                                }
+                                className="mt-6 w-full rounded bg-white py-2.5 text-sm font-bold text-primary-container transition-colors hover:bg-slate-50"
                             >
                                 {user.is_premium ? 'View Billing History' : 'Add More Credits'}
                             </button>
                         </div>
                     </div>
-
-                    {/* Diagonal Motif */}
-                    <div
-                        className="pointer-events-none absolute inset-0 opacity-10"
-                        style={{
-                            backgroundImage:
-                                'repeating-linear-gradient(45deg, transparent, transparent 40px, #ffffff 40px, #ffffff 41px)',
-                        }}
-                    />
                 </div>
 
                 {/* Recent Activity Module */}

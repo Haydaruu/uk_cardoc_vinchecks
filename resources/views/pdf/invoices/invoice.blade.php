@@ -34,6 +34,12 @@
             min-height: 255mm;
         }
 
+        .brand-accent {
+            height: 4px;
+            margin-bottom: 22px;
+            background-color: #c8102e;
+        }
+
         .header {
             display: table;
             width: 100%;
@@ -144,8 +150,8 @@
 
         .table thead th {
             padding: 11px 12px;
-            background: #f1f5f9;
-            color: #475569;
+            background: #000d2f;
+            color: #ffffff;
             font-size: 8px;
             font-weight: 800;
             letter-spacing: 0.8px;
@@ -204,7 +210,7 @@
         .grand-total {
             margin-top: 12px;
             padding-top: 14px;
-            border-top: 2px solid #000d2f;
+            border-top: 2px solid #c8102e;
         }
 
         .grand-total .total-label,
@@ -218,8 +224,9 @@
             margin-top: 30px;
             padding: 16px;
             border: 1px solid #d8dae2;
+            border-left: 3px solid #c8102e;
             border-radius: 6px;
-            background: #f8fafc;
+            background: #f1f5f9;
         }
 
         .payment-title {
@@ -270,7 +277,7 @@
 
 <body>
     <div class="page">
-
+        <div class="brand-accent">
         <div class="header">
             <div class="brand">
                 <p class="brand-name">
@@ -448,7 +455,7 @@
             The information shown reflects the transaction recorded
             in the UKCarDoc payment system at the time of issue.
         </p>
-
+        </div>
     </div>
 
     <div class="footer">

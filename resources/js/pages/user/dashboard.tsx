@@ -19,6 +19,7 @@ type DashboardPageProps = {
             name: string;
             credits: number;
             is_premium: boolean;
+            subscription_plan: string | null;
         } | null;
     };
 

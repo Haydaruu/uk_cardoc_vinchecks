@@ -8,9 +8,12 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Auth\Notifications\VerifyEmail;
+use Illuminate\Notifications\Messages\MailMessage;
 use SocialiteProviders\Manager\SocialiteWasCalled;
 use App\Contracts\VehicleDataProviderInterface;
 use App\Services\VehicleDataService;
+
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -28,9 +31,21 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->configureDefaults();
+
         Event::listen(function (SocialiteWasCalled $event) {
             $event->extendSocialite('microsoft', \SocialiteProviders\Microsoft\Provider::class);
         });
+
+        VerifyEmail::toMailUsing(
+            function (object $notifiable, string $url) {
+                return (new MailMessage)
+                    ->subject('Verify your email address | UKCarDoc')
+                    ->view('emails.verify-email', [
+                        'customerName' => $notifiable->name ?? 'there',
+                        'verificationUrl' => $url,
+                    ]);
+            }
+        );
     }
 
     /**

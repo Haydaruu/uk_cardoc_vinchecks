@@ -1,13 +1,20 @@
 import { Link } from '@inertiajs/react'
-import { CreditCard } from 'lucide-react'
+import { CreditCard, X } from 'lucide-react'
 
 export default function CreditExhaustedModal({ onClose }: { onClose: () => void}) {
         return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-            <div className="w-full max-w-md rounded-lg bg-white shadow-xl">
+            <div className="relative w-full max-w-md rounded-lg bg-white shadow-xl">
                 <div className="h-1 rounded-t-lg bg-[#bb001a]" />
                 <div className="p-8 text-center">
-                    <button onClick={onClose} className="absolute right-6 top-6 text-slate-400">✕</button>
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        aria-label="Close dialog"
+                        className="absolute right-4 top-4 rounded-md p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                    >
+                        <X className="size-5" />
+                    </button>
                     <div className="mx-auto mb-4 flex size-14 items-center justify-center rounded bg-red-50">
                         <CreditCard className="size-6 text-[#bb001a]" />
                     </div>

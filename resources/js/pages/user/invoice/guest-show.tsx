@@ -106,7 +106,7 @@ export default function GuestInvoiceShow({
                         </p>
                     </div>
 
-                    <section className="overflow-hidden rounded-xl border border-outline-variant/60 bg-white shadow-[0_14px_40px_rgba(0,13,47,0.06)]">
+                    <section className="overflow-hidden rounded-xl border border-outline-variant/60 border-t-4 border-t-[#c8102e] bg-white shadow-[0_14px_40px_rgba(0,13,47,0.08)]">
 
                         {/* Invoice header */}
                         <div className="flex flex-col gap-6 border-b border-outline-variant/50 px-6 py-7 sm:flex-row sm:items-start sm:justify-between md:px-8">
@@ -287,7 +287,7 @@ export default function GuestInvoiceShow({
                                 </div>
 
                                 {reportUrl ? (
-                                    <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+                                    <div className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-md bg-[#c8102e] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#a80d26] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c8102e] focus-visible:ring-offset-2">
                                         <a
                                             href={reportUrl}
                                             className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-md bg-primary px-5 py-3 text-sm font-bold text-white transition hover:opacity-90"
@@ -299,7 +299,7 @@ export default function GuestInvoiceShow({
                                         <button
                                             type="button"
                                             onClick={() => void copyReportLink()}
-                                            className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-md border border-outline-variant px-5 py-3 text-sm font-bold text-primary transition hover:bg-surface-container-low"
+                                            className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-md border border-[#000d2f] px-5 py-3 text-sm font-bold text-[#000d2f] transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#000d2f] focus-visible:ring-offset-2"
                                         >
                                             <Copy className="size-4" />
                                             Copy Report Link
@@ -358,7 +358,7 @@ export default function GuestInvoiceShow({
 
                                 <a
                                     href={downloadUrl}
-                                    className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-md bg-secondary px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-secondary-container"
+                                    className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-md bg-[#000d2f] px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-[#142a57] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#000d2f] focus-visible:ring-offset-2"
                                 >
                                     <Download className="size-4" />
                                     Download Invoice PDF
