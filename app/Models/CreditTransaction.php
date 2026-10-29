@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use App\Models\User;
 
 class CreditTransaction extends Model
 {
@@ -22,7 +21,7 @@ class CreditTransaction extends Model
         'balance_after' => 'integer',
     ];
 
-    public function User () 
+    public function User()
     {
         return $this->belongsTo(User::class);
     }

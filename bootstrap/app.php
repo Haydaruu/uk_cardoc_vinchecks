@@ -1,23 +1,24 @@
 <?php
 
+use App\Http\Middleware\EnsureUserHasRole;
+use App\Http\Middleware\EnsureUserNotSuspended;
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Middleware\PreventBackHistoryCache;
+use App\Http\Middleware\RedirectIfAuthenticated;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
-use App\Http\Middleware\EnsureUserHasRole;
-use App\Http\Middleware\PreventBackHistoryCache;
-use App\Http\Middleware\RedirectIfAuthenticated;
 use Illuminate\Http\Request;
 
-$runtimeTempDirectory = dirname(__DIR__) . '/storage/framework/tmp';
+$runtimeTempDirectory = dirname(__DIR__).'/storage/framework/tmp';
 
 if (! is_dir($runtimeTempDirectory)) {
     mkdir($runtimeTempDirectory, 0777, true);
 }
 
-putenv('TEMP=' . $runtimeTempDirectory);
-putenv('TMP=' . $runtimeTempDirectory);
+putenv('TEMP='.$runtimeTempDirectory);
+putenv('TMP='.$runtimeTempDirectory);
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -39,7 +40,8 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
         $middleware->alias([
             'role' => EnsureUserHasRole::class,
-            'redirect.home.auth' => RedirectIfAuthenticated::class
+            'redirect.home.auth' => RedirectIfAuthenticated::class,
+            'not.suspended' => EnsureUserNotSuspended::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

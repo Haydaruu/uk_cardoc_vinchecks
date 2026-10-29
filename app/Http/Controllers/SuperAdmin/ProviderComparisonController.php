@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\SuperAdmin;
 
 use App\Http\Controllers\Controller;
-use App\Services\Reports\NormalizedReportBuilder;
+use App\Models\User;
+use App\Services\AdminAuditService;
 use App\Services\Reports\CompositeReportBuilder;
+use App\Services\Reports\NormalizedReportBuilder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -18,18 +20,18 @@ class ProviderComparisonController extends Controller
     public function __construct(
         private NormalizedReportBuilder $reportBuilder,
         private CompositeReportBuilder $compositeReportBuilder,
-    ){
+        private AdminAuditService $auditService,
+    ) {}
 
-    }
     public function index(): Response
     {
-         $providerConfig = config(
+        $providerConfig = config(
             'provider-lab.providers',
             []
         );
 
         $providers = collect(
-            $providerConfig
+            (array) $providerConfig
         )
             ->map(
                 fn (
@@ -38,8 +40,7 @@ class ProviderComparisonController extends Controller
                 ) => [
                     'id' => $id,
 
-                    'name' =>
-                        $provider['name']
+                    'name' => $provider['name']
                         ?? $id,
                 ]
             )
@@ -56,15 +57,12 @@ class ProviderComparisonController extends Controller
         ];
 
         return Inertia::render('super-admin/provider-lab', [
-            'providers' =>
-                $providers,
+            'providers' => $providers,
 
-            'providerEvaluation' =>
-                $providerConfig,
+            'providerEvaluation' => $providerConfig,
 
-            'csrfToken' =>
-                csrf_token(),
-        
+            'csrfToken' => csrf_token(),
+
         ]);
     }
 
@@ -159,8 +157,7 @@ class ProviderComparisonController extends Controller
                 )
             ) {
                 throw ValidationException::withMessages([
-                    'fixture' =>
-                        'Both CheckCarDetails and OneAuto test registrations are required for fixture mode.',
+                    'fixture' => 'Both CheckCarDetails and OneAuto test registrations are required for fixture mode.',
                 ]);
             }
         }
@@ -174,15 +171,14 @@ class ProviderComparisonController extends Controller
         * - OneAuto
         * - Hybrid Same Vehicle
         */
-        else if (
+        elseif (
             blank(
                 $validated['vrm']
                 ?? null
             )
         ) {
             throw ValidationException::withMessages([
-                'vrm' =>
-                    'Vehicle registration is required.',
+                'vrm' => 'Vehicle registration is required.',
             ]);
         }
 
@@ -208,18 +204,14 @@ class ProviderComparisonController extends Controller
                 * PLAN C - Sandbox Fixture
                 */
                 $validated['provider'] === 'hybrid'
-                    && $mode === 'fixture' =>
-
-                    $this
+                    && $mode === 'fixture' => $this
                         ->compositeReportBuilder
                         ->buildFixture(
-                            checkCarDetailsVrm:
-                                $validated[
+                            checkCarDetailsVrm: $validated[
                                     'checkcardetails_vrm'
                                 ],
 
-                            oneAutoVrm:
-                                $validated[
+                            oneAutoVrm: $validated[
                                     'oneauto_vrm'
                                 ],
                         ),
@@ -227,77 +219,110 @@ class ProviderComparisonController extends Controller
                 /*
                 * PLAN C - Same real vehicle
                 */
-                $validated['provider'] === 'hybrid' =>
-
-                    $this
-                        ->compositeReportBuilder
-                        ->build(
-                            vrm:
-                                $validated[
-                                    'vrm'
-                                ],
-                        ),
+                $validated['provider'] === 'hybrid' => $this
+                    ->compositeReportBuilder
+                    ->build(
+                        vrm: $validated[
+                                'vrm'
+                            ],
+                    ),
 
                 /*
                 * PLAN D - Single provider comparison
                 */
-                default =>
+                default => $this
+                    ->reportBuilder
+                    ->build(
+                        vrm: $validated[
+                                'vrm'
+                            ],
 
-                    $this
-                        ->reportBuilder
-                        ->build(
-                            vrm:
-                                $validated[
-                                    'vrm'
-                                ],
-
-                            provider:
-                                $validated[
-                                    'provider'
-                                ],
-                        ),
+                        provider: $validated[
+                                'provider'
+                            ],
+                    ),
             };
 
+            $durationMs = (int) ((microtime(true) - $startedAt) * 1000);
+
+            if ($request->user() instanceof User) {
+                $this->auditService->log(
+                    admin: $request->user(),
+                    action: 'provider_lab.run',
+                    targetType: 'provider',
+                    targetId: 0,
+                    reason: "Provider Lab test executed for VRM: {$vrm} (mode: {$mode})",
+                    outcome: 'success',
+                    metadata: [
+                        'provider' => $validated['provider'],
+                        'mode' => $mode,
+                        'vrm' => $vrm,
+                        'duration_ms' => $durationMs,
+                    ],
+                    request: $request,
+                );
+            }
+
             return response()->json([
-                'provider' =>
-                    $validated[
-                        'provider'
-                    ],
-
-                'vrm' =>
-                    $result['vrm']
-                    ?? $vrm,
-
-                'duration_ms' =>
-                    (int) (
-                        (
-                            microtime(true)
-                            - $startedAt
-                        )
-                        * 1000
-                    ),
-
-                'meta' =>
-                    $result['meta']
-                    ?? [],
-
-                'normalized' =>
-                    $result[
-                        'normalized'
-                    ],
-
-                'raw' =>
-                    $result[
-                        'raw'
-                    ],
+                'provider' => $validated['provider'],
+                'vrm' => $result['vrm'] ?? $vrm,
+                'duration_ms' => $durationMs,
+                'meta' => $this->sanitizeOutput($result['meta'] ?? []),
+                'normalized' => $result['normalized'],
+                'raw' => $this->sanitizeOutput($result['raw'] ?? []),
             ]);
         } catch (Throwable $e) {
             report($e);
 
+            if ($request->user() instanceof User) {
+                $this->auditService->log(
+                    admin: $request->user(),
+                    action: 'provider_lab.run',
+                    targetType: 'provider',
+                    targetId: 0,
+                    reason: "Provider Lab execution failed for VRM: {$vrm} (mode: {$mode})",
+                    outcome: 'failed',
+                    metadata: [
+                        'provider' => $validated['provider'] ?? 'unknown',
+                        'mode' => $mode,
+                        'vrm' => $vrm,
+                    ],
+                    request: $request,
+                );
+            }
+
             return response()->json([
-                'message' =>
-                    $e->getMessage(),
+                'message' => preg_replace('/(api_key|key|secret|password|token)=[^&\s]+/i', '$1=[REDACTED]', $e->getMessage()),
             ], 422);
         }
+    }
+
+    /**
+     * Recursively sanitize sensitive keys from raw provider responses.
+     */
+    private function sanitizeOutput(mixed $data): mixed
+    {
+        if (! is_array($data)) {
+            return $data;
+        }
+
+        $sensitiveKeys = [
+            'api_key', 'apikey', 'secret', 'password', 'token', 'access_token',
+            'client_secret', 'auth', 'authorization', 'webhook_secret',
+        ];
+
+        $sanitized = [];
+        foreach ($data as $key => $value) {
+            $normalizedKey = strtolower((string) $key);
+            if (in_array($normalizedKey, $sensitiveKeys, true)) {
+                $sanitized[$key] = '[REDACTED]';
+            } elseif (is_array($value)) {
+                $sanitized[$key] = $this->sanitizeOutput($value);
+            } else {
+                $sanitized[$key] = $value;
+            }
+        }
+
+        return $sanitized;
     }
 }

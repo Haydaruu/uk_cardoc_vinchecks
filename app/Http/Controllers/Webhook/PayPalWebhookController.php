@@ -6,16 +6,23 @@ use App\Http\Controllers\Controller;
 use App\Models\Subscription;
 use App\Models\Transaction;
 use App\Models\User;
+use App\Services\Admin\AdminRefundReconciliationService;
 use App\Services\CreditService;
 use App\Services\PayPalService;
+use App\Jobs\SendTelegramSaleNotification;
 use Carbon\Carbon;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
 class PayPalWebhookController extends Controller
 {
-    public function handle(Request $request, PayPalService $payPalService, CreditService $creditService)
-    {
+    public function handle(
+        Request $request,
+        PayPalService $payPalService,
+        CreditService $creditService,
+        AdminRefundReconciliationService $reconciliationService,
+    ): JsonResponse {
         if (! $payPalService->verifyWebhook($request)) {
             Log::warning('Invalid PayPal webhook signature.');
 
@@ -25,35 +32,28 @@ class PayPalWebhookController extends Controller
         }
 
         $event = $request->json()->all();
-        $eventType = $event['event_type'] ?? null;
+        $eventId = (string) ($event['id'] ?? '');
+        $eventType = (string) ($event['event_type'] ?? '');
 
-        try{
-            match($eventType) {
-                'PAYMENT.CAPTURE.COMPLETED' => $this->handleOnetimePayment(
-                    $event,
-                    $payPalService,
-                    $creditService
-                ),
+        if ($eventId !== '') {
+            $dedupResult = $reconciliationService->executeWithDeduplication(
+                provider: 'paypal',
+                eventId: $eventId,
+                eventType: $eventType,
+                callback: function () use ($event, $eventType, $payPalService, $creditService, $reconciliationService) {
+                    $this->processEvent($event, $eventType, $payPalService, $creditService, $reconciliationService);
+                },
+                payloadSummary: [
+                    'event_type' => $eventType,
+                    'resource_id' => $event['resource']['id'] ?? null,
+                ],
+            );
 
-                'PAYMENT.SALE.COMPLETED' => $this->handleSubscriptionPayment(
-                    $event,
-                    $payPalService,
-                    $creditService
-                ),
-
-                'BILLING.SUBSCRIPTION.ACTIVATED' => $this->handleSubscriptionActivated($event),
-                'BILLING.SUBSCRIPTION.CANCELLED' => $this->handleSubscriptionCancelled($event),
-                'BILLING.SUBSCRIPTION.SUSPENDED' => $this->handleSubscriptionSuspended($event),
-                'BILLING.SUBSCRIPTION.EXPIRED' => $this->handleSubscriptionExpired($event),
-                'BILLING.SUBSCRIPTION.PAYMENT.FAILED' => $this->handleSubscriptionPaymentFailed($event),
-                default => null,
-            };
-        } catch(\Throwable $e){
-            report($e);
-
-            return response()->json([
-                'message' => 'Unable to process PayPal webhook.',
-            ], 500);
+            if (! $dedupResult['processed']) {
+                return response()->json(['received' => true]);
+            }
+        } else {
+            $this->processEvent($event, $eventType, $payPalService, $creditService, $reconciliationService);
         }
 
         return response()->json([
@@ -61,18 +61,57 @@ class PayPalWebhookController extends Controller
         ]);
     }
 
+    /**
+     * @param  array<string, mixed>  $event
+     */
+    protected function processEvent(
+        array $event,
+        string $eventType,
+        PayPalService $payPalService,
+        CreditService $creditService,
+        AdminRefundReconciliationService $reconciliationService,
+    ): void {
+        match ($eventType) {
+            'PAYMENT.CAPTURE.COMPLETED' => $this->handleOneTimePayment(
+                $event,
+                $payPalService,
+                $creditService
+            ),
+
+            'PAYMENT.SALE.COMPLETED' => $this->handleSubscriptionPayment(
+                $event,
+                $payPalService,
+                $creditService
+            ),
+
+            'PAYMENT.CAPTURE.REFUNDED' => $reconciliationService->handlePayPalRefundWebhook($event),
+
+            'BILLING.SUBSCRIPTION.ACTIVATED' => $this->handleSubscriptionActivated($event),
+            'BILLING.SUBSCRIPTION.CANCELLED' => $this->handleSubscriptionCancelled($event),
+            'BILLING.SUBSCRIPTION.SUSPENDED' => $this->handleSubscriptionSuspended($event),
+            'BILLING.SUBSCRIPTION.EXPIRED' => $this->handleSubscriptionExpired($event),
+            'BILLING.SUBSCRIPTION.PAYMENT.FAILED' => $this->handleSubscriptionPaymentFailed($event),
+            default => null,
+        };
+    }
+
+    /**
+     * @param  array<string, mixed>  $event
+     */
     private function handleOneTimePayment(array $event, PayPalService $payPalService, CreditService $creditService): void
     {
         $capture = $event['resource'] ?? null;
 
-        if(! $capture) return; 
+        if (! $capture) {
+            return;
+        }
 
         $captureId = $capture['id'] ?? null;
         $orderId = $capture['supplementary_data']['related_ids']['order_id'] ?? null;
 
-        if(!$captureId || !$orderId) {
-            Log::warning('PayPal webhook missing capture/order ID',[
-                    'event_id' => $event['id'] ?? null,
+        if (! $captureId || ! $orderId) {
+            Log::warning('PayPal webhook missing capture/order ID', [
+                'event_id' => $event['id'] ?? null,
             ]);
 
             return;
@@ -81,19 +120,19 @@ class PayPalWebhookController extends Controller
         $order = $payPalService->getOrder($orderId);
         $purchaseUnit = $order['purchase_units'][0] ?? null;
 
-        if(! $purchaseUnit) {
+        if (! $purchaseUnit) {
             throw new \RuntimeException('Invalid PayPal order.');
         }
 
         $planSlug = $purchaseUnit['reference_id'] ?? null;
         $customId = $purchaseUnit['custom_id'] ?? null;
 
-        [$userId, $customPlanSlug] = array_pad(explode('|',(string) $customId,2),2,null);
+        [$userId, $customPlanSlug] = array_pad(explode('|', (string) $customId, 2), 2, null);
 
-        if(! $userId || !$planSlug || $planSlug !== $customPlanSlug) {
-           throw new \RuntimeException('PayPal order metadata is invalid. ');
+        if (! $userId || ! $planSlug || $planSlug !== $customPlanSlug) {
+            throw new \RuntimeException('PayPal order metadata is invalid. ');
         }
-        $user = User::find($userId);
+        $user = User::whereKey($userId)->first();
         $plan = config("credit_plans.{$planSlug}");
 
         if (! $user || ! $plan || $plan['type'] !== 'one_time') {
@@ -119,15 +158,15 @@ class PayPalWebhookController extends Controller
             description: "PayPal purchase: {$captureId}",
         );
 
-        $paidAt = isset($capture['create_time']) ? Carbon::parse($capture['create_time']): now();
+        $paidAt = isset($capture['create_time']) ? Carbon::parse($capture['create_time']) : now();
 
-        Transaction::updateOrCreate(
+        $transaction = Transaction::updateOrCreate(
             [
-                'payment_gateway_ref' => $captureId
+                'payment_gateway_ref' => $captureId,
             ],
             [
                 'user_id' => $user->id,
-                'invoice_id' => 'UKC-PPL-'. strtoupper(substr($captureId, 0, 8)),
+                'invoice_id' => 'UKC-PPL-'.strtoupper(substr($captureId, 0, 8)),
                 'currency' => $captureCurrency,
                 'amount' => $captureAmount,
                 'type' => 'payment',
@@ -139,20 +178,41 @@ class PayPalWebhookController extends Controller
 
             ],
         );
+
+        if ($transaction->wasRecentlyCreated && (float) $transaction->amount > 0) {
+            $amount = number_format(
+                (float) $transaction->amount,
+                2,
+                '.',
+                ','
+            );
+
+            SendTelegramSaleNotification::dispatch(
+                'Credit purchase',
+                'PayPal',
+                (string) $transaction->payment_gateway_ref,
+                strtoupper((string) $transaction->currency).' '.$amount,
+            )->afterCommit();
+        }
     }
 
+    /**
+     * @param  array<string, mixed>  $event
+     */
     private function handleSubscriptionPayment(array $event, PayPalService $payPalService, CreditService $creditService): void
     {
         $sale = $event['resource'] ?? null;
-        if(! $sale) return;
+        if (! $sale) {
+            return;
+        }
 
         $saleId = $sale['id'] ?? null;
         $subscriptionId = $sale['billing_agreement_id'] ?? $sale['billing_agreement']['id'] ?? null;
 
-        if(! $saleId || ! $subscriptionId) {
+        if (! $saleId || ! $subscriptionId) {
             Log::warning('PayPal subscription payment missing sale/subscription ID', [
                 'event_id' => $event['id'] ?? null,
-                'sale_id' => $saleId, 
+                'sale_id' => $saleId,
             ]);
 
             return;
@@ -161,31 +221,33 @@ class PayPalWebhookController extends Controller
         $paypalSubscription = $payPalService->getSubscription($subscriptionId);
         $customId = $paypalSubscription['custom_id'] ?? null;
 
-        [$userId] = array_pad(explode('|', (string)$customId,2),2,null);
+        [$userId] = array_pad(explode('|', (string) $customId, 2), 2, null);
 
-        if(! $userId ) {
+        if (! $userId) {
             throw new \RuntimeException('Unable to resolve PayPal subscription');
         }
 
-        $user = User::find($userId);
+        $user = User::whereKey($userId)->first();
 
-        if(! $user) {
+        if (! $user) {
             throw new \RuntimeException('Unable to resolve PayPal subscription.');
         }
 
         $paypalPlanId = $paypalSubscription['plan_id'] ?? null;
 
-        if(! $paypalPlanId ) {
+        if (! $paypalPlanId) {
             throw new \RuntimeException('PayPal subscription plan ID was not returned.');
         }
 
-        $planSlug = collect(config('credit_plans', []))->search(
-            fn(array $plan) =>
-                ($plan['type'] ?? null) === 'subscription'
+        /** @var array<string, array<string, mixed>> $creditPlans */
+        $creditPlans = (array) config('credit_plans', []);
+
+        $planSlug = collect($creditPlans)->search(
+            fn (array $plan) => ($plan['type'] ?? null) === 'subscription'
                 && ($plan['paypal_plan_id'] ?? null) === $paypalPlanId
         );
 
-        if($planSlug === false) {
+        if ($planSlug === false) {
             throw new \RuntimeException('Unable to resolve PayPal subscription plan.');
         }
 
@@ -197,7 +259,7 @@ class PayPalWebhookController extends Controller
         $expectedAmount = number_format($plan['amount_minor'] / 100, 2, '.', '');
         $expectedCurrency = strtoupper($plan['currency']);
 
-        if($saleAmount !== $expectedAmount || $saleCurrency !== $expectedCurrency) {
+        if ($saleAmount !== $expectedAmount || $saleCurrency !== $expectedCurrency) {
             Log::warning('PayPal subscription payment amount mismatch', [
                 'sale_id' => $saleId,
                 'subscription_id' => $subscriptionId,
@@ -211,7 +273,7 @@ class PayPalWebhookController extends Controller
             throw new \RuntimeException('PayPal subscription payment amount mismatch.');
         }
 
-         $creditService->grantCredits(
+        $creditService->grantCredits(
             user: $user,
             amount: (int) $plan['credits'],
             type: 'subscription',
@@ -224,13 +286,13 @@ class PayPalWebhookController extends Controller
             ? Carbon::parse($sale['create_time'])
             : now();
 
-        Transaction::updateOrCreate(
+        $transaction = Transaction::updateOrCreate(
             [
                 'payment_gateway_ref' => $saleId,
             ],
             [
                 'user_id' => $user->id,
-                'invoice_id' => 'UKC-PPS-'. strtoupper(substr($saleId, 0, 8)),
+                'invoice_id' => 'UKC-PPS-'.strtoupper(substr($saleId, 0, 8)),
                 'currency' => $saleCurrency,
                 'amount' => $saleAmount,
                 'type' => 'payment',
@@ -242,9 +304,28 @@ class PayPalWebhookController extends Controller
             ]
         );
 
+        if ($transaction->wasRecentlyCreated && (float) $transaction->amount > 0) {
+            $amount = number_format(
+                (float) $transaction->amount,
+                2,
+                '.',
+                ','
+            );
+
+            SendTelegramSaleNotification::dispatch(
+                'Subscription payment',
+                'PayPal',
+                (string) $transaction->payment_gateway_ref,
+                strtoupper((string) $transaction->currency).' '.$amount,
+            )->afterCommit();
+        }
+
         $nextBillingTime = isset($paypalSubscription['billing_info']['next_billing_time'])
             ? Carbon::parse($paypalSubscription['billing_info']['next_billing_time'])
             : null;
+
+        $existingSub = Subscription::where('paypal_subscription_id', $subscriptionId)->first();
+        $isCancelled = $existingSub && ($existingSub->cancel_at_period_end || $existingSub->cancelled_at !== null);
 
         Subscription::updateOrCreate(
             [
@@ -261,11 +342,11 @@ class PayPalWebhookController extends Controller
                 'start_date' => isset($paypalSubscription['start_time'])
                     ? Carbon::parse($paypalSubscription['start_time'])
                     : now(),
-                'end_date' => null,
+                'end_date' => $isCancelled ? $existingSub->end_date : null,
                 'status' => 'active',
                 'current_period_end' => $nextBillingTime,
-                'cancelled_at' => null,
-                'cancel_at_period_end' => false,
+                'cancelled_at' => $isCancelled ? $existingSub->cancelled_at : null,
+                'cancel_at_period_end' => $isCancelled ? (bool) $existingSub->cancel_at_period_end : false,
 
                 'pending_plan_name' => null,
                 'pending_paypal_plan_id' => null,
@@ -284,12 +365,17 @@ class PayPalWebhookController extends Controller
         ]);
     }
 
+    /**
+     * @param  array<string, mixed>  $event
+     */
     private function handleSubscriptionActivated(array $event): void
     {
         $resource = $event['resource'] ?? [];
         $subscriptionId = $resource['id'] ?? null;
 
-        if(! $subscriptionId) return;
+        if (! $subscriptionId) {
+            return;
+        }
 
         Subscription::where('paypal_subscription_id', $subscriptionId)->update([
             'status' => 'active',
@@ -297,26 +383,33 @@ class PayPalWebhookController extends Controller
         ]);
     }
 
+    /**
+     * @param  array<string, mixed>  $event
+     */
     private function handleSubscriptionCancelled(array $event): void
     {
         $subscriptionId = $event['resource']['id'] ?? null;
 
-        if(! $subscriptionId) return;
+        if (! $subscriptionId) {
+            return;
+        }
 
         $subscription = Subscription::where(
             'paypal_subscription_id',
             $subscriptionId
         )->first();
 
-        if(! $subscription) return;
+        if (! $subscription) {
+            return;
+        }
 
-        if(
+        if (
             $subscription->current_period_end &&
             $subscription->current_period_end->isFuture()
         ) {
             $subscription->update([
                 'cancel_at_period_end' => true,
-                'cancelled_at' => now(),
+                'cancelled_at' => $subscription->cancelled_at ?: now(),
                 'end_date' => $subscription->current_period_end,
 
                 'pending_plan_name' => null,
@@ -332,27 +425,37 @@ class PayPalWebhookController extends Controller
         $subscription->update([
             'status' => 'cancelled',
             'cancel_at_period_end' => false,
-            'cancelled_at' => now(),
+            'cancelled_at' => $subscription->cancelled_at ?: now(),
             'end_date' => now(),
         ]);
     }
 
+    /**
+     * @param  array<string, mixed>  $event
+     */
     private function handleSubscriptionSuspended(array $event): void
     {
         $subscriptionId = $event['resource']['id'] ?? null;
 
-        if(! $subscriptionId) return;
+        if (! $subscriptionId) {
+            return;
+        }
 
         Subscription::where('paypal_subscription_id', $subscriptionId)->update([
             'status' => 'pending',
         ]);
     }
 
+    /**
+     * @param  array<string, mixed>  $event
+     */
     private function handleSubscriptionExpired(array $event): void
     {
         $subscriptionId = $event['resource']['id'] ?? null;
 
-        if(! $subscriptionId) return;
+        if (! $subscriptionId) {
+            return;
+        }
 
         Subscription::where('paypal_subscription_id', $subscriptionId)->update([
             'status' => 'expired',
@@ -360,11 +463,16 @@ class PayPalWebhookController extends Controller
         ]);
     }
 
+    /**
+     * @param  array<string, mixed>  $event
+     */
     private function handleSubscriptionPaymentFailed(array $event): void
     {
         $subscriptionId = $event['resource']['id'] ?? null;
 
-        if(! $subscriptionId) return;
+        if (! $subscriptionId) {
+            return;
+        }
 
         Subscription::where('paypal_subscription_id', $subscriptionId)->update([
             'status' => 'pending',

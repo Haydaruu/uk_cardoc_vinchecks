@@ -3,7 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use App\Models\User;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Subscription extends Model
 {
@@ -31,7 +31,7 @@ class Subscription extends Model
 
         'paypal_subscription_id',
         'paypal_plan_id',
-        'pending_paypal_plan_id'
+        'pending_paypal_plan_id',
     ];
 
     protected $casts = [
@@ -45,8 +45,10 @@ class Subscription extends Model
         'pending_plan_effective_at' => 'datetime',
     ];
 
-
-    public function user()
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }

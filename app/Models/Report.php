@@ -3,8 +3,8 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use App\Models\Vehicle;
 
 class Report extends Model
 {
@@ -27,27 +27,41 @@ class Report extends Model
         'expired_at' => 'datetime',
     ];
 
-
-    public function user()
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
-    public function vinCheck()
+    /**
+     * @return BelongsTo<VinCheck, $this>
+     */
+    public function vinCheck(): BelongsTo
     {
         return $this->belongsTo(VinCheck::class, 'vin_check_id');
     }
 
-    public function vehicle()
+    /**
+     * @return BelongsTo<Vehicle, $this>
+     */
+    public function vehicle(): BelongsTo
     {
-         return $this->belongsTo(Vehicle::class);
+        return $this->belongsTo(Vehicle::class);
     }
 
+    /**
+     * @return HasMany<GuestReportPurchase, $this>
+     */
     public function guestReportPurchases(): HasMany
     {
         return $this->hasMany(GuestReportPurchase::class, 'report_id');
     }
 
+    /**
+     * @return HasMany<GuestReportAccessToken, $this>
+     */
     public function guestReportAccessTokens(): HasMany
     {
         return $this->hasMany(GuestReportAccessToken::class, 'guest_report_id');

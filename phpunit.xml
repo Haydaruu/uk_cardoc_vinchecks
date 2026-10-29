@@ -32,5 +32,14 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <env name="CHECKCARDETAILS_API_KEY" value="test-dummy-key"/>
+        <env name="CHECKCARDETAILS_BASE_URL" value="https://checkcardetails.test/api"/>
+        <env name="STRIPE_KEY" value="pk_test_dummy_key_12345"/>
+        <env name="STRIPE_SECRET" value="sk_test_dummy_key_12345"/>
+        <env name="STRIPE_WEBHOOK_SECRET" value="whsec_test_secret_123"/>
+        <env name="PAYPAL_MODE" value="sandbox"/>
+        <env name="PAYPAL_CLIENT_ID" value="test_paypal_client_id"/>
+        <env name="PAYPAL_CLIENT_SECRET" value="test_paypal_client_secret"/>
+        <env name="PAYPAL_WEBHOOK_ID" value="test_paypal_webhook_id"/>
     </php>
 </phpunit>
