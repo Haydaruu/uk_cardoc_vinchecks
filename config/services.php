@@ -72,6 +72,11 @@ return [
         'webhook_id' => env('PAYPAL_WEBHOOK_ID'),
     ],
 
+    'telegram' => [
+                'bot_token' => env('TELEGRAM_BOT_TOKEN'),
+                'chat_id' => env('TELEGRAM_CHAT_ID'),
+            ],
+
     'vehicle_reports' => [
         'provider' => env(
             'VEHICLE_REPORT_PROVIDER',

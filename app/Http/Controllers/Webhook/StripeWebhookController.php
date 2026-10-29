@@ -2,28 +2,36 @@
 
 namespace App\Http\Controllers\Webhook;
 
-use App\Models\User;
 use App\Http\Controllers\Controller;
-use App\Services\GuestReportPaymentService;
-use App\Services\CreditService;
-use App\Models\Transaction;
 use App\Models\Subscription;
+use App\Models\Transaction;
+use App\Models\User;
+use App\Services\Admin\AdminRefundReconciliationService;
+use App\Services\CreditService;
+use App\Services\GuestReportPaymentService;
+use App\Jobs\SendTelegramSaleNotification;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
-use Stripe\Webhook;
+use Stripe\Event;
 use Stripe\Exception\SignatureVerificationException;
 use Stripe\StripeClient;
-use UnexpectedValueException; 
+use Stripe\Webhook;
+use UnexpectedValueException;
 
 class StripeWebhookController extends Controller
 {
-    public function handle(Request $request, CreditService $creditService, GuestReportPaymentService $guestReportPaymentService)
-    {
+    public function handle(
+        Request $request,
+        CreditService $creditService,
+        GuestReportPaymentService $guestReportPaymentService,
+        AdminRefundReconciliationService $reconciliationService,
+    ): JsonResponse {
         $payload = $request->getContent();
         $sigHeader = $request->header('Stripe-Signature');
         $webhookSecret = config('services.stripe.webhook_secret');
 
-        try{
+        try {
             $event = Webhook::constructEvent($payload, $sigHeader, $webhookSecret);
         } catch (UnexpectedValueException|SignatureVerificationException $e) {
             Log::warning('Stripe webhook signature verification failed', ['error' => $e->getMessage()]);
@@ -31,6 +39,42 @@ class StripeWebhookController extends Controller
             return response()->json(['error' => 'invalid signature'], 400);
         }
 
+        $eventId = (string) ($event->id ?? '');
+        $eventType = (string) ($event->type ?? '');
+
+        if ($eventId !== '') {
+            $dedupResult = $reconciliationService->executeWithDeduplication(
+                provider: 'stripe',
+                eventId: $eventId,
+                eventType: $eventType,
+                callback: function () use ($event, $creditService, $guestReportPaymentService, $reconciliationService) {
+                    $this->processEvent($event, $creditService, $guestReportPaymentService, $reconciliationService);
+                },
+                payloadSummary: [
+                    'event_type' => $eventType,
+                    'object_id' => $event->data->object->id ?? null,
+                ],
+            );
+
+            if (! $dedupResult['processed']) {
+                return response()->json(['received' => true]);
+            }
+        } else {
+            $this->processEvent($event, $creditService, $guestReportPaymentService, $reconciliationService);
+        }
+
+        return response()->json(['received' => true]);
+    }
+
+    /**
+     * @param  Event  $event
+     */
+    protected function processEvent(
+        object $event,
+        CreditService $creditService,
+        GuestReportPaymentService $guestReportPaymentService,
+        AdminRefundReconciliationService $reconciliationService,
+    ): void {
         $guestCheckoutEvents = [
             'checkout.session.completed',
             'checkout.session.async_payment_succeeded',
@@ -40,119 +84,158 @@ class StripeWebhookController extends Controller
 
         if (in_array($event->type, $guestCheckoutEvents, true)) {
             $session = $event->data->object;
-
             $purpose = $session->metadata->purpose ?? null;
 
             if ($purpose === 'guest_report_purchase') {
                 try {
-                    $guestReportPaymentService->handleCheckoutSession(
+                    $paymentChanged = $guestReportPaymentService->handleCheckoutSession(
                         $session,
                         $event->type,
                     );
+
+                    if ($paymentChanged && ($session->payment_status ?? null) === 'paid') {
+                        $amount = number_format(
+                            ((int) ($session->amount_total ?? 0)) / 100,
+                            2,
+                            '.',
+                            ','
+                        );
+
+                        SendTelegramSaleNotification::dispatch(
+                            'Guest vehicle report',
+                            'Stripe',
+                            (string) $session->id,
+                            strtoupper((string) ($session->currency ?? 'GBP')).' '.$amount,
+                        )->afterCommit();
+                    }
                 } catch (\Throwable $exception) {
                     Log::error('Failed to process guest report Stripe webhook.', [
                         'event_id' => $event->id ?? null,
-                        'purchase_id' =>
-                            $session->metadata->guest_report_purchase_id ?? null,
+                        'purchase_id' => $session->metadata->guest_report_purchase_id ?? null,
                         'exception' => $exception::class,
                         'message' => $exception->getMessage(),
                         'file' => $exception->getFile(),
                         'line' => $exception->getLine(),
                     ]);
 
-                    return response()->json([
-                        'error' => 'Unable to process guest report payment.',
-                    ], 500);
+                    throw $exception;
                 }
 
-                return response()->json(['received' => true]);
+                return;
             }
         }
 
-        switch($event->type) {
+        // Handle refund events
+        $refundEvents = [
+            'charge.refunded',
+            'refund.created',
+            'refund.updated',
+        ];
+
+        if (in_array($event->type, $refundEvents, true)) {
+            $reconciliationService->handleStripeRefundEvent($event->type, $event->data->object);
+
+            return;
+        }
+
+        switch ($event->type) {
             case 'payment_intent.succeeded':
                 $intent = $event->data->object;
                 $userId = $intent->metadata->user_id ?? null;
                 $credit = (int) ($intent->metadata->credits ?? 0);
 
-                if(!$userId || $credit <= 0) {
-                    Log::warning('Stripe webhook: metadata hilang di payment_intent',[
+                if (! $userId || $credit <= 0) {
+                    Log::warning('Stripe webhook: metadata hilang di payment_intent', [
                         'payment_intent' => $intent->id,
                     ]);
 
-                    return response()->json(['received' => true]);
+                    return;
                 }
-                $user = User::find($userId);
+                $user = User::whereKey($userId)->first();
 
-                if(! $user) {
+                if (! $user) {
                     Log::warning('Stripe webhook: user not found', [
-                        'user_id' => $userId
+                        'user_id' => $userId,
                     ]);
 
                     break;
                 }
-                    $creditService->grantCredits(
-                        user : $user,
-                        amount : $credit,
-                        type : 'purchase',
-                        referenceId : $intent->id,
-                        description : "Stripe purchase : {$intent->id}",
-                        idempotencyKey : $intent->id
-                    );
+                $creditService->grantCredits(
+                    user: $user,
+                    amount: $credit,
+                    type: 'purchase',
+                    referenceId: $intent->id,
+                    description: "Stripe purchase : {$intent->id}",
+                    idempotencyKey: $intent->id
+                );
 
-                 Transaction::updateOrCreate(
+                $transaction = Transaction::updateOrCreate(
                     [
                         'payment_gateway_ref' => $intent->id,
                     ],
                     [
                         'user_id' => $user->id,
-                        'invoice_id' =>
-                        'UKC-' . strtoupper(substr($intent->id, 3, 8)),
-                        'currency' => strtoupper($intent->currency),
-                        'amount' => $intent->amount / 100,
+                        'invoice_id' => 'UKC-'.strtoupper(substr($intent->id, 3, 8)),
+                        'currency' => strtoupper((string) ($intent['currency'] ?? 'GBP')),
+                        'amount' => ((float) ($intent['amount'] ?? 0)) / 100,
                         'payment_method' => 'stripe',
                         'type' => 'payment',
                         'category' => 'credit_purchase',
-                        'description' =>
-                            $intent->metadata->product_name
+                        'description' => $intent->metadata->product_name
                             ?? 'Credit purchase',
                         'status' => 'success',
                         'paid_at' => now(),
                     ]
                 );
 
+                if ($transaction->wasRecentlyCreated) {
+                    $amount = number_format(
+                        (float) $transaction->amount,
+                        2,
+                        '.',
+                        ','
+                    );
+
+                    SendTelegramSaleNotification::dispatch(
+                        'Credit purchase',
+                        'Stripe',
+                        (string) $intent->id,
+                        strtoupper((string) $transaction->currency).' '.$amount,
+                    )->afterCommit();
+                }
+
                 break;
-            
+
             case 'checkout.session.completed':
                 $session = $event->data->object;
                 $userId = $session->metadata->user_id ?? null;
                 $planSlug = $session->metadata->plan ?? null;
 
-                if(!$userId || !$planSlug || !$session->subscription) {
+                if (! $userId || ! $planSlug || ! ($session['subscription'] ?? null)) {
                     break;
                 }
-                
-                $user = User::find($userId);
+
+                $user = User::whereKey($userId)->first();
                 $plan = config("credit_plans.{$planSlug}");
 
-                if (!$user || !$plan) {
+                if (! $user || ! $plan) {
                     break;
                 }
 
                 $stripe = new StripeClient(config('services.stripe.secret'));
-                $stripeSubscription = $stripe->subscriptions->retrieve($session->subscription);
+                $stripeSubscription = $stripe->subscriptions->retrieve((string) ($session['subscription'] ?? ''));
 
                 $item = $stripeSubscription->items->data[0] ?? null;
 
                 $priceId = $item?->price->id;
-                $priceAmount = $item?->price?->unit_amount ? $item->price->unit_amount /100 : 0; 
+                $priceAmount = $item?->price?->unit_amount ? $item->price->unit_amount / 100 : 0;
                 $currentPeriodEnd = $item?->current_period_end;
 
                 $status = $this->mapSubscriptionStatus($stripeSubscription->status);
 
                 Subscription::updateOrCreate(
                     [
-                        'stripe_subscription_id' => $stripeSubscription-> id,
+                        'stripe_subscription_id' => $stripeSubscription->id,
                     ],
                     [
                         'payment_method' => 'stripe',
@@ -163,18 +246,15 @@ class StripeWebhookController extends Controller
                         'status' => $status,
                         'monthly_credits' => $plan['credits'],
                         'start_date' => now(),
-                        'current_period_end' =>
-                            $currentPeriodEnd
-                                ? date('Y-m-d H:i:s', $currentPeriodEnd)
-                                : null,
-                        'cancel_at_period_end' =>
-                            $stripeSubscription->cancel_at_period_end,
+                        'current_period_end' => $currentPeriodEnd
+                            ? date('Y-m-d H:i:s', $currentPeriodEnd)
+                            : null,
+                        'cancel_at_period_end' => $stripeSubscription->cancel_at_period_end,
                     ]
-
                 );
 
                 break;
-            
+
             case 'invoice.paid':
                 $invoice = $event->data->object;
 
@@ -182,164 +262,173 @@ class StripeWebhookController extends Controller
                     'invoice_id' => $invoice->id,
                 ]);
 
-                $stripeSubscriptionId = $invoice->parent?->subscription_details?->subscription ?? $invoice->subscription ?? null;
+                $stripeSubscriptionId = $invoice->parent?->subscription_details->subscription ?? $invoice->subscription ?? null;
 
-                    if(! $stripeSubscriptionId) {
-                        break;
-                    }
+                if (! $stripeSubscriptionId) {
+                    break;
+                }
 
-                    $subscription = Subscription::where('stripe_subscription_id', $stripeSubscriptionId)->first();
+                $subscription = Subscription::where('stripe_subscription_id', $stripeSubscriptionId)->first();
 
-                    if(! $subscription) {
-                        $stripe = new StripeClient(config('services.stripe.secret'));
-                    
+                if (! $subscription) {
+                    $stripe = new StripeClient(config('services.stripe.secret'));
 
-                        $stripeSubscription = $stripe->subscriptions->retrieve($stripeSubscriptionId);
+                    $stripeSubscription = $stripe->subscriptions->retrieve($stripeSubscriptionId);
 
-                        $userId = $stripeSubscription->metadata->user_id ?? null;
-                        $planSlug = $stripeSubscription->metadata->plan ?? null;
+                    $userId = $stripeSubscription->metadata->user_id ?? null;
+                    $planSlug = $stripeSubscription->metadata->plan ?? null;
 
-                        if(! $userId || !$planSlug) {
-                            Log::warning('Cannot recover subscription from stripe',
-                                [
-                                    'stripe_subscription_id' => $stripeSubscription,
-                                    'invoice_id' => $invoice->id,
-                                ]
-                            );
-
-                            break;
-                        }
-
-                        $user = User::find($userId);
-                        $plan = config("credit_plans.{$planSlug}");
-
-                        if (!$user || !$plan) {
-                            break;
-                        }
-
-                        $item = $stripeSubscription->items->data[0] ?? null;
-                        $priceId = $item?->price->id;
-
-                        $priceAmount = $item?->price?->unit_amount ? $item->price->unit_amount /100 : 0;
-
-                        $currentPeriodEnd = $item?->current_period_end;
-
-                        $subscription = Subscription::updateOrCreate(
-                            [
-                                'stripe_subscription_id' => $stripeSubscription-> id,
-                            ],
-                            [
-                                'payment_method' => 'stripe',
-                                'user_id' => $user->id,
-                                'plan_name' => $planSlug,
-                                'price' => $priceAmount,
-                                'stripe_price_id' => $priceId,
-                                'status' => $this->mapSubscriptionStatus($stripeSubscription->status),
-                                'monthly_credits' => $plan['credits'],
-                                'start_date' => now(),
-                                'current_period_end' =>
-                                    $currentPeriodEnd
-                                        ? date('Y-m-d H:i:s', $currentPeriodEnd)
-                                        : null,
-                                'cancel_at_period_end' =>
-                                    (bool)$stripeSubscription->cancel_at_period_end,
-                            ]
-
-                        );
-                    }
-
-                    $user = $subscription->user;
-
-                    if (!$user) {
-                        break;
-                    }
-
-                    if ($subscription->status !== 'active') {
-                        $subscription->update([
-                            'status' => 'active',
-                        ]);
-                    }
-
-                    $billingPlanSlug = $subscription->pending_plan_name ?? $subscription->plan_name;
-
-                    $billingPlan = config("credit_plans.{$billingPlanSlug}");
-
-                    $credits = $billingPlan['credits'] ?? $subscription->monthly_credits;
-
-                    if ($credits <= 0 ){
-                        Log::warning('Subscription has no monthly credits', [
-                            'subscription_id' => $subscription->id,
+                    if (! $userId || ! $planSlug) {
+                        Log::warning('Cannot recover subscription from stripe', [
+                            'stripe_subscription_id' => $stripeSubscription,
                             'invoice_id' => $invoice->id,
                         ]);
+
                         break;
                     }
 
-                    Log::info('Granting subscription credits', [
-                        'user_id' => $user->id,
-                        'credits' => $credits,
+                    $user = User::whereKey($userId)->first();
+                    $plan = config("credit_plans.{$planSlug}");
+
+                    if (! $user || ! $plan) {
+                        break;
+                    }
+
+                    $item = $stripeSubscription->items->data[0] ?? null;
+                    $priceId = $item?->price->id;
+
+                    $priceAmount = $item?->price?->unit_amount ? $item->price->unit_amount / 100 : 0;
+
+                    $currentPeriodEnd = $item?->current_period_end;
+
+                    $subscription = Subscription::updateOrCreate(
+                        [
+                            'stripe_subscription_id' => $stripeSubscription->id,
+                        ],
+                        [
+                            'payment_method' => 'stripe',
+                            'user_id' => $user->id,
+                            'plan_name' => $planSlug,
+                            'price' => $priceAmount,
+                            'stripe_price_id' => $priceId,
+                            'status' => $this->mapSubscriptionStatus($stripeSubscription->status),
+                            'monthly_credits' => $plan['credits'],
+                            'start_date' => now(),
+                            'current_period_end' => $currentPeriodEnd
+                                ? date('Y-m-d H:i:s', $currentPeriodEnd)
+                                : null,
+                            'cancel_at_period_end' => (bool) $stripeSubscription->cancel_at_period_end,
+                        ]
+                    );
+                }
+
+                $user = $subscription->user;
+
+                if (! $user) {
+                    break;
+                }
+
+                if ($subscription->status !== 'active') {
+                    $subscription->update([
+                        'status' => 'active',
+                    ]);
+                }
+
+                $billingPlanSlug = $subscription->pending_plan_name ?? $subscription->plan_name;
+
+                $billingPlan = config("credit_plans.{$billingPlanSlug}");
+
+                $credits = $billingPlan['credits'] ?? $subscription->monthly_credits;
+
+                if ($credits <= 0) {
+                    Log::warning('Subscription has no monthly credits', [
+                        'subscription_id' => $subscription->id,
                         'invoice_id' => $invoice->id,
                     ]);
+                    break;
+                }
 
-                    $creditService->grantCredits(
-                        user: $user,
-                        amount: $credits,
-                        type: 'subscription',
-                        referenceId: $invoice->id,
-                        idempotencyKey: $invoice->id,
-                        description: "Subscription payment: {$invoice->id}",
+                Log::info('Granting subscription credits', [
+                    'user_id' => $user->id,
+                    'credits' => $credits,
+                    'invoice_id' => $invoice->id,
+                ]);
+
+                $creditService->grantCredits(
+                    user: $user,
+                    amount: $credits,
+                    type: 'subscription',
+                    referenceId: $invoice->id,
+                    idempotencyKey: $invoice->id,
+                    description: "Subscription payment: {$invoice->id}",
+                );
+
+                $paidAt = $invoice->status_transitions->paid_at ?? $invoice->created ?? time();
+
+                $transaction = Transaction::updateOrCreate(
+                    [
+                        'payment_gateway_ref' => $invoice->id,
+                    ],
+                    [
+                        'user_id' => $user->id,
+                        'invoice_id' => 'UKC-SUB-'.strtoupper(substr($invoice->id, 3, 8)),
+                        'currency' => strtoupper((string) ($invoice['currency'] ?? 'GBP')),
+                        'amount' => ((float) ($invoice['amount_paid'] ?? 0)) / 100,
+                        'payment_method' => 'stripe',
+                        'type' => 'payment',
+                        'category' => 'subscription',
+                        'description' => $billingPlan['label'] ?? $billingPlanSlug,
+                        'status' => 'success',
+                        'paid_at' => date('Y-m-d H:i:s', $paidAt),
+                    ],
+                );
+
+                if ($transaction->wasRecentlyCreated && (float) $transaction->amount > 0) {
+                    $amount = number_format(
+                        (float) $transaction->amount,
+                        2,
+                        '.',
+                        ','
                     );
 
-                    
+                    SendTelegramSaleNotification::dispatch(
+                        'Subscription payment',
+                        'Stripe',
+                        (string) $invoice->id,
+                        strtoupper((string) $transaction->currency).' '.$amount,
+                    )->afterCommit();
+                }
 
-                    $paidAt = $invoice->status_transitions->paid_at ?? $invoice->created ?? time();
+                if ($subscription->pending_plan_name) {
+                    $subscription->update([
+                        'plan_name' => $subscription->pending_plan_name,
+                        'stripe_price_id' => $subscription->pending_stripe_price_id,
+                        'price' => $subscription->pending_price,
+                        'monthly_credits' => $subscription->pending_monthly_credits,
 
-                    Transaction::updateOrCreate(
-                        [
-                            'payment_gateway_ref' => $invoice->id,
-                        ],
-                        [
-                            'user_id' => $user->id,
-                            'invoice_id' => 'UKC-SUB-'. strtoupper(substr($invoice->id, 3, 8)),
-                            'currency' => strtoupper($invoice->currency),
-                            'amount' => $invoice->amount_paid /100,
-                            'payment_method' => 'stripe',
-                            'type' => 'payment',
-                            'category' => 'subscription',
-                            'description' => $billingPlan['label']  ?? $billingPlanSlug,
-                            'status' => 'success',
-                            'paid_at' => date('Y-m-d H:i:s', $paidAt),
-                        ],
-                    );
-
-                    if ($subscription->pending_plan_name) {
-                        $subscription->update([
-                            'plan_name' => $subscription->pending_plan_name,
-                            'stripe_price_id' => $subscription->pending_stripe_price_id,
-                            'price' => $subscription->pending_price,
-                            'monthly_credits' => $subscription->pending_monthly_credits,
-                            
-                            'pending_plan_name' => null,
-                            'pending_stripe_price_id' => null,
-                            'pending_price' => null,
-                            'pending_monthly_credits' => null,
-                            'pending_plan_effective_at' => null,
-                        ]);
-                    }
+                        'pending_plan_name' => null,
+                        'pending_stripe_price_id' => null,
+                        'pending_price' => null,
+                        'pending_monthly_credits' => null,
+                        'pending_plan_effective_at' => null,
+                    ]);
+                }
                 break;
+
             case 'customer.subscription.updated':
                 $stripeSubscription = $event->data->object;
 
                 $subscription = Subscription::where('stripe_subscription_id', $stripeSubscription->id)->first();
-                if(! $subscription) {
+                if (! $subscription) {
                     break;
                 }
 
                 $item = $stripeSubscription->items->data[0] ?? null;
                 $currentPeriodEnd = $item?->current_period_end;
                 $subscription->update([
-                    'status' => $this->mapSubscriptionStatus($stripeSubscription->status),
-                    'cancel_at_period_end' => (bool)$stripeSubscription->cancel_at_period_end,
-                    'current_period_end' =>  $currentPeriodEnd ? date('Y-m-d H:i:s', $currentPeriodEnd): null,
+                    'status' => $this->mapSubscriptionStatus((string) ($stripeSubscription['status'] ?? 'pending')),
+                    'cancel_at_period_end' => (bool) ($stripeSubscription['cancel_at_period_end'] ?? false),
+                    'current_period_end' => $currentPeriodEnd ? date('Y-m-d H:i:s', $currentPeriodEnd) : null,
                 ]);
 
                 break;
@@ -348,31 +437,31 @@ class StripeWebhookController extends Controller
                 $stripeSubscription = $event->data->object;
                 $subscription = Subscription::where('stripe_subscription_id', $stripeSubscription->id)->first();
 
-                if (! $subscription){
+                if (! $subscription) {
                     break;
                 }
 
                 $subscription->update([
                     'status' => 'cancelled',
                     'cancel_at_period_end' => false,
-                    'cancelled_at' => now(),
+                    'cancelled_at' => $subscription->cancelled_at ?: now(),
                     'end_date' => now(),
                 ]);
 
                 break;
-                
+
             case 'invoice.payment_failed':
                 $invoice = $event->data->object;
 
-                $stripeSubscriptionId = $invoice->parent?->subscription_details?->subscription ?? $invoice->subscription ?? null;
+                $stripeSubscriptionId = $invoice->parent?->subscription_details->subscription ?? $invoice->subscription ?? null;
 
-                if(! $stripeSubscriptionId) {
+                if (! $stripeSubscriptionId) {
                     break;
                 }
 
                 $subscription = Subscription::where('stripe_subscription_id', $stripeSubscriptionId)->first();
 
-                if(! $subscription) {
+                if (! $subscription) {
                     break;
                 }
 
@@ -387,14 +476,12 @@ class StripeWebhookController extends Controller
 
                 break;
         }
-            
-        return response()->json(['received' => true,]);
     }
 
     private function mapSubscriptionStatus(string $status): string
     {
-        return match ($status){
-            'active', 
+        return match ($status) {
+            'active',
             'trialing' => 'active',
 
             'canceled' => 'cancelled',

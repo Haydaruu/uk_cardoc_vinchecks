@@ -4,11 +4,15 @@ namespace App\Http\Controllers\Payments;
 
 use App\Http\Controllers\Controller;
 use App\Models\Report;
+use App\Models\SystemSetting;
 use App\Services\GuestReportCheckoutService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
+use Inertia\Response;
 use RuntimeException;
+use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 
 class GuestReportCheckoutController extends Controller
 {
@@ -16,7 +20,15 @@ class GuestReportCheckoutController extends Controller
         Request $request,
         Report $report,
         GuestReportCheckoutService $checkoutService,
-    ) {
+    ): SymfonyResponse {
+        if (! SystemSetting::getBool('enable_guest_checkout', true)) {
+            return redirect()->route('page.my-report.show', [
+                'report' => $report->id,
+            ])->withErrors([
+                'checkout' => 'Guest checkout is currently disabled by administrator.',
+            ]);
+        }
+
         $sessionKey = "guest_report_checkout.{$report->id}";
         $contact = $request->session()->get($sessionKey);
 
@@ -44,8 +56,8 @@ class GuestReportCheckoutController extends Controller
                 email: $contact['email'],
                 phone: $contact['phone'],
                 successUrl: route('guest-report.checkout.success')
-                    . '?checkout=return&session_id={CHECKOUT_SESSION_ID}',
-                cancelUrl: $reportUrl . '?checkout=cancelled',
+                    .'?checkout=return&session_id={CHECKOUT_SESSION_ID}',
+                cancelUrl: $reportUrl.'?checkout=cancelled',
             );
         } catch (RuntimeException $exception) {
             Log::warning('Guest report checkout could not be started.', [
@@ -61,8 +73,16 @@ class GuestReportCheckoutController extends Controller
         return Inertia::location($checkout['checkout_url']);
     }
 
-    public function prepare(Request $request, Report $report)
+    public function prepare(Request $request, Report $report): RedirectResponse
     {
+        if (! SystemSetting::getBool('enable_guest_checkout', true)) {
+            return redirect()->route('page.my-report.show', [
+                'report' => $report->id,
+            ])->withErrors([
+                'checkout' => 'Guest checkout is currently disabled by administrator.',
+            ]);
+        }
+
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:150'],
             'email' => ['required', 'string', 'email:rfc', 'max:254'],
@@ -92,7 +112,15 @@ class GuestReportCheckoutController extends Controller
         Request $request,
         Report $report,
         GuestReportCheckoutService $checkoutService,
-    ) {
+    ): RedirectResponse|Response {
+        if (! SystemSetting::getBool('enable_guest_checkout', true)) {
+            return redirect()->route('page.my-report.show', [
+                'report' => $report->id,
+            ])->withErrors([
+                'checkout' => 'Guest checkout is currently disabled by administrator.',
+            ]);
+        }
+
         $sessionKey = "guest_report_checkout.{$report->id}";
         $contact = $request->session()->get($sessionKey);
 
