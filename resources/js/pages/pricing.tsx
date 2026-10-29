@@ -1,4 +1,4 @@
-import { Head, router, usePage } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useState, type ReactNode } from 'react';
 
 import PricingCard from '@/components/marketing/pricing-card';
@@ -9,6 +9,7 @@ import {
     Check,
     Shield,
     Crown,
+    ArrowRight,
 } from 'lucide-react';
 
 type PricingMode =
@@ -291,6 +292,49 @@ function Pricing() {
                             : 'Get credits automatically every month with a flexible UKCarDoc membership.'}
                     </p>
 
+                </div>
+            </section>
+
+            {/* Guest Report — No Account Required */}
+            <section className="bg-white px-6 pb-10 md:px-10">
+                <div className="mx-auto max-w-[1200px]">
+                    <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-6 shadow-sm md:p-9">
+                        <div className="grid gap-7 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+                            <div className="max-w-2xl">
+                                <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-emerald-800">
+                                    One-time purchase · No account required
+                                </span>
+
+                                <h2 className="mt-5 text-2xl font-black tracking-tight text-primary-container md:text-3xl">
+                                    No account? No problem.
+                                </h2>
+
+                                <p className="mt-3 max-w-xl text-sm leading-7 text-slate-600 md:text-base">
+                                    Need just one vehicle report? Check the vehicle,
+                                    unlock the full report with a one-time payment,
+                                    and receive your report by email. No account required.
+                                </p>
+
+                                <p className="mt-3 text-xs leading-6 text-slate-500">
+                                    Prefer regular access? Explore our credit packs
+                                    and memberships below.
+                                </p>
+                            </div>
+
+                            <div className="flex md:justify-end">
+                                <Link
+                                    href="/"
+                                    className="group inline-flex w-full items-center justify-center gap-3 rounded-lg bg-primary-container px-6 py-4 text-sm font-bold text-white transition-all hover:bg-primary md:w-auto"
+                                >
+                                    Check a Vehicle
+                                    <ArrowRight
+                                        size={18}
+                                        className="transition-transform group-hover:translate-x-1"
+                                    />
+                                </Link>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </section>
 

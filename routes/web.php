@@ -12,6 +12,7 @@ use App\Http\Controllers\ReportController;
 use App\Http\Controllers\Payments\GuestReportCheckoutController;
 use App\Http\Controllers\GuestReportInvoiceController;
 use App\Http\Controllers\Payments\GuestReportCheckoutSuccessController;
+use App\Http\Controllers\SupportMessageController;
 use Inertia\Inertia;
 
 
@@ -21,9 +22,10 @@ Route::get('/', [PageController::class, 'home'])
     ->name('page.home');
 
 Route::get('/support', [PageController::class, 'support'])->name('page.support');
+Route::post('/support', [SupportMessageController::class, 'store'])->middleware('throttle:5,1')->name('page.support.submit');
 Route::get('/pricing', [PageController::class, 'pricing'])->name('page.pricing');
+Route::get('/terms-and-conditions', function () {return Inertia::render('terms-and-conditions');})->name('page.terms-and-conditions');
 Route::get('/about-us', function(){return Inertia::render('about-us'); })->name('page.about-us');
-
 Route::get('/guest-purchases/{purchase}/invoice',[GuestReportInvoiceController::class, 'show'],)->middleware('signed')->name('guest-report.invoice.show');
 Route::get('/guest-purchases/{purchase}/invoice/pdf',[GuestReportInvoiceController::class, 'download'],)->middleware('signed')->name('guest-report.invoice.download');
 Route::get('/guest-checkout/success',GuestReportCheckoutSuccessController::class,)->name('guest-report.checkout.success');

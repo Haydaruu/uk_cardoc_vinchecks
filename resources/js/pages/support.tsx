@@ -1,4 +1,5 @@
-import { Head } from '@inertiajs/react';
+import { Head, useForm, usePage } from '@inertiajs/react';
+import { useState, type FormEvent } from 'react';
 import FaqAccordion from '@/components/faq/faq-accordion';
 import BaseLayout from '@/layouts/base-layout';
 
@@ -18,6 +19,28 @@ const faqItems = [
 ];
 
 function Support() {
+    const page = usePage();
+
+    const [submitted, setSubmitted] = useState(false);
+
+    const form = useForm({
+        name: '',
+        email: '',
+        subject: 'Data Discrepancy',
+        message: '',
+    });
+    const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        setSubmitted(false);
+
+        form.post('/support', {
+            preserveScroll: true,
+            onSuccess: () => {
+                form.reset();
+                setSubmitted(true);
+            },
+        });
+    };
     return (
         <>
             <Head title="Support" />
@@ -141,7 +164,7 @@ function Support() {
                                 </div>
                                 <div>
                                     <h4 className="font-bold text-primary-container">Email Support</h4>
-                                    <p className="text-on-surface-variant">support@ukcardoc.co.uk</p>
+                                    <p className="text-on-surface-variant">support@ukcardoc.com</p>
                                     <p className="mt-1 text-xs font-bold uppercase tracking-tighter text-secondary">
                                         Response within 4 hours
                                     </p>
@@ -162,49 +185,128 @@ function Support() {
                     </div>
 
                     <div className="dashboard-shadow rounded-xl border border-slate-200 bg-white p-8">
-                        <form className="space-y-6" onSubmit={(e) => e.preventDefault()}>
-                            <div className="grid grid-cols-2 gap-4">
+                        <form className="space-y-6" onSubmit={handleSubmit}>
+                            {submitted && (
+                                <div
+                                    role="status"
+                                    className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800"
+                                >
+                                    Thanks for contacting us. Your message has been submitted successfully.
+                                </div>
+                            )}
+
+                            {page.props.errors.support && (
+                                <div
+                                    role="alert"
+                                    className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+                                >
+                                    {page.props.errors.support}
+                                </div>
+                            )}
+
+                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                 <div className="space-y-2">
-                                    <label className="text-sm font-bold text-primary-container">Full Name</label>
+                                    <label
+                                        htmlFor="support-name"
+                                        className="text-sm font-bold text-primary-container"
+                                    >
+                                        Full Name
+                                    </label>
                                     <input
+                                        id="support-name"
                                         type="text"
+                                        autoComplete="name"
+                                        value={form.data.name}
+                                        onChange={(event) => form.setData('name', event.target.value)}
+                                        maxLength={100}
+                                        required
+                                        className="w-full rounded border-slate-200 text-sm focus:border-secondary focus:ring-secondary"
                                         placeholder="John Smith"
-                                        className="w-full rounded border-slate-200 text-sm focus:border-secondary focus:ring-0"
                                     />
+                                    {form.errors.name && (
+                                        <p className="text-sm text-red-600">{form.errors.name}</p>
+                                    )}
                                 </div>
+
                                 <div className="space-y-2">
-                                    <label className="text-sm font-bold text-primary-container">Email Address</label>
+                                    <label
+                                        htmlFor="support-email"
+                                        className="text-sm font-bold text-primary-container"
+                                    >
+                                        Email Address
+                                    </label>
                                     <input
+                                        id="support-email"
                                         type="email"
+                                        autoComplete="email"
+                                        value={form.data.email}
+                                        onChange={(event) => form.setData('email', event.target.value)}
+                                        maxLength={254}
+                                        required
+                                        className="w-full rounded border-slate-200 text-sm focus:border-secondary focus:ring-secondary"
                                         placeholder="john@example.com"
-                                        className="w-full rounded border-slate-200 text-sm focus:border-secondary focus:ring-0"
                                     />
+                                    {form.errors.email && (
+                                        <p className="text-sm text-red-600">{form.errors.email}</p>
+                                    )}
                                 </div>
                             </div>
+
                             <div className="space-y-2">
-                                <label className="text-sm font-bold text-primary-container">Subject</label>
-                                <select className="w-full rounded border-slate-200 text-sm focus:border-secondary focus:ring-0">
-                                    <option>Data Discrepancy</option>
-                                    <option>Billing Issue</option>
-                                    <option>Business API Inquiry</option>
-                                    <option>Other</option>
+                                <label
+                                    htmlFor="support-subject"
+                                    className="text-sm font-bold text-primary-container"
+                                >
+                                    Subject
+                                </label>
+                                <select
+                                    id="support-subject"
+                                    value={form.data.subject}
+                                    onChange={(event) => form.setData('subject', event.target.value)}
+                                    required
+                                    className="w-full rounded border-slate-200 text-sm focus:border-secondary focus:ring-secondary"
+                                >
+                                    <option value="Data Discrepancy">Data Discrepancy</option>
+                                    <option value="Billing Issue">Billing Issue</option>
+                                    <option value="Business API Inquiry">Business API Inquiry</option>
+                                    <option value="Other">Other</option>
                                 </select>
+                                {form.errors.subject && (
+                                    <p className="text-sm text-red-600">{form.errors.subject}</p>
+                                )}
                             </div>
+
                             <div className="space-y-2">
-                                <label className="text-sm font-bold text-primary-container">Message</label>
+                                <label
+                                    htmlFor="support-message"
+                                    className="text-sm font-bold text-primary-container"
+                                >
+                                    Message
+                                </label>
                                 <textarea
-                                    rows={4}
+                                    id="support-message"
+                                    rows={5}
+                                    value={form.data.message}
+                                    onChange={(event) => form.setData('message', event.target.value)}
+                                    maxLength={5000}
+                                    required
+                                    className="w-full resize-y rounded border-slate-200 text-sm focus:border-secondary focus:ring-secondary"
                                     placeholder="Tell us more about your issue..."
-                                    className="w-full resize-none rounded border-slate-200 text-sm focus:border-secondary focus:ring-0"
                                 />
+                                {form.errors.message && (
+                                    <p className="text-sm text-red-600">{form.errors.message}</p>
+                                )}
                             </div>
+
                             <button
                                 type="submit"
-                                className="w-full rounded bg-secondary py-4 font-bold text-white transition-all hover:bg-[#930012] active:scale-[0.98]"
+                                disabled={form.processing}
+                                className="w-full rounded bg-secondary py-4 font-bold text-white transition-colors hover:bg-[#930012] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
                             >
-                                Send Message
+                                {form.processing ? 'Sending Message...' : 'Send Message'}
                             </button>
                         </form>
+
                     </div>
                 </div>
             </section>

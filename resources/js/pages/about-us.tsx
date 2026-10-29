@@ -139,23 +139,65 @@ export default function AboutUs() {
             </section>
 
             {/* CTA */}
-            <section className="bg-primary relative overflow-hidden py-section-padding">
+            <section className="relative isolate overflow-hidden bg-primary py-16 md:py-24">
+                {/* Soft ambient glow — replaces the striped background */}
                 <div
-                    className="absolute inset-0 opacity-10"
-                    style={{
-                        backgroundImage:
-                            'repeating-linear-gradient(45deg, transparent, transparent 10px, #ffffff 10px, #ffffff 11px)',
-                    }}
+                    aria-hidden="true"
+                    className="pointer-events-none absolute -right-24 -top-32 -z-10 size-96 rounded-full bg-secondary/15 blur-3xl"
                 />
-                <div className="relative z-10 mx-auto max-w-container-max px-gutter text-center">
-                    <h2 className="font-h2 text-h2 mb-8 text-white">Ready to verify your next vehicle?</h2>
-                    <Link
-                        href="/"
-                        className="inline-flex items-center gap-2 rounded bg-secondary px-8 py-4 font-h3 text-h3 text-white shadow-[inset_0_2px_0_rgba(255,255,255,0.3)] transition-colors hover:bg-secondary-container"
-                    >
-                        Start Check
-                        <ArrowRight className="size-5" />
-                    </Link>
+                <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute -bottom-40 left-1/4 -z-10 size-80 rounded-full bg-white/5 blur-3xl"
+                />
+
+                <div className="mx-auto max-w-container-max px-gutter">
+                    <div className="grid items-center gap-10 md:grid-cols-[minmax(0,1fr)_auto] md:gap-16">
+                        <div className="max-w-2xl">
+                            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-2">
+                                <span className="size-2 rounded-full bg-secondary" />
+                                <span className="text-xs font-semibold uppercase tracking-[0.16em] text-white/70">
+                                    Vehicle Intelligence
+                                </span>
+                            </div>
+
+                            <h2 className="font-h2 text-h2 mb-5 max-w-xl text-white">
+                                Ready to verify your next vehicle?
+                            </h2>
+
+                            <p className="max-w-xl text-base leading-7 text-white/70 md:text-lg">
+                                Get the vehicle history information you need to make a
+                                more informed decision before your next purchase.
+                            </p>
+
+                            <div className="mt-8 flex flex-wrap items-center gap-4">
+                                <Link
+                                    href="/"
+                                    className="group inline-flex items-center gap-3 rounded-lg bg-secondary px-6 py-4 font-semibold text-white shadow-lg shadow-black/10 transition-all duration-200 hover:-translate-y-0.5 hover:bg-secondary-container focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-primary"
+                                >
+                                    Start a Check
+                                    <ArrowRight className="size-5 transition-transform duration-200 group-hover:translate-x-1" />
+                                </Link>
+
+                                <Link
+                                    href="/pricing"
+                                    className="inline-flex items-center gap-2 rounded-lg border border-white/20 px-6 py-4 font-semibold text-white/85 transition-colors hover:border-white/40 hover:bg-white/5 hover:text-white"
+                                >
+                                    View Pricing
+                                </Link>
+                            </div>
+                        </div>
+
+                        <div className="hidden md:flex md:justify-center">
+                            <div className="flex size-40 items-center justify-center rounded-3xl border border-white/10 bg-white/[0.04] shadow-[0_24px_80px_rgba(0,0,0,0.18)]">
+                                <div className="flex size-24 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.05]">
+                                    <ShieldCheck
+                                        className="size-12 text-white/90"
+                                        strokeWidth={1.25}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </section>
         </>

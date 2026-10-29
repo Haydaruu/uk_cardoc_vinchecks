@@ -3,7 +3,7 @@ import { Link } from '@inertiajs/react';
 
 const footerLinks = [
     [
-        { label: 'Terms of Service', href: '#' },
+        { label: 'Terms of Service', href: '/terms-and-conditions'},
         { label: 'Contact Support', href: '/support' },
         { label: 'Refund Policy', href: '#' },
     ],
