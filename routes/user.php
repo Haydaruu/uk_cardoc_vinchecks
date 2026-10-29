@@ -1,21 +1,17 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
-
 use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\PageController;
-
-use App\Http\Controllers\Payments\CheckoutController;
-use App\Http\Controllers\Payments\StripeController;
-use App\Http\Controllers\Payments\PayPalController;
-use App\Http\Controllers\Payments\StripeSubscriptionController;
-use App\Http\Controllers\Payments\PayPalSubscriptionController;
-
-use App\Http\Controllers\Settings\SettingsController;
-use App\Http\Controllers\Settings\SecurityController;
-use App\Http\Controllers\Settings\ConnectedAccountController;
-
 use App\Http\Controllers\InvoiceController;
+use App\Http\Controllers\PageController;
+use App\Http\Controllers\Payments\CheckoutController;
+use App\Http\Controllers\Payments\PayPalController;
+use App\Http\Controllers\Payments\PayPalSubscriptionController;
+use App\Http\Controllers\Payments\StripeController;
+use App\Http\Controllers\Payments\StripeSubscriptionController;
+use App\Http\Controllers\Settings\ConnectedAccountController;
+use App\Http\Controllers\Settings\SecurityController;
+use App\Http\Controllers\Settings\SettingsController;
+use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
@@ -37,7 +33,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 |--------------------------------------------------------------------------
 */
 
-Route::middleware('auth')->group(function () {
+Route::middleware(['auth', 'not.suspended'])->group(function () {
     Route::get('/checkout', [CheckoutController::class, 'show'])
         ->name('checkout.show');
 
@@ -52,7 +48,9 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/checkout/subscription/success', [StripeSubscriptionController::class, 'success'])
         ->name('checkout.subscription.success');
+});
 
+Route::middleware('auth')->group(function () {
     Route::get('/settings/purchase-history/{transaction}/invoice', [InvoiceController::class, 'show'])
         ->name('invoice.show');
 
@@ -66,7 +64,7 @@ Route::middleware('auth')->group(function () {
 |--------------------------------------------------------------------------
 */
 
-Route::middleware('auth')->group(function () {
+Route::middleware(['auth', 'not.suspended'])->group(function () {
     // One-time
     Route::post('/checkout/paypal/create-order', [PayPalController::class, 'createOrder'])
         ->name('checkout.paypal.create-order');
@@ -169,11 +167,11 @@ Route::middleware(['auth', 'verified'])
         | Stripe
         */
 
-
         Route::delete('/subscription', [StripeSubscriptionController::class, 'cancel'])
             ->name('subscription.cancel');
 
         Route::patch('/subscription/plan', [StripeSubscriptionController::class, 'changePlan'])
+            ->middleware('not.suspended')
             ->name('subscription.plan.change');
 
         /*
@@ -184,6 +182,7 @@ Route::middleware(['auth', 'verified'])
             ->name('subscription.paypal.cancel');
 
         Route::patch('/subscription/paypal/plan', [PayPalSubscriptionController::class, 'changePlan'])
+            ->middleware('not.suspended')
             ->name('subscription.paypal.plan.change');
 
         Route::get('/subscription/paypal/plan/approved', [PayPalSubscriptionController::class, 'changePlanApproved'])

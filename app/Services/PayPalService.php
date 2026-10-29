@@ -1,11 +1,12 @@
 <?php
 
 namespace App\Services;
+
 use App\Models\User;
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Str;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 use RuntimeException;
 
 class PayPalService
@@ -13,6 +14,7 @@ class PayPalService
     private function baseUrl(): string
     {
         $mode = config('services.paypal.mode', 'sandbox');
+
         return $mode === 'live' ? 'https://api-m.paypal.com' : 'https://api-m.sandbox.paypal.com';
     }
 
@@ -20,7 +22,6 @@ class PayPalService
     {
         $mode = config('services.paypal.mode', 'sandbox');
         $cacheKey = "paypal_access_token_{$mode}";
-
 
         $cachedToken = Cache::get($cacheKey);
 
@@ -33,12 +34,12 @@ class PayPalService
                 config('services.paypal.client_id'),
                 config('services.paypal.client_secret'),
             )
-            ->post($this->baseUrl() . '/v1/oauth2/token',
-            [
-                'grant_type' => 'client_credentials',
-            
-            ],
-        );
+            ->post($this->baseUrl().'/v1/oauth2/token',
+                [
+                    'grant_type' => 'client_credentials',
+
+                ],
+            );
 
         if ($response->failed()) {
             throw new RuntimeException('Unable to authenticate with PayPal.');
@@ -51,16 +52,17 @@ class PayPalService
             throw new RuntimeException('Paypal access token was not returned.');
         }
 
-        Cache::put($cacheKey, $token, now()->addSeconds(max($expiresIn - 60, 60),),);
+        Cache::put($cacheKey, $token, now()->addSeconds(max($expiresIn - 60, 60)));
 
         return $token;
     }
-    public function createOrder(User $user, string $planSlug): array 
+
+    /** @return array<string, mixed> */
+    public function createOrder(User $user, string $planSlug): array
     {
         $plan = config("credit_plans.{$planSlug}");
 
-
-        if (!$plan || $plan['type'] !== 'one_time') {
+        if (! $plan || $plan['type'] !== 'one_time') {
             throw new RuntimeException('Invalid Paypal credit plan.');
         }
 
@@ -70,15 +72,15 @@ class PayPalService
 
         $response = Http::withToken($this->accessToken())
             ->acceptJson()
-            ->withHeaders([ 'PayPal-Request-Id' => (string) Str::uuid(),])
-            ->post($this->baseUrl(). '/v2/checkout/orders',
+            ->withHeaders(['PayPal-Request-Id' => (string) Str::uuid()])
+            ->post($this->baseUrl().'/v2/checkout/orders',
                 [
                     'intent' => 'CAPTURE',
                     'purchase_units' => [
                         [
                             'reference_id' => $planSlug,
-                            'custom_id' => $user->id .'|'. $planSlug,
-                            'invoice_id' => 'UKC-PPL'. strtoupper(Str::random(12)),
+                            'custom_id' => $user->id.'|'.$planSlug,
+                            'invoice_id' => 'UKC-PPL'.strtoupper(Str::random(12)),
                             'description' => $plan['label'],
                             'amount' => [
                                 'currency_code' => $currency,
@@ -90,35 +92,37 @@ class PayPalService
             );
 
         if ($response->failed()) {
-            throw new RuntimeException('Unable to create PayPal order: '. $response->body());
+            throw new RuntimeException('Unable to create PayPal order: '.$response->body());
         }
 
         return $response->json();
     }
 
+    /** @return array<string, mixed> */
     public function getOrder(string $orderId): array
     {
         $response = Http::withToken($this->accessToken())
             ->acceptJson()
-            ->get($this->baseUrl(). "/v2/checkout/orders/{$orderId}");
+            ->get($this->baseUrl()."/v2/checkout/orders/{$orderId}");
 
-        if($response->failed()) {
+        if ($response->failed()) {
             throw new RuntimeException('Unable to retrieve PayPal order. ');
         }
 
         return $response->json();
     }
 
-    public function captureOrder(string $orderId,): array
+    /** @return array<string, mixed> */
+    public function captureOrder(string $orderId): array
     {
         $response = Http::withToken($this->accessToken())
             ->acceptJson()
-            ->withHeaders(['PayPal-Request-Id' => 'capture-'. $orderId,])
+            ->withHeaders(['PayPal-Request-Id' => 'capture-'.$orderId])
             ->withBody('{}', 'application/json')
-            ->send('POST',$this->baseUrl()."/v2/checkout/orders/{$orderId}/capture",[],);
+            ->send('POST', $this->baseUrl()."/v2/checkout/orders/{$orderId}/capture", []);
 
-        if($response->failed()) {
-            throw new RuntimeException('Unable to capture PayPal order: '. $response->body());
+        if ($response->failed()) {
+            throw new RuntimeException('Unable to capture PayPal order: '.$response->body());
         }
 
         return $response->json();
@@ -128,7 +132,7 @@ class PayPalService
     {
         $webhookId = config('services.paypal.webhook_id');
 
-        if(! $webhookId) {
+        if (! $webhookId) {
             return false;
         }
 
@@ -142,53 +146,54 @@ class PayPalService
 
         $authAlgo = $request->header('PAYPAL-AUTH-ALGO');
 
-        if(! $transmissionId || ! $transmissionTime || ! $transmissionSig || ! $certUrl || ! $authAlgo) {
+        if (! $transmissionId || ! $transmissionTime || ! $transmissionSig || ! $certUrl || ! $authAlgo) {
             return false;
         }
 
         $rawBody = $request->getContent();
 
-        if(! $rawBody) {
+        if (! $rawBody) {
             return false;
         }
 
         $payload = '{'
-        . '"auth_algo":'
-        . json_encode($authAlgo)
-        . ','
-        . '"cert_url":'
-        . json_encode($certUrl)
-        . ','
-        . '"transmission_id":'
-        . json_encode($transmissionId)
-        . ','
-        . '"transmission_sig":'
-        . json_encode($transmissionSig)
-        . ','
-        . '"transmission_time":'
-        . json_encode($transmissionTime)
-        . ','
-        . '"webhook_id":'
-        . json_encode($webhookId)
-        . ','
-        . '"webhook_event":'
-        . $rawBody
-        . '}';
+        .'"auth_algo":'
+        .json_encode($authAlgo)
+        .','
+        .'"cert_url":'
+        .json_encode($certUrl)
+        .','
+        .'"transmission_id":'
+        .json_encode($transmissionId)
+        .','
+        .'"transmission_sig":'
+        .json_encode($transmissionSig)
+        .','
+        .'"transmission_time":'
+        .json_encode($transmissionTime)
+        .','
+        .'"webhook_id":'
+        .json_encode($webhookId)
+        .','
+        .'"webhook_event":'
+        .$rawBody
+        .'}';
 
         $response = Http::withToken($this
             ->accessToken())
             ->acceptJson()
             ->withBody($payload, 'application/json')
-            ->post($this->baseUrl(). '/v1/notifications/verify-webhook-signature'  
+            ->post($this->baseUrl().'/v1/notifications/verify-webhook-signature'
             );
 
-        if ($response->failed()){
+        if ($response->failed()) {
             return false;
         }
 
         return $response->json('verification_status') === 'SUCCESS';
     }
 
+    /** @return array<string, mixed> */
     public function createCatalogProduct(string $name, string $description): array
     {
         $response = Http::withToken($this->accessToken())
@@ -197,7 +202,7 @@ class PayPalService
                 'PayPal-Request-Id' => (string) Str::uuid(),
                 'Prefer' => 'return=representation',
             ])
-            ->post($this->baseUrl(). '/v1/catalogs/products',
+            ->post($this->baseUrl().'/v1/catalogs/products',
                 [
                     'name' => $name,
                     'description' => $description,
@@ -205,16 +210,17 @@ class PayPalService
                 ],
             );
 
-            if($response->failed()) {
-                throw new RunTimeException('Unable to create PayPal product: '.$response->body());
-            }
+        if ($response->failed()) {
+            throw new RuntimeException('Unable to create PayPal product: '.$response->body());
+        }
 
-            return $response->json();
+        return $response->json();
     }
 
-    public function createBillingPlan(string $productId, string $name, int $amountMinor, string $currency = 'GBP',): array
+    /** @return array<string, mixed> */
+    public function createBillingPlan(string $productId, string $name, int $amountMinor, string $currency = 'GBP'): array
     {
-        $amount = number_format($amountMinor/100,2,'.','');
+        $amount = number_format($amountMinor / 100, 2, '.', '');
 
         $response = Http::withToken($this->accessToken())
             ->acceptJson()
@@ -222,7 +228,7 @@ class PayPalService
                 'PayPal-Request-Id' => (string) Str::uuid(),
                 'Prefer' => 'return=representation',
             ])
-            ->post($this->baseUrl(). '/v1/billing/plans',
+            ->post($this->baseUrl().'/v1/billing/plans',
                 [
                     'product_id' => $productId,
                     'name' => $name,
@@ -252,26 +258,27 @@ class PayPalService
                         'payment_failure_threshold' => 3,
                     ],
                 ],
-            ); 
+            );
 
-        if($response->failed()) {
+        if ($response->failed()) {
             throw new RuntimeException('Unable to create PayPal billing plan: '.$response->body());
         }
 
         return $response->json();
     }
 
+    /** @return array<string, mixed> */
     public function createSubscription(User $user, string $planSlug): array
     {
         $plan = config("credit_plans.{$planSlug}");
 
-        if(! $plan || $plan['type'] !== 'subscription') {
+        if (! $plan || $plan['type'] !== 'subscription') {
             throw new RuntimeException('Invalid PayPal subscription plan.');
         }
 
         $payPalPlanId = $plan['paypal_plan_id'] ?? null;
 
-        if(! $payPalPlanId) {
+        if (! $payPalPlanId) {
             throw new RuntimeException('PayPal billing plan is not configured.');
         }
 
@@ -281,9 +288,9 @@ class PayPalService
                 'PayPal-Request-Id' => (string) Str::uuid(),
                 'Prefer' => 'return=representation',
             ])
-            ->post($this->baseUrl(). '/v1/billing/subscriptions', [
+            ->post($this->baseUrl().'/v1/billing/subscriptions', [
                 'plan_id' => $payPalPlanId,
-                'custom_id' => $user->id. '|'. $planSlug,
+                'custom_id' => $user->id.'|'.$planSlug,
 
                 'application_context' => [
                     'brand_name' => 'UKCarDoc',
@@ -292,31 +299,33 @@ class PayPalService
                 ],
             ]);
 
-        if($response->failed()) {
+        if ($response->failed()) {
             throw new RuntimeException(
-                'Unable to create PayPal subscription: '. $response->body()
+                'Unable to create PayPal subscription: '.$response->body()
             );
         }
 
         return $response->json();
     }
 
+    /** @return array<string, mixed> */
     public function getSubscription(string $subscriptionId): array
     {
         $response = Http::withToken($this->accessToken())
             ->acceptJson()
-            ->get($this->baseUrl(). "/v1/billing/subscriptions/{$subscriptionId}");
+            ->get($this->baseUrl()."/v1/billing/subscriptions/{$subscriptionId}");
 
-        if($response->failed()) {
+        if ($response->failed()) {
             throw new RuntimeException(
-                'Unable to retrieve PayPal subscription: '. $response->body()
+                'Unable to retrieve PayPal subscription: '.$response->body()
             );
         }
 
         return $response->json();
     }
 
-    public function reviseSubscription(string $subscriptionId, string $payPalPlanId, string $returnUrl, string $cancelUrl): array 
+    /** @return array<string, mixed> */
+    public function reviseSubscription(string $subscriptionId, string $payPalPlanId, string $returnUrl, string $cancelUrl): array
     {
         $response = Http::withToken($this->accessToken())
             ->acceptJson()
@@ -325,7 +334,7 @@ class PayPalService
                 'Prefer' => 'return=representation',
             ])
             ->post(
-                $this->baseUrl(). "/v1/billing/subscriptions/{$subscriptionId}/revise",
+                $this->baseUrl()."/v1/billing/subscriptions/{$subscriptionId}/revise",
                 [
                     'plan_id' => $payPalPlanId,
 
@@ -338,9 +347,9 @@ class PayPalService
                 ]
             );
 
-        if($response->failed()) {
+        if ($response->failed()) {
             throw new RuntimeException(
-                'Unable to revise PayPal subscription: '. $response->body()
+                'Unable to revise PayPal subscription: '.$response->body()
             );
         }
 
@@ -351,14 +360,68 @@ class PayPalService
     {
         $response = Http::withToken($this->accessToken())
             ->acceptJson()
-            ->post($this->baseUrl(). "/v1/billing/subscriptions/{$subscriptionId}/cancel", [
+            ->post($this->baseUrl()."/v1/billing/subscriptions/{$subscriptionId}/cancel", [
                 'reason' => 'Cancelled by customer.',
             ]);
 
-        if($response->failed()) {
+        if ($response->failed()) {
             throw new RuntimeException(
-                'Unable to cancel PayPal subscription: '. $response->body()
+                'Unable to cancel PayPal subscription: '.$response->body()
             );
         }
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function refundCapture(
+        string $captureId,
+        string $amount,
+        string $currency = 'GBP',
+        ?string $reason = null,
+        ?string $idempotencyKey = null,
+    ): array {
+        $headers = [];
+        if ($idempotencyKey) {
+            $headers['PayPal-Request-Id'] = $idempotencyKey;
+        }
+
+        $payload = [
+            'amount' => [
+                'value' => $amount,
+                'currency_code' => strtoupper($currency),
+            ],
+        ];
+
+        if ($reason) {
+            $payload['note_to_payer'] = substr($reason, 0, 255);
+        }
+
+        $response = Http::withToken($this->accessToken())
+            ->acceptJson()
+            ->withHeaders($headers)
+            ->post($this->baseUrl()."/v2/payments/captures/{$captureId}/refund", $payload);
+
+        if ($response->failed()) {
+            throw new RuntimeException('Unable to refund PayPal capture: '.$response->body());
+        }
+
+        return $response->json();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function getCapture(string $captureId): array
+    {
+        $response = Http::withToken($this->accessToken())
+            ->acceptJson()
+            ->get($this->baseUrl()."/v2/payments/captures/{$captureId}");
+
+        if ($response->failed()) {
+            throw new RuntimeException('Unable to get PayPal capture: '.$response->body());
+        }
+
+        return $response->json();
     }
 }
