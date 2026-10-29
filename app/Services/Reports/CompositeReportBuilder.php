@@ -2,16 +2,17 @@
 
 namespace App\Services\Reports;
 
-use RuntimeException;
 use Illuminate\Support\Facades\Log;
+use RuntimeException;
 
 class CompositeReportBuilder
 {
-    public function __construct(private NormalizedReportBuilder $reportBuilder,)
-    {
-    }
-    
-   public function build(string $vrm): array
+    public function __construct(private NormalizedReportBuilder $reportBuilder) {}
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function build(string $vrm): array
     {
         $vrm = $this->normalizeVrm($vrm);
 
@@ -24,7 +25,7 @@ class CompositeReportBuilder
                     vrm: $vrm,
                     provider: $provider,
                 );
-            } catch (\RuntimeException $e) {
+            } catch (RuntimeException $e) {
                 $failures[$provider] = $e;
 
                 Log::warning(
@@ -47,17 +48,17 @@ class CompositeReportBuilder
 
             $firstFailure = reset($failures);
 
-            throw new \RuntimeException(
+            throw new RuntimeException(
                 "No provider could build a verified report for {$vrm}. "
-                    . "Failed providers: {$failedProviders}",
+                    ."Failed providers: {$failedProviders}",
                 0,
                 $firstFailure ?: null,
             );
         }
 
         if (
-            !isset($results['checkcardetails'])
-            || !isset($results['oneauto'])
+            ! isset($results['checkcardetails'])
+            || ! isset($results['oneauto'])
         ) {
             $provider = array_key_first($results);
 
@@ -89,6 +90,11 @@ class CompositeReportBuilder
         );
     }
 
+    /**
+     * @param  array<string, mixed>  $built
+     * @param  list<string>  $failedProviders
+     * @return array<string, mixed>
+     */
     private function buildSingleProviderFallback(
         array $built,
         string $provider,
@@ -138,6 +144,9 @@ class CompositeReportBuilder
         ];
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function buildFixture(string $checkCarDetailsVrm, string $oneAutoVrm): array
     {
         $checkCarDetailsVrm = $this->normalizeVrm(
@@ -179,6 +188,9 @@ class CompositeReportBuilder
         );
     }
 
+    /**
+     * @return array<string, string>
+     */
     private function sourceMap(): array
     {
         return config(
@@ -187,12 +199,15 @@ class CompositeReportBuilder
         );
     }
 
+    /**
+     * @param  array<string, mixed>  $checkCarDetails
+     * @param  array<string, mixed>  $oneAuto
+     */
     private function assertSameVehicle(
         string $requestedVrm,
         array $checkCarDetails,
         array $oneAuto,
-    ): void 
-    {
+    ): void {
         $ccdVrm = $this->normalizeVrm(
             data_get(
                 $checkCarDetails,
@@ -210,15 +225,15 @@ class CompositeReportBuilder
         );
 
         if ($ccdVrm === '' || $oneAutoVrm === '') {
-                throw new RuntimeException('Unable to verify vehicle identity across providers.');
+            throw new RuntimeException('Unable to verify vehicle identity across providers.');
         }
 
         if ($ccdVrm !== $requestedVrm || $oneAutoVrm !== $requestedVrm) {
-             throw new RuntimeException(
+            throw new RuntimeException(
                 sprintf(
                     'Provider vehicle mismatch. Requested %s, '
-                    . 'CheckCarDetails returned %s, '
-                    . 'OneAuto returned %s.',
+                    .'CheckCarDetails returned %s, '
+                    .'OneAuto returned %s.',
                     $requestedVrm,
                     $ccdVrm,
                     $oneAutoVrm,
@@ -242,11 +257,11 @@ class CompositeReportBuilder
             )
         );
 
-        if ( $ccdVin !== '' && $oneAutoVin !== '' && $ccdVin !== $oneAutoVin){
+        if ($ccdVin !== '' && $oneAutoVin !== '' && $ccdVin !== $oneAutoVin) {
             throw new RuntimeException('Provider VIN mismatch. Hybrid report was not generated.');
         }
 
-         $ccdMake = $this->normalizeTextIdentity(
+        $ccdMake = $this->normalizeTextIdentity(
             data_get(
                 $checkCarDetails,
                 'vehicle.make',
@@ -267,7 +282,7 @@ class CompositeReportBuilder
         }
     }
 
-     private function normalizeVrm(
+    private function normalizeVrm(
         ?string $vrm
     ): string {
         return strtoupper(
@@ -324,6 +339,9 @@ class CompositeReportBuilder
         return $this->hasMeaningfulValue($section);
     }
 
+    /**
+     * @param  array<string, string>  $sourceOverrides
+     */
     private function mergeMissingFields(
         mixed $preferred,
         mixed $fallback,
@@ -343,7 +361,7 @@ class CompositeReportBuilder
         }
 
         foreach ($fallback as $key => $fallbackValue) {
-            $fieldPath = $path . '.' . $key;
+            $fieldPath = $path.'.'.$key;
 
             // Field sama sekali belum tersedia di provider utama.
             if (! array_key_exists($key, $preferred)) {
@@ -424,6 +442,11 @@ class CompositeReportBuilder
         return false;
     }
 
+    /**
+     * @param  array<string, mixed>  $checkCarDetails
+     * @param  array<string, mixed>  $oneAuto
+     * @return array<string, mixed>
+     */
     private function compose(array $checkCarDetails, array $oneAuto, string $vrm, bool $fixture): array
     {
         $ccd = $checkCarDetails['normalized'];
@@ -449,14 +472,11 @@ class CompositeReportBuilder
                     'oneauto',
                 ],
 
-                'generated_at' =>
-                    now()->toISOString(),
+                'generated_at' => now()->toISOString(),
 
-                'sources' =>
-                    $sources,
-                
-                'source_profiles' =>
-                    $sourceProfiles,
+                'sources' => $sources,
+
+                'source_profiles' => $sourceProfiles,
 
                 /*
                 * Sangat penting.
@@ -464,28 +484,22 @@ class CompositeReportBuilder
                 * Frontend bisa membedakan hybrid asli
                 * dengan synthetic sandbox composition.
                 */
-                'lab_fixture' =>
-                    $fixture,
+                'lab_fixture' => $fixture,
 
-                'identity_verified' =>
-                    !$fixture,
+                'identity_verified' => ! $fixture,
 
                 /*
                 * Hanya muncul untuk fixture mode.
                 */
-                'fixture_inputs' =>
-                    $fixture
+                'fixture_inputs' => $fixture
                         ? [
-                            'checkcardetails' =>
-                                $checkCarDetails['vrm'],
+                            'checkcardetails' => $checkCarDetails['vrm'],
 
-                            'oneauto' =>
-                                $oneAuto['vrm'],
+                            'oneauto' => $oneAuto['vrm'],
                         ]
                         : null,
 
-                'warning' =>
-                    $fixture
+                'warning' => $fixture
                         ? 'Development fixture composed from different provider sandbox vehicles. Not a real vehicle report.'
                         : null,
             ],
@@ -493,72 +507,52 @@ class CompositeReportBuilder
             /*
             * Base vehicle identity.
             */
-            'vehicle' =>
-                $ccd['vehicle'],
+            'vehicle' => $ccd['vehicle'],
 
             /*
             * Critical / provenance data.
             */
-            'status' =>
-                $one['status'],
+            'status' => $one['status'],
 
-            'v5c' =>
-                $ccd['v5c'],
+            'v5c' => $ccd['v5c'],
 
             'history' => [
-                'finance' =>
-                    $one['history']['finance'],
+                'finance' => $one['history']['finance'],
 
-                'stolen' =>
-                    $one['history']['stolen'],
+                'stolen' => $one['history']['stolen'],
 
-                'write_off' =>
-                    $one['history']['write_off'],
+                'write_off' => $one['history']['write_off'],
 
-                'high_risk' =>
-                    $one['history']['high_risk'],
+                'high_risk' => $one['history']['high_risk'],
 
-                'keepers' =>
-                    $one['history']['keepers'],
+                'keepers' => $one['history']['keepers'],
 
-                'plate_changes' =>
-                    $one['history']['plate_changes'],
+                'plate_changes' => $one['history']['plate_changes'],
 
-                'colour_changes' =>
-                    $ccd['history']['colour_changes'],
+                'colour_changes' => $ccd['history']['colour_changes'],
             ],
 
-            'salvage' =>
-                $one['salvage'],
+            'salvage' => $one['salvage'],
 
-            'specifications' =>
-                $ccd['specifications'],
+            'specifications' => $ccd['specifications'],
 
-            'dimensions' =>
-                $ccd['dimensions'],
+            'dimensions' => $ccd['dimensions'],
 
-            'valuation' =>
-                $ccd['valuation'],
+            'valuation' => $ccd['valuation'],
 
-            'recalls' =>
-                $one['recalls'],
+            'recalls' => $one['recalls'],
 
-            'emissions_compliance' =>
-                $ccd['emissions_compliance'],
+            'emissions_compliance' => $ccd['emissions_compliance'],
 
             'running_costs' => [
-                'road_tax' =>
-                    $ccd['running_costs']['road_tax'],
+                'road_tax' => $ccd['running_costs']['road_tax'],
 
-                'insurance' =>
-                    $one['running_costs']['insurance'],
+                'insurance' => $one['running_costs']['insurance'],
 
-                'fuel' =>
-                    $ccd['running_costs']['fuel'],
+                'fuel' => $ccd['running_costs']['fuel'],
             ],
 
-            'mot' =>
-                $ccd['mot'],
+            'mot' => $ccd['mot'],
         ];
 
         $providerData = [
@@ -567,12 +561,12 @@ class CompositeReportBuilder
         ];
 
         $actualSources = $sources;
+        $sourceOverrides = [];
 
         // Fixture memakai data contoh yang bisa berasal dari
         // kendaraan berbeda. Jangan menerapkan fallback produksi
         // pada fixture Comparison Lab.
         if (! $fixture) {
-            $sourceOverrides = [];
             foreach ($sources as $path => $preferredProvider) {
                 $fallbackProvider = $preferredProvider === 'checkcardetails'
                     ? 'oneauto'
@@ -637,40 +631,31 @@ class CompositeReportBuilder
         $normalized['meta']['source_overrides'] = $sourceOverrides;
 
         return [
-            'provider' =>
-                'hybrid',
+            'provider' => 'hybrid',
 
-            'vrm' =>
-                $vrm,
+            'vrm' => $vrm,
 
             'meta' => [
-                'strategy' =>
-                    'hybrid',
+                'strategy' => 'hybrid',
 
-                'lab_fixture' =>
-                    $fixture,
+                'lab_fixture' => $fixture,
 
-                'identity_verified' =>
-                    !$fixture,
+                'identity_verified' => ! $fixture,
 
                 'providers' => [
                     'checkcardetails',
                     'oneauto',
                 ],
 
-                'sources' =>
-                    $actualSources,
+                'sources' => $actualSources,
             ],
 
-            'normalized' =>
-                $normalized,
+            'normalized' => $normalized,
 
             'raw' => [
-                'checkcardetails' =>
-                    $checkCarDetails['raw'],
+                'checkcardetails' => $checkCarDetails['raw'],
 
-                'oneauto' =>
-                    $oneAuto['raw'],
+                'oneauto' => $oneAuto['raw'],
             ],
         ];
     }

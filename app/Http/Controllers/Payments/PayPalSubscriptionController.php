@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Payments;
 use App\Http\Controllers\Controller;
 use App\Models\Subscription;
 use App\Services\PayPalService;
+use App\Jobs\SendTelegramSaleNotification;
 use Illuminate\Support\Collection;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -131,7 +132,7 @@ class PayPalSubscriptionController extends Controller
             ? Carbon::parse($paypalSubscription['billing_info']['next_billing_time'])
             : null;
 
-        Subscription::updateOrCreate(
+        $transaction = Subscription::updateOrCreate(
             [
                 'paypal_subscription_id' => $subscriptionId,
             ],
@@ -150,6 +151,22 @@ class PayPalSubscriptionController extends Controller
                 'cancel_at_period_end' => false,
             ]
         );
+
+        if ($transaction->wasRecentlyCreated && (float) $transaction->amount > 0) {
+            $amount = number_format(
+                (float) $transaction->amount,
+                2,
+                '.',
+                ','
+            );
+
+            SendTelegramSaleNotification::dispatch(
+                'Subscription payment',
+                'PayPal',
+                (string) $transaction->payment_gateway_ref,
+                strtoupper((string) $transaction->currency).' '.$amount,
+            )->afterCommit();
+        }
 
         return response()->json([
             'status' => 'success',

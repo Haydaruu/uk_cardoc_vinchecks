@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use App\Models\Transaction;
 use App\Services\CreditService;
 use App\Services\PayPalService;
+use App\Jobs\SendTelegramSaleNotification;
 use Carbon\Carbon;
 use Inertia\Inertia;
 use RuntimeException;
@@ -144,7 +145,7 @@ class PayPalController extends Controller
 
             $paidAt = isset($capture['create_time']) ? Carbon::parse($capture['create_time']): now();
 
-            Transaction::updateOrCreate(
+            $transaction = Transaction::updateOrCreate(
                 [
                     'payment_gateway_ref' => $captureId,
                 ],
@@ -161,6 +162,22 @@ class PayPalController extends Controller
                     'paid_at' => $paidAt,
                 ],
             );
+
+            if ($transaction->wasRecentlyCreated && (float) $transaction->amount > 0) {
+                $amount = number_format(
+                    (float) $transaction->amount,
+                    2,
+                    '.',
+                    ','
+                );
+
+                SendTelegramSaleNotification::dispatch(
+                    'Credit purchase',
+                    'PayPal',
+                    (string) $transaction->payment_gateway_ref,
+                    strtoupper((string) $transaction->currency).' '.$amount,
+                )->afterCommit();
+            }
 
             return response()->json([
                 'status' => 'success',

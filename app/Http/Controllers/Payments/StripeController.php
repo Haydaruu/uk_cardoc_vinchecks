@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Payments;
 use App\Http\Controllers\Controller;
 use App\Models\Report;
 use App\Models\Transaction;
+use App\Jobs\SendTelegramSaleNotification;
 use Illuminate\Http\Request;
 use Stripe\StripeClient;
 use Stripe\Exception\ApiErrorException;
@@ -137,6 +138,22 @@ class StripeController extends Controller
                         $paidAt,
                 ]
             );
+
+        if ($transaction->wasRecentlyCreated) {
+            $amount = number_format(
+                (float) $transaction->amount,
+                2,
+                '.',
+                ','
+            );
+
+            SendTelegramSaleNotification::dispatch(
+                'Credit purchase',
+                'Stripe',
+                (string) $intent->id,
+                strtoupper((string) $transaction->currency).' '.$amount,
+            )->afterCommit();
+        }
 
         $card = $intent->payment_method->card ?? null;
 

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Payments;
 
 use App\Http\Controllers\Controller;
 use App\Models\Subscription;
+use App\Jobs\SendTelegramSaleNotification;
 use App\Models\Transaction;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -279,6 +280,22 @@ class StripeSubscriptionController extends Controller
                     ),
             ]
         );
+
+        if ($transaction->wasRecentlyCreated && (float) $transaction->amount > 0) {
+            $amount = number_format(
+                (float) $transaction->amount,
+                2,
+                '.',
+                ','
+            );
+
+            SendTelegramSaleNotification::dispatch(
+                'Subscription payment',
+                'Stripe',
+                (string) $invoice->id,
+                strtoupper((string) $transaction->currency).' '.$amount,
+            )->afterCommit();
+        }
 
         $paidAt = $invoice->status_transitions?->paid_at ?? $invoice->created ?? time();
 
