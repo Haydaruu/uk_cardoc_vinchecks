@@ -1,6 +1,8 @@
 <?php
 
+use App\Jobs\SendTelegramSaleNotification;
 use App\Services\GuestReportPaymentService;
+use Illuminate\Support\Facades\Queue;
 use Stripe\WebhookSignature;
 
 function guestReportStripeWebhookPayload(
@@ -48,6 +50,8 @@ function sendSignedGuestReportWebhook(
 }
 
 it('routes guest report checkout events to the guest payment service', function () {
+    Queue::fake([SendTelegramSaleNotification::class]);
+
     $secret = 'whsec_test_guest_report';
     config(['services.stripe.webhook_secret' => $secret]);
 
@@ -87,6 +91,13 @@ it('routes guest report checkout events to the guest payment service', function 
         $this,
         $payload,
         $secret
+    );
+
+    Queue::assertPushed(
+        SendTelegramSaleNotification::class,
+        fn (SendTelegramSaleNotification $job): bool => $job->saleType === 'Guest vehicle report'
+            && $job->paymentProvider === 'Stripe'
+            && $job->reference === 'cs_test_guest_report'
     );
 
     $response

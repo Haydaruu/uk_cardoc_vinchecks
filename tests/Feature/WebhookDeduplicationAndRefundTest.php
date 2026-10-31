@@ -1,5 +1,6 @@
 <?php
 
+use App\Jobs\SendTelegramSaleNotification;
 use App\Models\CreditTransaction;
 use App\Models\GuestReportPurchase;
 use App\Models\ProcessedWebhookEvent;
@@ -11,7 +12,7 @@ use App\Models\User;
 use App\Models\Vehicle;
 use App\Services\PayPalService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
 use Stripe\StripeClient;
 use Stripe\WebhookSignature;
@@ -521,6 +522,7 @@ test('paypal webhook PAYMENT.CAPTURE.REFUNDED reconciles unknown refund record',
 });
 
 test('paypal webhook PAYMENT.SALE.COMPLETED does not wipe out scheduled cancellation state', function () {
+    Queue::fake([SendTelegramSaleNotification::class]);
     $sub = Subscription::create([
         'user_id' => $this->customer->id,
         'plan_name' => 'starter',
@@ -576,6 +578,13 @@ test('paypal webhook PAYMENT.SALE.COMPLETED does not wipe out scheduled cancella
 
     $response = $this->postJson(route('paypal.webhook'), $payload);
     $response->assertOk();
+
+    Queue::assertPushed(
+        SendTelegramSaleNotification::class,
+        fn (SendTelegramSaleNotification $job): bool => $job->saleType === 'Subscription payment'
+            && $job->paymentProvider === 'PayPal'
+            && $job->reference === 'SALE-12345'
+    );
 
     $sub->refresh();
 
