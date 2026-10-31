@@ -1,8 +1,8 @@
 <?php
 
 return [
-    
-    //Credit Plans
+
+    // Credit Plans
     '1-credit' => [
         'price_id' => env('STRIPE_PRICE_1_CREDIT'),
         'type' => 'one_time',

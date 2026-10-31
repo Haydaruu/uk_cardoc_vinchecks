@@ -22,7 +22,7 @@ return new class extends Migration
             $table->enum('status', ['pending', 'success', 'failed'])->nullable();
             $table->string('stage')->nullable();
             $table->timestamp('cached_until')->nullable();
-            $table->timestamps(); //created_at & updated_at
+            $table->timestamps(); // created_at & updated_at
         });
     }
 

@@ -1,14 +1,12 @@
-import SettingsLayout from "@/layouts/settings/settings-layout";
-import { useForm, usePage, router } from "@inertiajs/react";
-import { useState } from "react";
+import { useForm, usePage, router } from '@inertiajs/react';
 import {
     KeyRound,
     MonitorSmartphone,
-    Laptop,
     Smartphone,
     TriangleAlert,
 } from 'lucide-react';
-
+import { useState } from 'react';
+import SettingsLayout from '@/layouts/settings/settings-layout';
 
 type SessionData = {
     key: string;
@@ -25,7 +23,7 @@ type SecurityData = {
 
 type Props = {
     security: SecurityData;
-}
+};
 
 type SharedProps = {
     flash?: {
@@ -90,7 +88,7 @@ export default function Security({ security }: Props) {
         deleteForm.clearErrors();
     };
 
-    const revokeSession = (key:string) => {
+    const revokeSession = (key: string) => {
         const confirmed = window.confirm(
             'Are you sure you want to sign out this session?',
         );
@@ -98,12 +96,10 @@ export default function Security({ security }: Props) {
         if (!confirmed) {
             return;
         }
-        router.delete(
-            `/settings/security/sessions/${key}`,
-            {
-                preserveScroll: true,
-            }
-        );
+
+        router.delete(`/settings/security/sessions/${key}`, {
+            preserveScroll: true,
+        });
     };
 
     const submitLabel = security.has_password
@@ -114,7 +110,6 @@ export default function Security({ security }: Props) {
         <SettingsLayout>
             <div className="min-h-screen bg-surface">
                 <div className="mx-auto max-w-container-max px-margin-mobile py-10 md:px-gutter lg:py-section-padding">
-
                     {/* Page Header */}
                     <header className="mb-10 lg:mb-12">
                         <h1 className="text-h1 font-bold text-primary">
@@ -143,10 +138,8 @@ export default function Security({ security }: Props) {
 
                     {/* Security Grid */}
                     <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-
                         {/* Left Column */}
                         <div className="flex flex-col gap-8 lg:col-span-1">
-
                             {/* Password */}
                             <section className="rounded-lg border border-outline-variant bg-surface-container-lowest p-6 shadow-sm">
                                 <div className="mb-6 flex items-center gap-2">
@@ -191,7 +184,7 @@ export default function Security({ security }: Props) {
                                                         e.target.value,
                                                     )
                                                 }
-                                                className="w-full rounded border border-outline-variant bg-surface p-3 text-body-md text-on-surface outline-none transition-shadow focus:border-primary focus:ring-1 focus:ring-primary"
+                                                className="w-full rounded border border-outline-variant bg-surface p-3 text-body-md text-on-surface transition-shadow outline-none focus:border-primary focus:ring-1 focus:ring-primary"
                                             />
 
                                             {form.errors.current_password && (
@@ -224,7 +217,7 @@ export default function Security({ security }: Props) {
                                                     e.target.value,
                                                 )
                                             }
-                                            className="w-full rounded border border-outline-variant bg-surface p-3 text-body-md text-on-surface outline-none transition-shadow focus:border-primary focus:ring-1 focus:ring-primary"
+                                            className="w-full rounded border border-outline-variant bg-surface p-3 text-body-md text-on-surface transition-shadow outline-none focus:border-primary focus:ring-1 focus:ring-primary"
                                         />
 
                                         {form.errors.password && (
@@ -255,11 +248,10 @@ export default function Security({ security }: Props) {
                                                     e.target.value,
                                                 )
                                             }
-                                            className="w-full rounded border border-outline-variant bg-surface p-3 text-body-md text-on-surface outline-none transition-shadow focus:border-primary focus:ring-1 focus:ring-primary"
+                                            className="w-full rounded border border-outline-variant bg-surface p-3 text-body-md text-on-surface transition-shadow outline-none focus:border-primary focus:ring-1 focus:ring-primary"
                                         />
 
-                                        {form.errors
-                                            .password_confirmation && (
+                                        {form.errors.password_confirmation && (
                                             <p className="mt-2 text-sm text-error">
                                                 {
                                                     form.errors
@@ -305,142 +297,166 @@ export default function Security({ security }: Props) {
                                 >
                                     Delete Account
                                 </button>
-                                 
-                                   {deleteModalOpen && (
+
+                                {deleteModalOpen && (
+                                    <div
+                                        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+                                        onClick={closeDeleteModal}
+                                    >
                                         <div
-                                            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
-                                            onClick={closeDeleteModal}
+                                            className="w-full max-w-md rounded-lg border border-outline-variant bg-surface-container-lowest p-6 shadow-xl"
+                                            onClick={(e) => e.stopPropagation()}
                                         >
-                                            <div
-                                                className="w-full max-w-md rounded-lg border border-outline-variant bg-surface-container-lowest p-6 shadow-xl"
-                                                onClick={(e) => e.stopPropagation()}
-                                            >
-                                                <div className="mb-5 flex items-start gap-3">
-                                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-error-container">
-                                                        <TriangleAlert className="h-5 w-5 text-error" />
-                                                    </div>
-
-                                                    <div>
-                                                        <h2 className="text-xl font-semibold text-primary">
-                                                            Delete Account
-                                                        </h2>
-
-                                                        <p className="mt-1 text-sm leading-relaxed text-on-surface-variant">
-                                                            This action will permanently deactivate your account
-                                                            and sign you out from all devices.
-                                                        </p>
-                                                    </div>
+                                            <div className="mb-5 flex items-start gap-3">
+                                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-error-container">
+                                                    <TriangleAlert className="h-5 w-5 text-error" />
                                                 </div>
 
-                                                <form
-                                                    onSubmit={submitDeleteAccount}
-                                                    className="space-y-5"
-                                                >
-                                                    {security.has_password && (
-                                                        <div>
-                                                            <label
-                                                                htmlFor="delete_current_password"
-                                                                className="mb-2 block text-label-sm font-semibold text-on-surface-variant"
-                                                            >
-                                                                Current Password
-                                                            </label>
+                                                <div>
+                                                    <h2 className="text-xl font-semibold text-primary">
+                                                        Delete Account
+                                                    </h2>
 
-                                                            <input
-                                                                id="delete_current_password"
-                                                                type="password"
-                                                                autoComplete="current-password"
-                                                                value={deleteForm.data.current_password}
-                                                                onChange={(e) =>
-                                                                    deleteForm.setData(
-                                                                        'current_password',
-                                                                        e.target.value,
-                                                                    )
-                                                                }
-                                                                className="w-full rounded border border-outline-variant bg-surface p-3 text-body-md outline-none focus:border-error focus:ring-1 focus:ring-error"
-                                                            />
+                                                    <p className="mt-1 text-sm leading-relaxed text-on-surface-variant">
+                                                        This action will
+                                                        permanently deactivate
+                                                        your account and sign
+                                                        you out from all
+                                                        devices.
+                                                    </p>
+                                                </div>
+                                            </div>
 
-                                                            {deleteForm.errors.current_password && (
-                                                                <p className="mt-2 text-sm text-error">
-                                                                    {deleteForm.errors.current_password}
-                                                                </p>
-                                                            )}
-                                                        </div>
-                                                    )}
-
+                                            <form
+                                                onSubmit={submitDeleteAccount}
+                                                className="space-y-5"
+                                            >
+                                                {security.has_password && (
                                                     <div>
                                                         <label
-                                                            htmlFor="delete_confirmation"
+                                                            htmlFor="delete_current_password"
                                                             className="mb-2 block text-label-sm font-semibold text-on-surface-variant"
                                                         >
-                                                            Type DELETE to confirm
+                                                            Current Password
                                                         </label>
 
                                                         <input
-                                                            id="delete_confirmation"
-                                                            type="text"
-                                                            value={deleteForm.data.confirmation}
+                                                            id="delete_current_password"
+                                                            type="password"
+                                                            autoComplete="current-password"
+                                                            value={
+                                                                deleteForm.data
+                                                                    .current_password
+                                                            }
                                                             onChange={(e) =>
                                                                 deleteForm.setData(
-                                                                    'confirmation',
-                                                                    e.target.value,
+                                                                    'current_password',
+                                                                    e.target
+                                                                        .value,
                                                                 )
                                                             }
-                                                            placeholder="DELETE"
-                                                            autoComplete="off"
                                                             className="w-full rounded border border-outline-variant bg-surface p-3 text-body-md outline-none focus:border-error focus:ring-1 focus:ring-error"
                                                         />
 
-                                                        {deleteForm.errors.confirmation && (
+                                                        {deleteForm.errors
+                                                            .current_password && (
                                                             <p className="mt-2 text-sm text-error">
-                                                                {deleteForm.errors.confirmation}
+                                                                {
+                                                                    deleteForm
+                                                                        .errors
+                                                                        .current_password
+                                                                }
                                                             </p>
                                                         )}
                                                     </div>
+                                                )}
 
-                                                    {errors?.account && (
-                                                        <div className="border border-error-container bg-error-container/30 px-4 py-3 text-sm text-error">
-                                                            {errors.account}
-                                                        </div>
-                                                    )}
+                                                <div>
+                                                    <label
+                                                        htmlFor="delete_confirmation"
+                                                        className="mb-2 block text-label-sm font-semibold text-on-surface-variant"
+                                                    >
+                                                        Type DELETE to confirm
+                                                    </label>
 
-                                                    <div className="flex gap-3 pt-2">
-                                                        <button
-                                                            type="button"
-                                                            onClick={closeDeleteModal}
-                                                            disabled={deleteForm.processing}
-                                                            className="flex-1 rounded border border-outline-variant px-4 py-3 text-sm font-semibold text-primary transition-colors hover:bg-surface-container-low disabled:opacity-50"
-                                                        >
-                                                            Cancel
-                                                        </button>
+                                                    <input
+                                                        id="delete_confirmation"
+                                                        type="text"
+                                                        value={
+                                                            deleteForm.data
+                                                                .confirmation
+                                                        }
+                                                        onChange={(e) =>
+                                                            deleteForm.setData(
+                                                                'confirmation',
+                                                                e.target.value,
+                                                            )
+                                                        }
+                                                        placeholder="DELETE"
+                                                        autoComplete="off"
+                                                        className="w-full rounded border border-outline-variant bg-surface p-3 text-body-md outline-none focus:border-error focus:ring-1 focus:ring-error"
+                                                    />
 
-                                                        <button
-                                                            type="submit"
-                                                            disabled={
-                                                                deleteForm.processing ||
-                                                                deleteForm.data.confirmation !== 'DELETE' ||
-                                                                (
-                                                                    security.has_password &&
-                                                                    !deleteForm.data.current_password
-                                                                )
+                                                    {deleteForm.errors
+                                                        .confirmation && (
+                                                        <p className="mt-2 text-sm text-error">
+                                                            {
+                                                                deleteForm
+                                                                    .errors
+                                                                    .confirmation
                                                             }
-                                                            className="flex-1 rounded bg-error px-4 py-3 text-sm font-semibold text-on-error transition-opacity disabled:cursor-not-allowed disabled:opacity-50"
-                                                        >
-                                                            {deleteForm.processing
-                                                                ? 'Deleting...'
-                                                                : 'Delete Account'}
-                                                        </button>
+                                                        </p>
+                                                    )}
+                                                </div>
+
+                                                {errors?.account && (
+                                                    <div className="border border-error-container bg-error-container/30 px-4 py-3 text-sm text-error">
+                                                        {errors.account}
                                                     </div>
-                                                </form>
-                                            </div>
+                                                )}
+
+                                                <div className="flex gap-3 pt-2">
+                                                    <button
+                                                        type="button"
+                                                        onClick={
+                                                            closeDeleteModal
+                                                        }
+                                                        disabled={
+                                                            deleteForm.processing
+                                                        }
+                                                        className="flex-1 rounded border border-outline-variant px-4 py-3 text-sm font-semibold text-primary transition-colors hover:bg-surface-container-low disabled:opacity-50"
+                                                    >
+                                                        Cancel
+                                                    </button>
+
+                                                    <button
+                                                        type="submit"
+                                                        disabled={
+                                                            deleteForm.processing ||
+                                                            deleteForm.data
+                                                                .confirmation !==
+                                                                'DELETE' ||
+                                                            (security.has_password &&
+                                                                !deleteForm.data
+                                                                    .current_password)
+                                                        }
+                                                        className="flex-1 rounded bg-error px-4 py-3 text-sm font-semibold text-on-error transition-opacity disabled:cursor-not-allowed disabled:opacity-50"
+                                                    >
+                                                        {deleteForm.processing
+                                                            ? 'Deleting...'
+                                                            : 'Delete Account'}
+                                                    </button>
+                                                </div>
+                                            </form>
                                         </div>
-                                    )}
+                                    </div>
+                                )}
                             </section>
                         </div>
 
                         {/* Right Column — Active Sessions */}
                         <div className="lg:col-span-2">
                             <section className="overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest shadow-sm">
-
                                 {/* Sessions Header */}
                                 <div className="flex items-center justify-between border-b border-outline-variant bg-surface-container-low p-6">
                                     <div className="flex items-center gap-2">
@@ -462,7 +478,7 @@ export default function Security({ security }: Props) {
                                 {/* Sessions Table */}
                                 <div className="overflow-x-auto">
                                     <table className="w-full border-collapse text-left">
-                                        <thead className="bg-surface text-label-sm uppercase tracking-wider text-on-surface-variant">
+                                        <thead className="bg-surface text-label-sm tracking-wider text-on-surface-variant uppercase">
                                             <tr>
                                                 <th className="border-b border-outline-variant p-4">
                                                     Device
@@ -565,8 +581,7 @@ export default function Security({ security }: Props) {
                                                 ),
                                             )}
 
-                                            {security.sessions.length ===
-                                                0 && (
+                                            {security.sessions.length === 0 && (
                                                 <tr>
                                                     <td
                                                         colSpan={4}
@@ -593,11 +608,11 @@ function formatLastActive(timestamp: number): string {
     const now = Math.floor(Date.now() / 1000);
     const diff = now - timestamp;
 
-    if( diff < 60 ) {
+    if (diff < 60) {
         return 'Just Now';
     }
 
-    if (diff < 3600){
+    if (diff < 3600) {
         const minutes = Math.floor(diff / 60);
 
         return `${minutes} minute${minutes === 1 ? '' : 's'} ago`;
@@ -612,25 +627,24 @@ function formatLastActive(timestamp: number): string {
     const days = Math.floor(diff / 86400);
 
     return `${days} day${days === 1 ? '' : 's'} ago`;
-
 }
 
-    function DeviceIcon({ device }: { device: string }) {
-        const value = device.toLowerCase();
+function DeviceIcon({ device }: { device: string }) {
+    const value = device.toLowerCase();
 
-        if(
-            value.includes('iphone') ||
-            value.includes('android') ||
-            value.includes('mobile') 
-        ) {
-            return <Smartphone className="h-5 w-5"/>;
-        }
-
-        if(
-            value.includes('windows') ||
-            value.includes('mac') ||
-            value.includes('linux') 
-        ) {
-            return <MonitorSmartphone className="h-5 w-5"/>;
-        }
+    if (
+        value.includes('iphone') ||
+        value.includes('android') ||
+        value.includes('mobile')
+    ) {
+        return <Smartphone className="h-5 w-5" />;
     }
+
+    if (
+        value.includes('windows') ||
+        value.includes('mac') ||
+        value.includes('linux')
+    ) {
+        return <MonitorSmartphone className="h-5 w-5" />;
+    }
+}

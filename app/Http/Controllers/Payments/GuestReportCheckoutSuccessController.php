@@ -9,11 +9,12 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\URL;
 use Stripe\StripeClient;
+use Symfony\Component\HttpFoundation\Response;
 use Throwable;
 
 class GuestReportCheckoutSuccessController extends Controller
 {
-    public function __invoke(Request $request)
+    public function __invoke(Request $request): Response
     {
         $sessionId = $request->query('session_id');
         $guestToken = $request->query('guest_token');

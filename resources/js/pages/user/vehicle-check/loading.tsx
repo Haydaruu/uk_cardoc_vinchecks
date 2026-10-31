@@ -1,7 +1,6 @@
-// resources/js/pages/vehicle-check/loading.tsx
 import { Head, router, usePage } from '@inertiajs/react';
-import { useEffect, useRef, useState } from 'react';
 import { ShieldCheck } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 
 type VinCheckProps = {
     id: number;
@@ -38,7 +37,10 @@ export default function LoadingReport() {
     const { props } = usePage<{ vinCheck: VinCheckProps }>();
     const { vinCheck } = props;
     const steps = STEPS[vinCheck.check_type];
-    const currentIndex = Math.max(0, steps.findIndex((s) => s.key === vinCheck.stage));
+    const currentIndex = Math.max(
+        0,
+        steps.findIndex((s) => s.key === vinCheck.stage),
+    );
 
     const [attempts, setAttempts] = useState(0);
     const MAX_ATTEMPTS = 30;
@@ -49,6 +51,7 @@ export default function LoadingReport() {
         const dotInterval = setInterval(() => {
             setDotFrame((prev) => (prev + 1) % DOT_FRAMES.length);
         }, DOT_INTERVAL_MS);
+
         return () => clearInterval(dotInterval);
     }, []);
 
@@ -67,14 +70,19 @@ export default function LoadingReport() {
 
     useEffect(() => {
         const tick = setInterval(() => setNow(Date.now()), 100);
+
         return () => clearInterval(tick);
     }, []);
 
     const elapsedInStep = now - stepStartedAt;
-    const activeProgress = PROGRESS_CAP * (1 - Math.exp(-elapsedInStep / PROGRESS_TIME_CONSTANT_MS));
+    const activeProgress =
+        PROGRESS_CAP *
+        (1 - Math.exp(-elapsedInStep / PROGRESS_TIME_CONSTANT_MS));
 
     useEffect(() => {
-        if (vinCheck.status !== 'pending' || attempts >= MAX_ATTEMPTS) return;
+        if (vinCheck.status !== 'pending' || attempts >= MAX_ATTEMPTS) {
+            return;
+        }
 
         const interval = setInterval(() => {
             setAttempts((prev) => prev + 1);
@@ -88,15 +96,18 @@ export default function LoadingReport() {
         if (vinCheck.status === 'success') {
             router.visit(`/vehicle-check/${vinCheck.id}/loading`); // controller otomatis redirect ke report
         }
-    }, [vinCheck.status]);
+    }, [vinCheck.status, vinCheck.id]);
 
     if (vinCheck.status === 'failed') {
         return (
             <div className="flex min-h-svh items-center justify-center">
                 <div className="text-center">
-                    <p className="text-lg font-bold text-[#bb001a]">Vehicle check failed</p>
+                    <p className="text-lg font-bold text-[#bb001a]">
+                        Vehicle check failed
+                    </p>
                     <p className="mt-2 text-sm text-slate-500">
-                        We encountered an issue while retrieving the vehicle details. Please try again.
+                        We encountered an issue while retrieving the vehicle
+                        details. Please try again.
                     </p>
                 </div>
             </div>
@@ -108,8 +119,10 @@ export default function LoadingReport() {
             <Head title="Processing your report..." />
             <div className="flex min-h-svh flex-col items-center justify-center bg-[#f9f9ff] px-6">
                 <div className="mb-6 text-center">
-                    <h1 className="text-2xl font-bold text-[#00205b]">UKcardoc</h1>
-                    <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.2em] text-[#bb001a]">
+                    <h1 className="text-2xl font-bold text-[#00205b]">
+                        UKcardoc
+                    </h1>
+                    <p className="mt-1 text-[10px] font-bold tracking-[0.2em] text-[#bb001a] uppercase">
                         Sovereign Assurance
                     </p>
                 </div>
@@ -130,29 +143,43 @@ export default function LoadingReport() {
                             return (
                                 <div key={step.key}>
                                     <div className="flex items-center justify-between text-sm">
-                                        <span className={isPending ? 'text-slate-400' : 'font-semibold text-[#151c27]'}>
+                                        <span
+                                            className={
+                                                isPending
+                                                    ? 'text-slate-400'
+                                                    : 'font-semibold text-[#151c27]'
+                                            }
+                                        >
                                             {step.label}
                                             {isActive && (
-                                                <span className="inline-block w-4 text-left">{DOT_FRAMES[dotFrame]}</span>
+                                                <span className="inline-block w-4 text-left">
+                                                    {DOT_FRAMES[dotFrame]}
+                                                </span>
                                             )}
                                         </span>
                                         <span
                                             className={
                                                 isActive
-                                                    ? 'text-[10px] font-bold uppercase text-[#bb001a]'
+                                                    ? 'text-[10px] font-bold text-[#bb001a] uppercase'
                                                     : isDone
-                                                    ? 'text-[10px] font-bold uppercase text-green-600'
-                                                    : 'text-[10px] font-bold uppercase text-slate-300'
+                                                      ? 'text-[10px] font-bold text-green-600 uppercase'
+                                                      : 'text-[10px] font-bold text-slate-300 uppercase'
                                             }
                                         >
-                                            {isActive ? 'ACTIVE' : isDone ? 'DONE' : 'QUEUED'}
+                                            {isActive
+                                                ? 'ACTIVE'
+                                                : isDone
+                                                  ? 'DONE'
+                                                  : 'QUEUED'}
                                         </span>
                                     </div>
                                     {isActive && (
                                         <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-slate-100">
                                             <div
                                                 className="h-full rounded-full bg-[#bb001a] transition-[width] duration-150 ease-linear"
-                                                style={{ width: `${activeProgress}%` }}
+                                                style={{
+                                                    width: `${activeProgress}%`,
+                                                }}
                                             />
                                         </div>
                                     )}
@@ -168,14 +195,19 @@ export default function LoadingReport() {
 
                     <div className="mt-6 flex items-center justify-between rounded bg-[#f0f3ff] px-4 py-3 text-xs">
                         <span className="text-slate-500">
-                            REG: <span className="font-mono font-semibold text-[#151c27]">{vinCheck.registration_number}</span>
+                            REG:{' '}
+                            <span className="font-mono font-semibold text-[#151c27]">
+                                {vinCheck.registration_number}
+                            </span>
                         </span>
                         <ShieldCheck className="size-4 text-slate-400" />
                     </div>
                 </div>
 
                 <p className="mt-6 max-w-md text-center text-sm text-slate-500">
-                    Accessing the UK's most comprehensive vehicle data network. Our real-time connection ensures 100% accuracy for your peace of mind.
+                    Accessing the UK's most comprehensive vehicle data network.
+                    Our real-time connection ensures 100% accuracy for your
+                    peace of mind.
                 </p>
             </div>
         </>

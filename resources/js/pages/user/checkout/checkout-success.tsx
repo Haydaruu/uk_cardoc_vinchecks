@@ -48,10 +48,7 @@ export default function CheckoutSuccess({
     const isSubscription = purchaseType === 'subscription';
     const isCardPayment = !!order.cardBrand && !!order.cardLast4;
 
-    const formattedAmount = formatCurrency(
-        order.amount,
-        order.currency,
-    );
+    const formattedAmount = formatCurrency(order.amount, order.currency);
 
     const invoiceViewUrl = transaction
         ? `/settings/purchase-history/${transaction.id}/invoice`
@@ -77,7 +74,6 @@ export default function CheckoutSuccess({
 
             <main className="min-h-screen bg-surface">
                 <div className="mx-auto max-w-[920px] px-5 py-12 md:px-8 md:py-20">
-
                     {/* =====================================================
                         SUCCESS HEADER
                     ===================================================== */}
@@ -86,7 +82,7 @@ export default function CheckoutSuccess({
                             <CheckCircle2 className="size-7 text-secondary" />
                         </div>
 
-                        <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-secondary">
+                        <p className="mb-2 text-xs font-semibold tracking-[0.18em] text-secondary uppercase">
                             {isSubscription
                                 ? 'Membership confirmed'
                                 : 'Payment confirmed'}
@@ -109,13 +105,11 @@ export default function CheckoutSuccess({
                         RECEIPT CARD
                     ===================================================== */}
                     <section className="overflow-hidden rounded-2xl border border-outline-variant/60 bg-white shadow-[0_18px_50px_rgba(0,13,47,0.06)]">
-
                         {/* -------------------------------------------------
                             Receipt Header
                         ------------------------------------------------- */}
                         <div className="border-b border-outline-variant/50 px-6 py-6 md:px-8 md:py-7">
                             <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-
                                 <div className="flex items-center gap-3">
                                     <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary text-white">
                                         <ReceiptText className="size-5" />
@@ -135,7 +129,7 @@ export default function CheckoutSuccess({
                                 </div>
 
                                 <div className="sm:text-right">
-                                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-outline">
+                                    <p className="text-[11px] font-semibold tracking-[0.16em] text-outline uppercase">
                                         Reference
                                     </p>
 
@@ -150,14 +144,12 @@ export default function CheckoutSuccess({
                             Main Receipt Content
                         ------------------------------------------------- */}
                         <div className="grid md:grid-cols-[1fr_280px]">
-
                             {/* =============================================
                                 Transaction Details
                             ============================================= */}
                             <div className="px-6 py-7 md:px-8 md:py-8">
-
                                 <div>
-                                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-on-surface-variant">
+                                    <p className="text-[11px] font-semibold tracking-[0.16em] text-on-surface-variant uppercase">
                                         {isSubscription
                                             ? 'Membership'
                                             : 'Purchase'}
@@ -169,13 +161,11 @@ export default function CheckoutSuccess({
                                 </div>
 
                                 <div className="mt-7 border-t border-outline-variant/40 pt-6">
-
                                     <p className="mb-5 text-sm font-semibold text-primary">
                                         Transaction details
                                     </p>
 
                                     <div className="grid gap-x-8 gap-y-6 sm:grid-cols-2">
-
                                         <ReceiptField
                                             label="Transaction date"
                                             value={
@@ -277,10 +267,9 @@ export default function CheckoutSuccess({
                             {/* =============================================
                                 Amount Panel
                             ============================================= */}
-                            <div className="flex flex-col justify-between border-t border-outline-variant/50 bg-primary p-6 text-white md:border-l md:border-t-0 md:p-8">
-
+                            <div className="flex flex-col justify-between border-t border-outline-variant/50 bg-primary p-6 text-white md:border-t-0 md:border-l md:p-8">
                                 <div>
-                                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/60">
+                                    <p className="text-[11px] font-semibold tracking-[0.16em] text-white/60 uppercase">
                                         {isSubscription
                                             ? 'Monthly amount'
                                             : 'Amount paid'}
@@ -316,7 +305,6 @@ export default function CheckoutSuccess({
                         ================================================= */}
                         <div className="border-t border-outline-variant/50 bg-surface-container-low px-5 py-4 md:px-6 md:py-5">
                             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-
                                 {/* Invoice Actions */}
                                 <div className="flex flex-col gap-3 sm:flex-row">
                                     {invoiceViewUrl && (
@@ -380,20 +368,12 @@ export default function CheckoutSuccess({
    Receipt Field
 ============================================================= */
 
-function ReceiptField({
-    label,
-    value,
-}: {
-    label: string;
-    value: string;
-}) {
+function ReceiptField({ label, value }: { label: string; value: string }) {
     return (
         <div className="min-w-0">
-            <p className="text-xs text-on-surface-variant">
-                {label}
-            </p>
+            <p className="text-xs text-on-surface-variant">{label}</p>
 
-            <p className="mt-2 break-words text-sm font-semibold leading-5 text-primary">
+            <p className="mt-2 text-sm leading-5 font-semibold break-words text-primary">
                 {value}
             </p>
         </div>
@@ -404,10 +384,7 @@ function ReceiptField({
    Currency
 ============================================================= */
 
-function formatCurrency(
-    amount: string,
-    currency: string,
-): string {
+function formatCurrency(amount: string, currency: string): string {
     const numericAmount = Number(amount);
 
     if (Number.isNaN(numericAmount)) {
@@ -428,9 +405,7 @@ function formatCurrency(
    Date
 ============================================================= */
 
-function formatDateTime(
-    value: string,
-): string {
+function formatDateTime(value: string): string {
     const date = new Date(value);
 
     if (Number.isNaN(date.getTime())) {
@@ -451,9 +426,7 @@ function formatDateTime(
    Payment Method
 ============================================================= */
 
-function formatPaymentMethod(
-    value?: string | null,
-): string {
+function formatPaymentMethod(value?: string | null): string {
     if (!value) {
         return '—';
     }

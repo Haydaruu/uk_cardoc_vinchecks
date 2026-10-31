@@ -3,45 +3,44 @@
 namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
+use App\Models\SocialAccount;
 use Illuminate\Http\Request;
 use Laravel\Socialite\Socialite;
-use App\Models\SocialAccount;
+use Symfony\Component\HttpFoundation\RedirectResponse;
 
 class ConnectedAccountController extends Controller
 {
     private function ensureSupportedProvider(string $provider): void
     {
         abort_unless(in_array($provider, ['google', 'microsoft'], true),
-        404
+            404
         );
     }
 
-    public function redirect(string $provider)
+    public function redirect(string $provider): RedirectResponse
     {
         $this->ensureSupportedProvider($provider);
 
         config([
-            "services.{$provider}.redirect" =>
-                route(
-                    'settings.connected-accounts.callback',
-                    ['provider' => $provider]
-                ),
+            "services.{$provider}.redirect" => route(
+                'settings.connected-accounts.callback',
+                ['provider' => $provider]
+            ),
         ]);
 
         return Socialite::driver($provider)->redirect();
 
     }
 
-    public function callback(Request $request, string $provider)
+    public function callback(Request $request, string $provider): RedirectResponse
     {
-         $this->ensureSupportedProvider($provider);
+        $this->ensureSupportedProvider($provider);
 
         config([
-            "services.{$provider}.redirect" =>
-                route(
-                    'settings.connected-accounts.callback',
-                    ['provider' => $provider]
-                ),
+            "services.{$provider}.redirect" => route(
+                'settings.connected-accounts.callback',
+                ['provider' => $provider]
+            ),
         ]);
 
         $user = $request->user();
@@ -50,28 +49,25 @@ class ConnectedAccountController extends Controller
 
         $existingAccount = SocialAccount::where('provider', $provider)
             ->where('provider_user_id', $providerUser
-            ->getId())
+                ->getId())
             ->first();
 
-        if ( $existingAccount && $existingAccount->user_id !== $user->id)
-            {
-                return redirect()
-                    ->route('settings.connected-accounts')
-                    ->with('error', ucfirst($provider). ' account is already connected to another UKCardoc account.');
-            }
-        
+        if ($existingAccount && $existingAccount->user_id !== $user->id) {
+            return redirect()
+                ->route('settings.connected-accounts')
+                ->with('error', ucfirst($provider).' account is already connected to another UKCardoc account.');
+        }
+
         $currentProvider = $user->socialAccounts()
             ->where('provider', $provider)
             ->first();
 
-        if( $currentProvider && $currentProvider->provider_user_id !== $providerUser->getId())
-            {
-                return redirect()
-                    ->route('settings.connected-accounts')
-                    ->with('error', ucfirst($provider). 'is already connected. Disconnect it before connecting another account.');
-            }
-    
-        
+        if ($currentProvider && $currentProvider->provider_user_id !== $providerUser->getId()) {
+            return redirect()
+                ->route('settings.connected-accounts')
+                ->with('error', ucfirst($provider).'is already connected. Disconnect it before connecting another account.');
+        }
+
         SocialAccount::updateOrCreate(
             [
                 'user_id' => $user->id,
@@ -88,7 +84,7 @@ class ConnectedAccountController extends Controller
 
     }
 
-    public function destroy(Request $request, string $provider)
+    public function destroy(Request $request, string $provider): RedirectResponse
     {
         $this->ensureSupportedProvider($provider);
 
@@ -100,18 +96,18 @@ class ConnectedAccountController extends Controller
 
         $loginMethods = $user->socialAccounts()->count();
 
-        if(! is_null($user->password)) {
-            $loginMethods ++;
+        if (! is_null($user->password)) {
+            $loginMethods++;
         }
 
-        if ($loginMethods <= 1){
+        if ($loginMethods <= 1) {
             return back()->with(
-                'error', ucfirst($provider). ' cannot be disconected because it is your only sign-in method. '
+                'error', ucfirst($provider).' cannot be disconected because it is your only sign-in method. '
             );
         }
 
         $account->delete();
 
-        return back()->with('success', ucfirst($provider). ' account disconnected is successfully.');
+        return back()->with('success', ucfirst($provider).' account disconnected is successfully.');
     }
 }

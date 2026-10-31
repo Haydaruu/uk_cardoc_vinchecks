@@ -10,7 +10,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-       DB::table('guest_report_purchases')
+        DB::table('guest_report_purchases')
             ->whereNotNull('access_token_hash')
             ->orderBy('id')
             ->chunkById(100, function ($purchases): void {
@@ -58,8 +58,5 @@ return new class extends Migration
     /**
      * Reverse the migrations.
      */
-    public function down(): void
-    {
-
-    }
+    public function down(): void {}
 };

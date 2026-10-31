@@ -53,7 +53,7 @@ export default function ReactivateAdminModal({
                 <div className="h-1.5 rounded-t-xl bg-emerald-600" />
 
                 <div className="p-6">
-                    <div className="flex items-center justify-between pb-4 border-b border-outline-variant/60">
+                    <div className="flex items-center justify-between border-b border-outline-variant/60 pb-4">
                         <div className="flex items-center gap-3">
                             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
                                 <UserCheck className="h-5 w-5" />
@@ -79,21 +79,27 @@ export default function ReactivateAdminModal({
 
                     <form onSubmit={handleSubmit} className="mt-5 space-y-4">
                         <div className="flex items-start gap-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-800">
-                            <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5 text-emerald-600" />
+                            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
                             <div className="space-y-1">
                                 <p className="font-semibold text-emerald-900">
                                     Restore Operational Access
                                 </p>
                                 <p>
-                                    Reactivating this account will restore full access to administrative console operations appropriate for their role ({admin.role}).
+                                    Reactivating this account will restore full
+                                    access to administrative console operations
+                                    appropriate for their role ({admin.role}).
                                 </p>
                             </div>
                         </div>
 
                         {admin.suspended_reason && (
                             <div className="rounded-lg border border-outline-variant bg-surface p-3 text-xs">
-                                <span className="font-semibold text-on-surface-variant">Previous Deactivation Reason:</span>
-                                <p className="mt-1 text-on-surface italic">"{admin.suspended_reason}"</p>
+                                <span className="font-semibold text-on-surface-variant">
+                                    Previous Deactivation Reason:
+                                </span>
+                                <p className="mt-1 text-on-surface italic">
+                                    "{admin.suspended_reason}"
+                                </p>
                             </div>
                         )}
 
@@ -102,28 +108,40 @@ export default function ReactivateAdminModal({
                                 htmlFor="reactivate-admin-reason"
                                 className="block text-xs font-semibold text-on-surface"
                             >
-                                Mandatory Reactivation Reason <span className="text-error">*</span>
+                                Mandatory Reactivation Reason{' '}
+                                <span className="text-error">*</span>
                             </label>
                             <textarea
                                 id="reactivate-admin-reason"
                                 rows={3}
                                 value={data.reason}
-                                onChange={(e) => setData('reason', e.target.value)}
+                                onChange={(e) =>
+                                    setData('reason', e.target.value)
+                                }
                                 disabled={processing}
                                 placeholder="e.g. Employee returned from approved leave of absence"
                                 className="mt-1.5 w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-sm text-on-surface transition focus:border-emerald-600 focus:outline-hidden disabled:opacity-50"
                             />
                             <div className="mt-1 flex items-center justify-between text-[11px]">
-                                <span className={data.reason.length < 5 && data.reason.length > 0 ? 'text-error' : 'text-on-surface-variant/70'}>
+                                <span
+                                    className={
+                                        data.reason.length < 5 &&
+                                        data.reason.length > 0
+                                            ? 'text-error'
+                                            : 'text-on-surface-variant/70'
+                                    }
+                                >
                                     {data.reason.length} / 5 minimum characters
                                 </span>
                                 {errors.reason && (
-                                    <span className="text-error">{errors.reason}</span>
+                                    <span className="text-error">
+                                        {errors.reason}
+                                    </span>
                                 )}
                             </div>
                         </div>
 
-                        <div className="mt-6 flex items-center justify-end gap-3 pt-3 border-t border-outline-variant/60">
+                        <div className="mt-6 flex items-center justify-end gap-3 border-t border-outline-variant/60 pt-3">
                             <button
                                 type="button"
                                 onClick={onClose}
@@ -137,8 +155,14 @@ export default function ReactivateAdminModal({
                                 disabled={!canSubmit}
                                 className="flex items-center gap-2 rounded-lg bg-emerald-600 px-5 py-2 text-xs font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
                             >
-                                {processing && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                                <span>{processing ? 'Reactivating...' : 'Confirm Reactivation'}</span>
+                                {processing && (
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                )}
+                                <span>
+                                    {processing
+                                        ? 'Reactivating...'
+                                        : 'Confirm Reactivation'}
+                                </span>
                             </button>
                         </div>
                     </form>

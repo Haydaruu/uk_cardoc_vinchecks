@@ -1,8 +1,8 @@
-import SettingsLayout from "@/layouts/settings/settings-layout";
-import { router, usePage } from "@inertiajs/react";
+import { router, usePage } from '@inertiajs/react';
 import { AlertTriangle, Info } from 'lucide-react';
 import { useState } from 'react';
 
+import SettingsLayout from '@/layouts/settings/settings-layout';
 
 type ProviderAccount = {
     connected: boolean;
@@ -31,35 +31,30 @@ type Provider = 'google' | 'microsoft';
 
 export default function ConnectedAccounts({ connectedAccounts }: Props) {
     const { flash } = usePage<SharedProps>().props;
-    const [ disconnectingProvider, setDisconnectingProvider] = 
+    const [disconnectingProvider, setDisconnectingProvider] =
         useState<Provider | null>(null);
-    const disconnectProvider = (
-            provider: 'google' | 'microsoft',
-        ) => {
-            const confirmed = window.confirm(
-                `Disconnect your ${provider} accounts?`,
-            );
-
-            if(!confirmed) {
-                return;
-            }
-
-            router.delete(
-                `/settings/connected-accounts/${provider}`,
-            {
-                preserveScroll: true,
-
-                onFinish: () => {
-                    setDisconnectingProvider(null);
-                },
-            },
+    const disconnectProvider = (provider: 'google' | 'microsoft') => {
+        const confirmed = window.confirm(
+            `Disconnect your ${provider} accounts?`,
         );
+
+        if (!confirmed) {
+            return;
+        }
+
+        router.delete(`/settings/connected-accounts/${provider}`, {
+            preserveScroll: true,
+
+            onFinish: () => {
+                setDisconnectingProvider(null);
+            },
+        });
     };
+
     return (
         <SettingsLayout>
             <div className="min-h-screen bg-surface">
                 <div className="mx-auto w-full max-w-3xl px-margin-mobile py-10 md:px-gutter lg:py-section-padding">
-
                     {/* Page Header */}
                     <header className="mb-10">
                         <h1 className="text-h1 font-bold tracking-tight text-primary">
@@ -87,18 +82,13 @@ export default function ConnectedAccounts({ connectedAccounts }: Props) {
                     )}
 
                     <div className="space-y-6">
-
                         {/* Google */}
                         <ProviderCard
                             provider="google"
                             title="GOOGLE"
                             account={connectedAccounts.google}
-                            disconnecting={
-                                disconnectingProvider === 'google'
-                            }
-                            onDisconnect={() =>
-                                disconnectProvider('google')
-                            }
+                            disconnecting={disconnectingProvider === 'google'}
+                            onDisconnect={() => disconnectProvider('google')}
                         />
 
                         {/* Microsoft */}
@@ -107,22 +97,18 @@ export default function ConnectedAccounts({ connectedAccounts }: Props) {
                             title="MICROSOFT"
                             account={connectedAccounts.microsoft}
                             disconnecting={
-                                disconnectingProvider ===
-                                'microsoft'
+                                disconnectingProvider === 'microsoft'
                             }
-                            onDisconnect={() =>
-                                disconnectProvider('microsoft')
-                            }
+                            onDisconnect={() => disconnectProvider('microsoft')}
                         />
 
                         {/* Footer note */}
                         <div className="mt-8 flex items-start gap-2 text-primary">
                             <Info className="mt-0.5 h-5 w-5 shrink-0" />
 
-                            <p className="text-label-sm font-semibold leading-relaxed">
-                                Keep at least one sign-in method
-                                connected to avoid losing access to
-                                your account.
+                            <p className="text-label-sm leading-relaxed font-semibold">
+                                Keep at least one sign-in method connected to
+                                avoid losing access to your account.
                             </p>
                         </div>
                     </div>
@@ -148,18 +134,15 @@ function ProviderCard({
     onDisconnect,
 }: ProviderCardProps) {
     const connectUrl = `/settings/connected-accounts/${provider}/redirect`;
+
     return (
         <section className="rounded-lg border border-outline-variant bg-surface-container-lowest p-6 shadow-sm transition-shadow hover:shadow-md">
-
             <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-
                 {/* Provider */}
                 <div className="flex items-center gap-4">
                     <div
                         className={`flex h-12 w-12 shrink-0 items-center justify-center rounded border border-outline-variant bg-surface-container-low ${
-                            !account.connected
-                                ? 'opacity-70'
-                                : ''
+                            !account.connected ? 'opacity-70' : ''
                         }`}
                     >
                         {provider === 'google' ? (
@@ -191,9 +174,8 @@ function ProviderCard({
                         </div>
 
                         {account.connected && (
-                            <p className="mt-1 break-all text-body-md text-on-surface">
-                                {account.email ??
-                                    'Email unavailable'}
+                            <p className="mt-1 text-body-md break-all text-on-surface">
+                                {account.email ?? 'Email unavailable'}
                             </p>
                         )}
                     </div>
@@ -203,10 +185,7 @@ function ProviderCard({
                 {account.connected ? (
                     <button
                         type="button"
-                        disabled={
-                            !account.can_disconnect ||
-                            disconnecting
-                        }
+                        disabled={!account.can_disconnect || disconnecting}
                         onClick={onDisconnect}
                         className={`shrink-0 rounded px-6 py-2 text-label-sm font-semibold transition-colors ${
                             account.can_disconnect
@@ -214,9 +193,7 @@ function ProviderCard({
                                 : 'cursor-not-allowed border-2 border-outline-variant text-outline opacity-60'
                         }`}
                     >
-                        {disconnecting
-                            ? 'Disconnecting...'
-                            : 'Disconnect'}
+                        {disconnecting ? 'Disconnecting...' : 'Disconnect'}
                     </button>
                 ) : (
                     <a
@@ -229,35 +206,25 @@ function ProviderCard({
             </div>
 
             {/* Only login method warning */}
-            {account.connected &&
-                !account.can_disconnect && (
-                    <div className="mt-4 flex items-start gap-2 rounded border border-outline-variant bg-surface-container-low p-3">
-                        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-secondary" />
+            {account.connected && !account.can_disconnect && (
+                <div className="mt-4 flex items-start gap-2 rounded border border-outline-variant bg-surface-container-low p-3">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-secondary" />
 
-                        <p className="text-label-sm leading-relaxed text-on-surface-variant">
-                            {title.charAt(0) +
-                                title
-                                    .slice(1)
-                                    .toLowerCase()}{' '}
-                            cannot be disconnected because it is
-                            currently your only sign-in method.
-                            Keep at least one sign-in method
-                            connected to avoid losing access to
-                            your account.
-                        </p>
-                    </div>
-                )}
+                    <p className="text-label-sm leading-relaxed text-on-surface-variant">
+                        {title.charAt(0) + title.slice(1).toLowerCase()} cannot
+                        be disconnected because it is currently your only
+                        sign-in method. Keep at least one sign-in method
+                        connected to avoid losing access to your account.
+                    </p>
+                </div>
+            )}
         </section>
     );
 }
 
 function GoogleLogo() {
     return (
-        <svg
-            viewBox="0 0 24 24"
-            className="h-6 w-6"
-            aria-label="Google"
-        >
+        <svg viewBox="0 0 24 24" className="h-6 w-6" aria-label="Google">
             <path
                 fill="#4285F4"
                 d="M21.6 12.23c0-.71-.06-1.4-.18-2.06H12v3.9h5.38a4.6 4.6 0 0 1-1.99 3.02v2.53h3.23c1.9-1.75 2.98-4.33 2.98-7.39Z"
@@ -280,11 +247,7 @@ function GoogleLogo() {
 
 function MicrosoftLogo() {
     return (
-        <svg
-            viewBox="0 0 24 24"
-            className="h-6 w-6"
-            aria-label="Microsoft"
-        >
+        <svg viewBox="0 0 24 24" className="h-6 w-6" aria-label="Microsoft">
             <path fill="#F25022" d="M2 2h9v9H2z" />
             <path fill="#7FBA00" d="M13 2h9v9h-9z" />
             <path fill="#00A4EF" d="M2 13h9v9H2z" />

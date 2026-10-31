@@ -8,10 +8,10 @@ use App\Http\Controllers\Payments\GuestReportCheckoutController;
 use App\Http\Controllers\Payments\GuestReportCheckoutSuccessController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ReportPdfController;
+use App\Http\Controllers\SupportMessageController;
 use App\Http\Controllers\VehicleCheckController;
 use App\Http\Controllers\Webhook\PayPalWebhookController;
 use App\Http\Controllers\Webhook\StripeWebhookController;
-use App\Http\Controllers\SupportMessageController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -22,8 +22,12 @@ Route::get('/', [PageController::class, 'home'])
 Route::get('/support', [PageController::class, 'support'])->name('page.support');
 Route::post('/support', [SupportMessageController::class, 'store'])->middleware('throttle:5,1')->name('page.support.submit');
 Route::get('/pricing', [PageController::class, 'pricing'])->name('page.pricing');
-Route::get('/terms-and-conditions', function () {return Inertia::render('terms-and-conditions');})->name('page.terms-and-conditions');
-Route::get('/about-us', function () { return Inertia::render('about-us');})->name('page.about-us');
+Route::get('/terms-and-conditions', function () {
+    return Inertia::render('terms-and-conditions');
+})->name('page.terms-and-conditions');
+Route::get('/about-us', function () {
+    return Inertia::render('about-us');
+})->name('page.about-us');
 
 Route::get('/guest-purchases/{purchase}/invoice', [GuestReportInvoiceController::class, 'show'])->middleware('signed')->name('guest-report.invoice.show');
 Route::get('/guest-purchases/{purchase}/invoice/pdf', [GuestReportInvoiceController::class, 'download'])->middleware('signed')->name('guest-report.invoice.download');

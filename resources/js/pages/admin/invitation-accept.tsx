@@ -1,5 +1,12 @@
 import { Head, useForm } from '@inertiajs/react';
-import { AlertTriangle, CheckCircle2, KeyRound, Loader2, ShieldCheck, UserCheck } from 'lucide-react';
+import {
+    AlertTriangle,
+    CheckCircle2,
+    KeyRound,
+    Loader2,
+    ShieldCheck,
+    UserCheck,
+} from 'lucide-react';
 import React from 'react';
 
 interface InvitationAcceptProps {
@@ -60,7 +67,7 @@ export default function InvitationAccept({
                                 <span className="block text-xs font-medium text-slate-500">
                                     Invited Email Address
                                 </span>
-                                <span className="block font-semibold text-sm text-slate-900">
+                                <span className="block text-sm font-semibold text-slate-900">
                                     {invitation.email}
                                 </span>
                             </div>
@@ -71,7 +78,9 @@ export default function InvitationAccept({
                                         : 'border border-blue-300 bg-blue-100 text-blue-800'
                                 }`}
                             >
-                                {isSuperAdmin ? 'Super Administrator' : 'Administrator'}
+                                {isSuperAdmin
+                                    ? 'Super Administrator'
+                                    : 'Administrator'}
                             </span>
                         </div>
                     </div>
@@ -84,11 +93,22 @@ export default function InvitationAccept({
                                 <span>Existing Customer Account Detected</span>
                             </div>
                             <p className="mt-1 leading-relaxed text-amber-800">
-                                An account already exists for <strong>{invitation.email}</strong>. Accepting this invitation will elevate your account privileges to <strong>{isSuperAdmin ? 'Super Administrator' : 'Administrator'}</strong>.
+                                An account already exists for{' '}
+                                <strong>{invitation.email}</strong>. Accepting
+                                this invitation will elevate your account
+                                privileges to{' '}
+                                <strong>
+                                    {isSuperAdmin
+                                        ? 'Super Administrator'
+                                        : 'Administrator'}
+                                </strong>
+                                .
                             </p>
                             {!is_logged_in_as_target && (
                                 <p className="mt-2 font-medium text-amber-950">
-                                    Please enter your existing password below to verify account ownership before claiming administrative access.
+                                    Please enter your existing password below to
+                                    verify account ownership before claiming
+                                    administrative access.
                                 </p>
                             )}
                         </div>
@@ -99,10 +119,13 @@ export default function InvitationAccept({
                         <div className="mb-6 rounded-lg border border-sky-200 bg-sky-50 p-4 text-xs text-sky-900">
                             <div className="flex items-center gap-2 font-semibold">
                                 <ShieldCheck className="h-4 w-4 text-sky-600" />
-                                <span>Complete Administrator Account Setup</span>
+                                <span>
+                                    Complete Administrator Account Setup
+                                </span>
                             </div>
                             <p className="mt-1 leading-relaxed text-sky-800">
-                                Set your full name and a secure password to activate your console credentials.
+                                Set your full name and a secure password to
+                                activate your console credentials.
                             </p>
                         </div>
                     )}
@@ -115,19 +138,24 @@ export default function InvitationAccept({
                                     htmlFor="admin-name"
                                     className="block text-xs font-semibold text-slate-700"
                                 >
-                                    Full Name <span className="text-red-500">*</span>
+                                    Full Name{' '}
+                                    <span className="text-red-500">*</span>
                                 </label>
                                 <input
                                     id="admin-name"
                                     type="text"
                                     value={data.name}
-                                    onChange={(e) => setData('name', e.target.value)}
+                                    onChange={(e) =>
+                                        setData('name', e.target.value)
+                                    }
                                     disabled={processing}
                                     required
                                     className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 transition focus:border-blue-600 focus:outline-hidden"
                                 />
                                 {errors.name && (
-                                    <p className="mt-1 text-xs text-red-600">{errors.name}</p>
+                                    <p className="mt-1 text-xs text-red-600">
+                                        {errors.name}
+                                    </p>
                                 )}
                             </div>
                         )}
@@ -139,7 +167,9 @@ export default function InvitationAccept({
                                     htmlFor="admin-password"
                                     className="block text-xs font-semibold text-slate-700"
                                 >
-                                    {is_existing_user ? 'Confirm Existing Password' : 'New Password'}{' '}
+                                    {is_existing_user
+                                        ? 'Confirm Existing Password'
+                                        : 'New Password'}{' '}
                                     <span className="text-red-500">*</span>
                                 </label>
                                 <div className="relative mt-1">
@@ -147,16 +177,24 @@ export default function InvitationAccept({
                                         id="admin-password"
                                         type="password"
                                         value={data.password}
-                                        onChange={(e) => setData('password', e.target.value)}
+                                        onChange={(e) =>
+                                            setData('password', e.target.value)
+                                        }
                                         disabled={processing}
                                         required
-                                        placeholder={is_existing_user ? '••••••••' : 'Minimum 8 characters'}
+                                        placeholder={
+                                            is_existing_user
+                                                ? '••••••••'
+                                                : 'Minimum 8 characters'
+                                        }
                                         className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 transition focus:border-blue-600 focus:outline-hidden"
                                     />
-                                    <KeyRound className="absolute right-3 top-2.5 h-4 w-4 text-slate-400" />
+                                    <KeyRound className="absolute top-2.5 right-3 h-4 w-4 text-slate-400" />
                                 </div>
                                 {errors.password && (
-                                    <p className="mt-1 text-xs text-red-600">{errors.password}</p>
+                                    <p className="mt-1 text-xs text-red-600">
+                                        {errors.password}
+                                    </p>
                                 )}
                             </div>
                         )}
@@ -168,13 +206,19 @@ export default function InvitationAccept({
                                     htmlFor="admin-password-confirmation"
                                     className="block text-xs font-semibold text-slate-700"
                                 >
-                                    Confirm New Password <span className="text-red-500">*</span>
+                                    Confirm New Password{' '}
+                                    <span className="text-red-500">*</span>
                                 </label>
                                 <input
                                     id="admin-password-confirmation"
                                     type="password"
                                     value={data.password_confirmation}
-                                    onChange={(e) => setData('password_confirmation', e.target.value)}
+                                    onChange={(e) =>
+                                        setData(
+                                            'password_confirmation',
+                                            e.target.value,
+                                        )
+                                    }
                                     disabled={processing}
                                     required
                                     placeholder="Repeat password"

@@ -1,25 +1,21 @@
-import BaseLayout from '@/layouts/base-layout';
-import { createIntent } from '@/routes/checkout';
-
+import { Head, router } from '@inertiajs/react';
+import {
+    PayPalOneTimePaymentButton,
+    PayPalProvider,
+    PayPalSubscriptionButton,
+} from '@paypal/react-paypal-js/sdk-v6';
+import type {
+    OnApproveDataOneTimePayments,
+    OnApproveDataSubscriptions,
+    OnErrorData,
+} from '@paypal/react-paypal-js/sdk-v6';
 import {
     Elements,
     PaymentElement,
     useElements,
     useStripe,
 } from '@stripe/react-stripe-js';
-
 import { loadStripe } from '@stripe/stripe-js';
-import { Head, router } from '@inertiajs/react';
-
-import {
-    PayPalOneTimePaymentButton,
-    PayPalProvider,
-    PayPalSubscriptionButton,
-    type OnApproveDataOneTimePayments,
-    type OnApproveDataSubscriptions,
-    type OnErrorData,
-} from '@paypal/react-paypal-js/sdk-v6';
-
 import {
     Check,
     CreditCard,
@@ -28,13 +24,11 @@ import {
     ShieldCheck,
     Wallet,
 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import type { FormEvent, ReactNode } from 'react';
 
-import {
-    type FormEvent,
-    type ReactNode,
-    useEffect,
-    useState,
-} from 'react';
+import BaseLayout from '@/layouts/base-layout';
+import { createIntent } from '@/routes/checkout';
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_KEY);
 
@@ -85,17 +79,14 @@ export default function Checkout({
         : createIntent.url();
 
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- Clear stale payment data when the selected plan changes.
         setClientSecret(null);
         setSubscriptionId(null);
         setInitError(null);
     }, [plan, planType]);
 
     useEffect(() => {
-        if (
-            paymentMethod !== 'stripe'
-            || clientSecret
-            || isGuestReport
-        ) {
+        if (paymentMethod !== 'stripe' || clientSecret || isGuestReport) {
             return;
         }
 
@@ -110,23 +101,31 @@ export default function Checkout({
                     subscriptionId?: string;
                 }>(stripeIntentUrl, { plan });
 
-                if(!data.clientSecret) {
-                    throw new Error('Stripe did not return a payment client secret.');
+                if (!data.clientSecret) {
+                    throw new Error(
+                        'Stripe did not return a payment client secret.',
+                    );
                 }
 
-                if(cancelled) return;
+                if (cancelled) {
+                    return;
+                }
 
-                if(isSubscription) {
-                    if(!data.subscriptionId) {
-                        throw new Error('Stripe did not return a subscription ID.');
+                if (isSubscription) {
+                    if (!data.subscriptionId) {
+                        throw new Error(
+                            'Stripe did not return a subscription ID.',
+                        );
                     }
 
                     setSubscriptionId(data.subscriptionId);
                 }
 
                 setClientSecret(data.clientSecret);
-            } catch(error) {
-                if(cancelled) return;
+            } catch (error) {
+                if (cancelled) {
+                    return;
+                }
 
                 setInitError(
                     error instanceof Error
@@ -147,6 +146,7 @@ export default function Checkout({
         clientSecret,
         stripeIntentUrl,
         isSubscription,
+        isGuestReport,
     ]);
 
     return (
@@ -155,10 +155,9 @@ export default function Checkout({
 
             <main className="min-h-[calc(100vh-80px)] bg-surface">
                 <div className="mx-auto max-w-[1180px] px-5 py-10 md:px-8 md:py-14">
-
                     {/* Heading */}
                     <div className="mb-9 max-w-2xl">
-                        <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-on-surface-variant">
+                        <div className="mb-3 flex items-center gap-2 text-xs font-semibold tracking-[0.16em] text-on-surface-variant uppercase">
                             <ShieldCheck className="size-4 text-secondary" />
                             Secure checkout
                         </div>
@@ -167,24 +166,22 @@ export default function Checkout({
                             {isGuestReport
                                 ? 'Complete your Full Vehicle Report purchase'
                                 : isSubscription
-                                ? `Start your ${label} membership`
-                                : `Complete your ${label} purchase`}
+                                  ? `Start your ${label} membership`
+                                  : `Complete your ${label} purchase`}
                         </h1>
 
                         <p className="mt-3 max-w-xl text-sm leading-6 text-on-surface-variant">
                             {isGuestReport
                                 ? 'Complete your secure payment. Your full report access link will be emailed to you when the report is ready.'
                                 : isSubscription
-                                ? `${credits} credits are added to your account every month. Cancel anytime from your subscription settings.`
-                                : `${credits} ${credits === 1 ? 'credit' : 'credits'} will be available after payment.`}
+                                  ? `${credits} credits are added to your account every month. Cancel anytime from your subscription settings.`
+                                  : `${credits} ${credits === 1 ? 'credit' : 'credits'} will be available after payment.`}
                         </p>
                     </div>
 
                     <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_390px]">
-
                         {/* Payment */}
                         <section className="overflow-hidden rounded-xl border border-outline-variant/60 bg-white shadow-[0_12px_35px_rgba(0,13,47,0.05)]">
-
                             {/* Payment selector */}
                             <div className="border-b border-outline-variant/50 px-6 py-6 md:px-8">
                                 <div className="mb-4 flex items-center justify-between">
@@ -222,7 +219,9 @@ export default function Checkout({
                                         type="button"
                                         disabled={isGuestReport}
                                         onClick={() => {
-                                            if (isGuestReport) return;
+                                            if (isGuestReport) {
+                                                return;
+                                            }
 
                                             setInitError(null);
                                             setPaymentMethod('paypal');
@@ -237,7 +236,7 @@ export default function Checkout({
                                         <span>PayPal</span>
 
                                         {isGuestReport && (
-                                            <span className="rounded bg-surface-container px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-on-surface-variant">
+                                            <span className="rounded bg-surface-container px-2 py-1 text-[10px] font-bold tracking-wide text-on-surface-variant uppercase">
                                                 Coming soon
                                             </span>
                                         )}
@@ -247,9 +246,8 @@ export default function Checkout({
 
                             {/* Payment body */}
                             <div className="px-6 py-7 md:px-8 md:py-8">
-
-                                {paymentMethod === 'stripe' && (
-                                    isGuestReport ? (
+                                {paymentMethod === 'stripe' &&
+                                    (isGuestReport ? (
                                         <GuestReportStripeCheckout
                                             reportId={guestReport?.id ?? null}
                                             amountDisplay={amountDisplay}
@@ -257,7 +255,9 @@ export default function Checkout({
                                     ) : (
                                         <>
                                             {initError && (
-                                                <PaymentError message={initError} />
+                                                <PaymentError
+                                                    message={initError}
+                                                />
                                             )}
 
                                             {!initError && !clientSecret && (
@@ -272,39 +272,54 @@ export default function Checkout({
 
                                                         appearance: {
                                                             variables: {
-                                                                colorPrimary: '#000d2f',
-                                                                colorDanger: '#ba1a1a',
-                                                                colorText: '#151c27',
-                                                                fontFamily: 'Inter, sans-serif',
-                                                                borderRadius: '6px',
-                                                                spacingUnit: '4px',
+                                                                colorPrimary:
+                                                                    '#000d2f',
+                                                                colorDanger:
+                                                                    '#ba1a1a',
+                                                                colorText:
+                                                                    '#151c27',
+                                                                fontFamily:
+                                                                    'Inter, sans-serif',
+                                                                borderRadius:
+                                                                    '6px',
+                                                                spacingUnit:
+                                                                    '4px',
                                                             },
 
                                                             rules: {
                                                                 '.Input': {
-                                                                    borderColor: '#d8dae2',
-                                                                    boxShadow: 'none',
-                                                                    padding: '13px 14px',
+                                                                    borderColor:
+                                                                        '#d8dae2',
+                                                                    boxShadow:
+                                                                        'none',
+                                                                    padding:
+                                                                        '13px 14px',
                                                                 },
 
-                                                                '.Input:focus': {
-                                                                    borderColor: '#455c99',
-                                                                    boxShadow: '0 0 0 1px #455c99',
-                                                                },
+                                                                '.Input:focus':
+                                                                    {
+                                                                        borderColor:
+                                                                            '#455c99',
+                                                                        boxShadow:
+                                                                            '0 0 0 1px #455c99',
+                                                                    },
                                                             },
                                                         },
                                                     }}
                                                 >
                                                     <StripeCheckoutForm
-                                                        amountDisplay={amountDisplay}
+                                                        amountDisplay={
+                                                            amountDisplay
+                                                        }
                                                         planType={planType}
-                                                        subscriptionId={subscriptionId}
+                                                        subscriptionId={
+                                                            subscriptionId
+                                                        }
                                                     />
                                                 </Elements>
                                             )}
                                         </>
-                                    )
-                                )}
+                                    ))}
 
                                 {paymentMethod === 'paypal' && (
                                     <PayPalSection
@@ -319,7 +334,8 @@ export default function Checkout({
                             {/* Secure footer */}
                             <div className="flex items-center gap-3 border-t border-outline-variant/40 bg-surface-container-low/50 px-6 py-4 text-xs leading-5 text-on-surface-variant md:px-8">
                                 <ShieldCheck className="size-4 shrink-0 text-primary" />
-                                Payment information is processed securely by the selected payment provider.
+                                Payment information is processed securely by the
+                                selected payment provider.
                             </div>
                         </section>
 
@@ -337,7 +353,6 @@ export default function Checkout({
         </>
     );
 }
-
 
 function OrderSummary({
     label,
@@ -361,7 +376,7 @@ function OrderSummary({
         <aside className="lg:sticky lg:top-8">
             <div className="overflow-hidden rounded-xl border border-outline-variant/60 bg-white shadow-[0_12px_35px_rgba(0,13,47,0.05)]">
                 <div className="border-b border-outline-variant/50 px-6 py-5">
-                    <p className="text-xs font-semibold uppercase tracking-[0.15em] text-on-surface-variant">
+                    <p className="text-xs font-semibold tracking-[0.15em] text-on-surface-variant uppercase">
                         Order summary
                     </p>
                 </div>
@@ -479,11 +494,15 @@ function GuestReportStripeCheckout({
 
     function handleContinue() {
         if (!reportId) {
-            setErrorMessage('The report could not be identified. Please return to the report page.');
+            setErrorMessage(
+                'The report could not be identified. Please return to the report page.',
+            );
+
             return;
         }
 
         setErrorMessage(null);
+
         setIsProcessing(true);
 
         router.post(
@@ -492,8 +511,8 @@ function GuestReportStripeCheckout({
             {
                 onError: (errors) => {
                     setErrorMessage(
-                        errors.checkout
-                        ?? 'Unable to start checkout. Please try again.',
+                        errors.checkout ??
+                            'Unable to start checkout. Please try again.',
                     );
                 },
                 onFinish: () => {
@@ -515,7 +534,8 @@ function GuestReportStripeCheckout({
                         Secure payment with Stripe
                     </h2>
                     <p className="mt-1 text-sm text-on-surface-variant">
-                        Choose from the payment methods available at Stripe checkout.
+                        Choose from the payment methods available at Stripe
+                        checkout.
                     </p>
                 </div>
             </div>
@@ -589,7 +609,9 @@ function PayPalSection({
                 </div>
 
                 <h2 className="text-lg font-semibold text-primary">
-                    {isSubscription ? 'Subscribe with PayPal' : 'Pay with PayPal'}
+                    {isSubscription
+                        ? 'Subscribe with PayPal'
+                        : 'Pay with PayPal'}
                 </h2>
 
                 <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-on-surface-variant">
@@ -635,7 +657,7 @@ function PayPalOneTimeCheckout({ plan }: { plan: string }) {
             { plan },
         );
 
-        if(!data.id) {
+        if (!data.id) {
             throw new Error('PayPal order ID was not returned.');
         }
 
@@ -656,16 +678,16 @@ function PayPalOneTimeCheckout({ plan }: { plan: string }) {
                 order_id: data.orderId,
             });
 
-            if(result.status !== 'success') {
+            if (result.status !== 'success') {
                 throw new Error('PayPal payment was not completed.');
             }
 
-            if(!result.redirect) {
+            if (!result.redirect) {
                 throw new Error('Checkout success URL was not returned.');
             }
 
             window.location.assign(result.redirect);
-        } catch(error) {
+        } catch (error) {
             setIsProcessing(false);
 
             setErrorMessage(
@@ -691,17 +713,19 @@ function PayPalOneTimeCheckout({ plan }: { plan: string }) {
                 </div>
             )}
 
-            {isProcessing && (
-                <PaymentProcessing text="Confirming payment..." />
-            )}
+            {isProcessing && <PaymentProcessing text="Confirming payment..." />}
 
-            <div className={isProcessing ? 'pointer-events-none opacity-50' : ''}>
+            <div
+                className={isProcessing ? 'pointer-events-none opacity-50' : ''}
+            >
                 <PayPalOneTimePaymentButton
                     createOrder={createPayPalOrder}
                     onApprove={handleApprove}
                     onCancel={() => {
                         setIsProcessing(false);
-                        setErrorMessage('PayPal checkout was cancelled. No payment was taken.');
+                        setErrorMessage(
+                            'PayPal checkout was cancelled. No payment was taken.',
+                        );
                     }}
                     onError={handleError}
                     presentationMode="auto"
@@ -728,7 +752,7 @@ function PayPalSubscriptionCheckout({ plan }: { plan: string }) {
             { plan },
         );
 
-        if(!data.subscriptionId) {
+        if (!data.subscriptionId) {
             throw new Error('PayPal subscription ID was not returned.');
         }
 
@@ -749,16 +773,16 @@ function PayPalSubscriptionCheckout({ plan }: { plan: string }) {
                 subscription_id: data.subscriptionId,
             });
 
-            if(result.status !== 'success') {
+            if (result.status !== 'success') {
                 throw new Error('PayPal subscription was not activated.');
             }
 
-            if(!result.redirect) {
+            if (!result.redirect) {
                 throw new Error('Subscription success URL was not returned.');
             }
 
             window.location.assign(result.redirect);
-        } catch(error) {
+        } catch (error) {
             setIsProcessing(false);
 
             setErrorMessage(
@@ -773,9 +797,7 @@ function PayPalSubscriptionCheckout({ plan }: { plan: string }) {
 
     function handleError(error: OnErrorData) {
         setIsProcessing(false);
-        setErrorMessage(
-            error.message ?? 'Something went wrong with PayPal.',
-        );
+        setErrorMessage(error.message ?? 'Something went wrong with PayPal.');
     }
 
     return (
@@ -790,7 +812,9 @@ function PayPalSubscriptionCheckout({ plan }: { plan: string }) {
                 <PaymentProcessing text="Activating membership..." />
             )}
 
-            <div className={isProcessing ? 'pointer-events-none opacity-50' : ''}>
+            <div
+                className={isProcessing ? 'pointer-events-none opacity-50' : ''}
+            >
                 <PayPalSubscriptionButton
                     createSubscription={createSubscription}
                     onApprove={handleApprove}
@@ -837,9 +861,11 @@ function StripeCheckoutForm({
     async function handleSubmit(event: FormEvent) {
         event.preventDefault();
 
-        if(!stripe || !elements) return;
+        if (!stripe || !elements) {
+            return;
+        }
 
-        if(planType === 'subscription' && !subscriptionId) {
+        if (planType === 'subscription' && !subscriptionId) {
             setErrorMessage(
                 'Subscription could not be identified. Please refresh the page and try again.',
             );
@@ -850,9 +876,10 @@ function StripeCheckoutForm({
         setIsProcessing(true);
         setErrorMessage(null);
 
-        const returnUrl = planType === 'subscription'
-            ? `${window.location.origin}/checkout/subscription/success?subscription_id=${encodeURIComponent(subscriptionId!)}`
-            : `${window.location.origin}/checkout/success`;
+        const returnUrl =
+            planType === 'subscription'
+                ? `${window.location.origin}/checkout/subscription/success?subscription_id=${encodeURIComponent(subscriptionId!)}`
+                : `${window.location.origin}/checkout/success`;
 
         const { error } = await stripe.confirmPayment({
             elements,
@@ -873,8 +900,10 @@ function StripeCheckoutForm({
             },
         });
 
-        if(error) {
-            setErrorMessage(error.message ?? 'Payment failed. Please try again.');
+        if (error) {
+            setErrorMessage(
+                error.message ?? 'Payment failed. Please try again.',
+            );
             setIsProcessing(false);
         }
     }
@@ -968,7 +997,8 @@ function StripeCheckoutForm({
             </button>
 
             <p className="mt-4 text-center text-[11px] leading-5 text-outline">
-                By continuing, you agree to UKCarDoc's Terms of Service and Refund Policy.
+                By continuing, you agree to UKCarDoc's Terms of Service and
+                Refund Policy.
             </p>
         </form>
     );
@@ -997,7 +1027,7 @@ function Field({
                 value={value}
                 placeholder={placeholder}
                 onChange={(event) => onChange(event.target.value)}
-                className="w-full rounded-md border border-outline-variant bg-white px-4 py-3 text-sm text-primary outline-none transition focus:border-surface-tint focus:ring-1 focus:ring-surface-tint"
+                className="w-full rounded-md border border-outline-variant bg-white px-4 py-3 text-sm text-primary transition outline-none focus:border-surface-tint focus:ring-1 focus:ring-surface-tint"
             />
         </label>
     );
@@ -1031,9 +1061,7 @@ function PaymentError({ message }: { message: string }) {
         <div className="flex items-start gap-3 rounded-lg border border-error/15 bg-error-container/50 px-4 py-3.5 text-on-error-container">
             <ShieldAlert className="mt-0.5 size-4 shrink-0" />
 
-            <p className="text-sm leading-5">
-                {message}
-            </p>
+            <p className="text-sm leading-5">{message}</p>
         </div>
     );
 }
@@ -1054,11 +1082,11 @@ async function postJson<T extends object>(
         body: JSON.stringify(body),
     });
 
-    const data = await response.json().catch(() => ({})) as T & {
+    const data = (await response.json().catch(() => ({}))) as T & {
         message?: string;
     };
 
-    if(!response.ok) {
+    if (!response.ok) {
         throw new Error(data.message ?? 'Request failed. Please try again.');
     }
 
@@ -1067,14 +1095,9 @@ async function postJson<T extends object>(
 
 function getCsrfToken(): string {
     return (
-        document.querySelector<HTMLMetaElement>(
-            'meta[name="csrf-token"]',
-        )?.content ?? ''
+        document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')
+            ?.content ?? ''
     );
 }
 
-Checkout.layout = (page: ReactNode) => (
-    <BaseLayout>
-        {page}
-    </BaseLayout>
-);
+Checkout.layout = (page: ReactNode) => <BaseLayout>{page}</BaseLayout>;

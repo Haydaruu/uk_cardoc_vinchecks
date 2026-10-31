@@ -26,7 +26,8 @@ export default function InviteAdminModal({
     const isReasonValid = data.reason.trim().length >= 5;
     const isEmailValid = data.email.trim().includes('@');
     const isNameValid = data.name.trim().length >= 2;
-    const canSubmit = isReasonValid && isEmailValid && isNameValid && !processing;
+    const canSubmit =
+        isReasonValid && isEmailValid && isNameValid && !processing;
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -51,7 +52,7 @@ export default function InviteAdminModal({
                 <div className="h-1.5 rounded-t-xl bg-primary" />
 
                 <div className="p-6">
-                    <div className="flex items-center justify-between pb-4 border-b border-outline-variant/60">
+                    <div className="flex items-center justify-between border-b border-outline-variant/60 pb-4">
                         <div className="flex items-center gap-3">
                             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
                                 <UserPlus className="h-5 w-5" />
@@ -61,7 +62,8 @@ export default function InviteAdminModal({
                                     Invite Administrator
                                 </h3>
                                 <p className="text-xs text-on-surface-variant">
-                                    Issue access credentials via secure bound invitation
+                                    Issue access credentials via secure bound
+                                    invitation
                                 </p>
                             </div>
                         </div>
@@ -87,13 +89,17 @@ export default function InviteAdminModal({
                                 id="invite-name"
                                 type="text"
                                 value={data.name}
-                                onChange={(e) => setData('name', e.target.value)}
+                                onChange={(e) =>
+                                    setData('name', e.target.value)
+                                }
                                 disabled={processing}
                                 placeholder="e.g. Eleanor Vance"
                                 className="mt-1.5 w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-sm text-on-surface transition focus:border-primary focus:outline-hidden disabled:opacity-50"
                             />
                             {errors.name && (
-                                <p className="mt-1 text-xs text-error">{errors.name}</p>
+                                <p className="mt-1 text-xs text-error">
+                                    {errors.name}
+                                </p>
                             )}
                         </div>
 
@@ -102,19 +108,24 @@ export default function InviteAdminModal({
                                 htmlFor="invite-email"
                                 className="block text-xs font-semibold text-on-surface"
                             >
-                                Official Email Address <span className="text-error">*</span>
+                                Official Email Address{' '}
+                                <span className="text-error">*</span>
                             </label>
                             <input
                                 id="invite-email"
                                 type="email"
                                 value={data.email}
-                                onChange={(e) => setData('email', e.target.value)}
+                                onChange={(e) =>
+                                    setData('email', e.target.value)
+                                }
                                 disabled={processing}
                                 placeholder="eleanor.vance@vincheck.test"
                                 className="mt-1.5 w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-sm text-on-surface transition focus:border-primary focus:outline-hidden disabled:opacity-50"
                             />
                             {errors.email && (
-                                <p className="mt-1 text-xs text-error">{errors.email}</p>
+                                <p className="mt-1 text-xs text-error">
+                                    {errors.email}
+                                </p>
                             )}
                         </div>
 
@@ -123,20 +134,33 @@ export default function InviteAdminModal({
                                 htmlFor="invite-role"
                                 className="block text-xs font-semibold text-on-surface"
                             >
-                                Administrative Role <span className="text-error">*</span>
+                                Administrative Role{' '}
+                                <span className="text-error">*</span>
                             </label>
                             <select
                                 id="invite-role"
                                 value={data.role}
-                                onChange={(e) => setData('role', e.target.value as 'admin' | 'super_admin')}
+                                onChange={(e) =>
+                                    setData(
+                                        'role',
+                                        e.target.value as
+                                            'admin' | 'super_admin',
+                                    )
+                                }
                                 disabled={processing}
                                 className="mt-1.5 w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-sm text-on-surface transition focus:border-primary focus:outline-hidden disabled:opacity-50"
                             >
-                                <option value="admin">Operational Admin (Standard Console Access)</option>
-                                <option value="super_admin">Super Admin (Full System & Config Control)</option>
+                                <option value="admin">
+                                    Operational Admin (Standard Console Access)
+                                </option>
+                                <option value="super_admin">
+                                    Super Admin (Full System & Config Control)
+                                </option>
                             </select>
                             <p className="mt-1 text-[11px] text-on-surface-variant">
-                                Super Admins have unrestricted access to system configuration, diagnostics, and administrator provisioning.
+                                Super Admins have unrestricted access to system
+                                configuration, diagnostics, and administrator
+                                provisioning.
                             </p>
                         </div>
 
@@ -145,23 +169,35 @@ export default function InviteAdminModal({
                                 htmlFor="invite-reason"
                                 className="block text-xs font-semibold text-on-surface"
                             >
-                                Audit Reason <span className="text-error">*</span>
+                                Audit Reason{' '}
+                                <span className="text-error">*</span>
                             </label>
                             <textarea
                                 id="invite-reason"
                                 rows={2}
                                 value={data.reason}
-                                onChange={(e) => setData('reason', e.target.value)}
+                                onChange={(e) =>
+                                    setData('reason', e.target.value)
+                                }
                                 disabled={processing}
                                 placeholder="e.g. Onboarding new Tier-2 operational analyst"
                                 className="mt-1.5 w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-sm text-on-surface transition focus:border-primary focus:outline-hidden disabled:opacity-50"
                             />
                             <div className="mt-1 flex items-center justify-between text-[11px]">
-                                <span className={data.reason.length < 5 && data.reason.length > 0 ? 'text-error' : 'text-on-surface-variant/70'}>
+                                <span
+                                    className={
+                                        data.reason.length < 5 &&
+                                        data.reason.length > 0
+                                            ? 'text-error'
+                                            : 'text-on-surface-variant/70'
+                                    }
+                                >
                                     {data.reason.length} / 5 minimum characters
                                 </span>
                                 {errors.reason && (
-                                    <span className="text-error">{errors.reason}</span>
+                                    <span className="text-error">
+                                        {errors.reason}
+                                    </span>
                                 )}
                             </div>
                         </div>
@@ -175,26 +211,40 @@ export default function InviteAdminModal({
                                         Privilege Escalation Notice (Spec 7.3)
                                     </p>
                                     <p className="text-[11px] leading-relaxed text-amber-800">
-                                        If this email address belongs to an existing registered customer, issuing this invitation will elevate their access to administrative permissions upon acceptance.
+                                        If this email address belongs to an
+                                        existing registered customer, issuing
+                                        this invitation will elevate their
+                                        access to administrative permissions
+                                        upon acceptance.
                                     </p>
                                 </div>
                             </div>
-                            <label className="mt-2.5 flex items-start gap-2 text-xs font-medium text-amber-950 cursor-pointer">
+                            <label className="mt-2.5 flex cursor-pointer items-start gap-2 text-xs font-medium text-amber-950">
                                 <input
                                     type="checkbox"
                                     checked={data.confirm_elevation}
-                                    onChange={(e) => setData('confirm_elevation', e.target.checked)}
+                                    onChange={(e) =>
+                                        setData(
+                                            'confirm_elevation',
+                                            e.target.checked,
+                                        )
+                                    }
                                     disabled={processing}
                                     className="mt-0.5 h-3.5 w-3.5 rounded border-amber-400 text-primary focus:ring-primary"
                                 />
-                                <span>I explicitly confirm privilege escalation if this email belongs to an existing customer.</span>
+                                <span>
+                                    I explicitly confirm privilege escalation if
+                                    this email belongs to an existing customer.
+                                </span>
                             </label>
                             {errors.confirm_elevation && (
-                                <p className="mt-1 text-xs text-error font-medium">{errors.confirm_elevation}</p>
+                                <p className="mt-1 text-xs font-medium text-error">
+                                    {errors.confirm_elevation}
+                                </p>
                             )}
                         </div>
 
-                        <div className="mt-6 flex items-center justify-end gap-3 pt-3 border-t border-outline-variant/60">
+                        <div className="mt-6 flex items-center justify-end gap-3 border-t border-outline-variant/60 pt-3">
                             <button
                                 type="button"
                                 onClick={onClose}
@@ -206,10 +256,16 @@ export default function InviteAdminModal({
                             <button
                                 type="submit"
                                 disabled={!canSubmit}
-                                className="flex items-center gap-2 rounded-lg bg-primary px-5 py-2 text-xs font-semibold text-white transition hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
+                                className="hover:bg-primary-hover flex items-center gap-2 rounded-lg bg-primary px-5 py-2 text-xs font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-50"
                             >
-                                {processing && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                                <span>{processing ? 'Issuing...' : 'Issue Invitation'}</span>
+                                {processing && (
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                )}
+                                <span>
+                                    {processing
+                                        ? 'Issuing...'
+                                        : 'Issue Invitation'}
+                                </span>
                             </button>
                         </div>
                     </form>

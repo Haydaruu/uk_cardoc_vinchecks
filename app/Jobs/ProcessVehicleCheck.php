@@ -3,28 +3,31 @@
 namespace App\Jobs;
 
 use App\Contracts\VehicleDataProviderInterface;
-use App\Services\VehicleProviders\OneAutoProvider;
+use App\Exceptions\VehicleNotFoundException;
+use App\Models\GuestReportPurchase;
 use App\Models\Report;
 use App\Models\Vehicle;
 use App\Models\VinCheck;
-use App\Models\GuestReportPurchase;
 use App\Services\CreditService;
-use App\Services\Reports\NormalizedReportBuilder;
 use App\Services\Reports\CompositeReportBuilder;
-use Illuminate\Contracts\Queue\ShouldQueue;
+use App\Services\Reports\NormalizedReportBuilder;
+use App\Services\VehicleProviders\OneAutoProvider;
+use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Queue\Middleware\FailOnException;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
-class ProcessVehicleCheck implements ShouldQueue, ShouldBeUnique
+class ProcessVehicleCheck implements ShouldBeUnique, ShouldQueue
 {
-    use Queueable;
-    use InteractsWithQueue;
     use Dispatchable;
+    use InteractsWithQueue;
+    use Queueable;
     use SerializesModels;
 
     public int $tries = 3;
@@ -35,7 +38,7 @@ class ProcessVehicleCheck implements ShouldQueue, ShouldBeUnique
 
     public function uniqueId(): string
     {
-        if( $this->guestReportPurchaseId !== null) {
+        if ($this->guestReportPurchaseId !== null) {
             return 'guest-report-purchase-'.$this->guestReportPurchaseId;
         }
 
@@ -48,8 +51,20 @@ class ProcessVehicleCheck implements ShouldQueue, ShouldBeUnique
         private int $vinCheckId,
         private ?int $existingReportId = null,
         private ?int $guestReportPurchaseId = null,
-    ) {
+    ) {}
+
+    /**
+     * @return array<int, FailOnException>
+     */
+    public function middleware(): array
+    {
+        return [
+            new FailOnException([
+                VehicleNotFoundException::class,
+            ]),
+        ];
     }
+
     public function handle(
         VehicleDataProviderInterface $provider,
         NormalizedReportBuilder $reportBuilder,
@@ -94,7 +109,7 @@ class ProcessVehicleCheck implements ShouldQueue, ShouldBeUnique
                             return true;
                         }
 
-                        if (! in_array($purchase->fulfillment_status,[
+                        if (! in_array($purchase->fulfillment_status, [
                             GuestReportPurchase::FULFILLMENT_PENDING,
                             GuestReportPurchase::FULFILLMENT_PROCESSING,
                             GuestReportPurchase::FULFILLMENT_FAILED,
@@ -115,7 +130,7 @@ class ProcessVehicleCheck implements ShouldQueue, ShouldBeUnique
                         ]);
 
                         return false;
-                    } 
+                    }
                 );
 
                 if ($alreadyCompleted) {
@@ -195,8 +210,7 @@ class ProcessVehicleCheck implements ShouldQueue, ShouldBeUnique
 
             $vehicle = Vehicle::updateOrCreate(
                 [
-                    'registration_number' =>
-                        $regNumber,
+                    'registration_number' => $regNumber,
                 ],
                 $vehicleData,
             );
@@ -220,67 +234,50 @@ class ProcessVehicleCheck implements ShouldQueue, ShouldBeUnique
                         );
 
                         $report->update([
-                            'vehicle_id' =>
-                                $vehicle->id,
+                            'vehicle_id' => $vehicle->id,
 
-                            'vin' =>
-                                $vehicle->vin,
+                            'vin' => $vehicle->vin,
 
-                            'report_data' =>
-                                $reportData,
+                            'report_data' => $reportData,
 
-                            'report_type' =>
-                                $isPremium
+                            'report_type' => $isPremium
                                     ? 'premium'
                                     : 'basic',
 
-                            'vin_check_id' =>
-                                $vinCheck->id,
+                            'vin_check_id' => $vinCheck->id,
 
-                            'generated_at' =>
-                                now(),
+                            'generated_at' => now(),
                         ]);
                     } else {
                         $report = Report::create([
-                            'user_id' =>
-                                $vinCheck->user_id,
+                            'user_id' => $vinCheck->user_id,
 
-                            'vehicle_id' =>
-                                $vehicle->id,
+                            'vehicle_id' => $vehicle->id,
 
-                            'vin_check_id' =>
-                                $vinCheck->id,
+                            'vin_check_id' => $vinCheck->id,
 
-                            'vin' =>
-                                $vehicle->vin,
+                            'vin' => $vehicle->vin,
 
-                            'report_data' =>
-                                $reportData,
+                            'report_data' => $reportData,
 
-                            'report_type' =>
-                                $isPremium
+                            'report_type' => $isPremium
                                     ? 'premium'
                                     : 'basic',
 
-                            'generated_at' =>
-                                now(),
+                            'generated_at' => now(),
                         ]);
                     }
 
                     if (
                         $actualReportType === 'premium'
-                        && $isPremium
                         && $vinCheck->user_id
                     ) {
                         $creditService->consume(
-                            user:
-                                $vinCheck->user,
+                            user: $vinCheck->user,
 
-                            referenceId:
-                                (string) $report->id,
+                            referenceId: (string) $report->id,
 
-                            description:
-                                "Vehicle check: {$vinCheck->registration_number}",
+                            description: "Vehicle check: {$vinCheck->registration_number}",
                         );
                     }
 
@@ -288,9 +285,9 @@ class ProcessVehicleCheck implements ShouldQueue, ShouldBeUnique
                         $purchase = GuestReportPurchase::query()
                             ->lockForUpdate()
                             ->findOrFail($guestReportPurchaseId);
-                        if ( $purchase->payment_status!== GuestReportPurchase::STATUS_PAID
+                        if ($purchase->payment_status !== GuestReportPurchase::STATUS_PAID
                             || (int) $purchase->report_id !== (int) $report->id) {
-                                throw new \RuntimeException('Guest purchase validation failed during fulfillment.');
+                            throw new \RuntimeException('Guest purchase validation failed during fulfillment.');
                         }
 
                         $purchase->update([
@@ -315,17 +312,13 @@ class ProcessVehicleCheck implements ShouldQueue, ShouldBeUnique
             Log::error(
                 'Vehicle check failed',
                 [
-                    'vin_check_id' =>
-                        $vinCheck->id,
+                    'vin_check_id' => $vinCheck->id,
 
-                    'registration_number' =>
-                        $regNumber,
+                    'registration_number' => $regNumber,
 
-                    'check_type' =>
-                        $vinCheck->check_type,
+                    'check_type' => $vinCheck->check_type,
 
-                    'error' =>
-                        $e->getMessage(),
+                    'error' => $e->getMessage(),
                 ],
             );
 
@@ -334,15 +327,19 @@ class ProcessVehicleCheck implements ShouldQueue, ShouldBeUnique
                 'status' => 'failed',
             ]);
 
-            if ( $this->guestReportPurchaseId !== null && $this->attempts() >= $this->tries) {
+            $isPermanentFailure = $e instanceof VehicleNotFoundException;
+
+            if (
+                $this->guestReportPurchaseId !== null
+                && ($isPermanentFailure || $this->attempts() >= $this->tries)
+            ) {
                 GuestReportPurchase::query()
                     ->whereKey($this->guestReportPurchaseId)
                     ->where('payment_status', GuestReportPurchase::STATUS_PAID)
                     ->where('fulfillment_status', GuestReportPurchase::FULFILLMENT_PROCESSING
                     )
                     ->update([
-                        'fulfillment_status' =>
-                            GuestReportPurchase::FULFILLMENT_FAILED,
+                        'fulfillment_status' => GuestReportPurchase::FULFILLMENT_FAILED,
                     ]);
             }
 
@@ -350,6 +347,9 @@ class ProcessVehicleCheck implements ShouldQueue, ShouldBeUnique
         }
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     private function buildOneAutoBasicReportData(
         string $requestedVrm,
         OneAutoProvider $oneAuto,
@@ -387,7 +387,7 @@ class ProcessVehicleCheck implements ShouldQueue, ShouldBeUnique
         if ($detailsVrm === '' || $detailsVrm !== $expectedVrm) {
             throw new \RuntimeException(
                 "OneAuto vehicle mismatch. Requested {$expectedVrm}, "
-                . "but Vehicle Details returned {$detailsVrm}."
+                ."but Vehicle Details returned {$detailsVrm}."
             );
         }
 
@@ -414,16 +414,31 @@ class ProcessVehicleCheck implements ShouldQueue, ShouldBeUnique
         if ($motVrm === '' || $motVrm !== $expectedVrm) {
             throw new \RuntimeException(
                 "OneAuto MOT vehicle mismatch. Requested {$expectedVrm}, "
-                . "but MOT returned {$motVrm}."
+                ."but MOT returned {$motVrm}."
             );
         }
 
         // 5. Ambil hasil MOT terbaru.
-        $latestMot = collect(
-            data_get($mot, 'result.dvsa_data.mot_tests', [])
-        )
+        $motTests = data_get(
+            $mot,
+            'result.dvsa_data.mot_tests',
+            []
+        );
+
+        if (! is_array($motTests)) {
+            $motTests = [];
+        }
+
+        $motTests = array_filter(
+            $motTests,
+            static fn (mixed $test): bool => is_array($test)
+        );
+
+        $latestMot = collect($motTests)
             ->sortByDesc(
-                fn (array $test) => $test['mot_test_date'] ?? ''
+                fn (array $test) => is_string($test['mot_test_date'] ?? null)
+                    ? $test['mot_test_date']
+                    : ''
             )
             ->first();
 
@@ -431,7 +446,7 @@ class ProcessVehicleCheck implements ShouldQueue, ShouldBeUnique
 
         $motStatus = $motExpiry
             ? (
-                \Carbon\CarbonImmutable::parse($motExpiry)
+                CarbonImmutable::parse($motExpiry)
                     ->greaterThanOrEqualTo(now()->startOfDay())
                     ? 'Valid'
                     : 'Expired'
@@ -488,6 +503,10 @@ class ProcessVehicleCheck implements ShouldQueue, ShouldBeUnique
         ];
     }
 
+    /**
+     * @param  array<string, mixed>  $apiData
+     * @return array<string, mixed>
+     */
     private function mapBasicApiDataToVehicle(
         array $apiData
     ): array {
@@ -507,6 +526,12 @@ class ProcessVehicleCheck implements ShouldQueue, ShouldBeUnique
             'last_refreshed_at' => now(),
         ];
     }
+
+    /**
+     * @param  array<string, mixed>  $normalized
+     * @param  array<string, mixed>  $raw
+     * @return array<string, mixed>
+     */
     private function mapNormalizedReportToVehicle(
         array $normalized,
         array $raw,
@@ -540,17 +565,23 @@ class ProcessVehicleCheck implements ShouldQueue, ShouldBeUnique
          * mileage
          * result
          */
-        $latestMot = collect(
-            data_get(
-                $normalized,
-                'mot.tests',
-                []
-            )
-        )
+
+        $motTests = data_get($normalized, 'mot.tests', []);
+
+        if (! is_array($motTests)) {
+            $motTests = [];
+        }
+
+        $motTests = array_filter(
+            $motTests,
+            static fn (mixed $test): bool => is_array($test)
+        );
+
+        $latestMot = collect($motTests)
             ->sortByDesc(
-                fn (array $test) =>
-                    $test['date']
-                    ?? ''
+                fn (array $test) => is_string($test['date'] ?? null)
+                    ? $test['date']
+                    : ''
             )
             ->first();
 
@@ -572,69 +603,55 @@ class ProcessVehicleCheck implements ShouldQueue, ShouldBeUnique
             );
 
         return [
-            'vin' =>
-                $vehicle['vin']
+            'vin' => $vehicle['vin']
                 ?? 'NOT FOUND',
 
-            'brand' =>
-                $vehicle['make']
+            'brand' => $vehicle['make']
                 ?? null,
 
-            'model' =>
-                $vehicle['model']
+            'model' => $vehicle['model']
                 ?? null,
 
-            'year' =>
-                $vehicle['year']
+            'year' => $vehicle['year']
                 ?? null,
 
-            'year_of_manufacture' =>
-                $vehicle['year']
+            'year_of_manufacture' => $vehicle['year']
                 ?? null,
 
-            'colour' =>
-                $vehicle['colour']
+            'colour' => $vehicle['colour']
                 ?? null,
 
-            'fuel_type' =>
-                $vehicle['fuel_type']
+            'fuel_type' => $vehicle['fuel_type']
                 ?? null,
 
-            'engine_capacity' =>
-                $vehicle['engine_capacity_cc']
+            'engine_capacity' => $vehicle['engine_capacity_cc']
                 ?? null,
 
-            'co2_emissions' =>
-                data_get(
-                    $normalized,
-                    'specifications.co2_gkm'
-                ),
+            'co2_emissions' => data_get(
+                $normalized,
+                'specifications.co2_gkm'
+            ),
 
-            'tax_status' =>
-                data_get(
-                    $normalized,
-                    'mot.tax_status'
-                ),
+            'tax_status' => data_get(
+                $normalized,
+                'mot.tax_status'
+            ),
 
-            'mot_expiry_date' =>
-                $latestMot[
+            'mot_expiry_date' => $latestMot[
                     'expiry_date'
                 ]
                 ?? null,
 
-            'outstanding_finance' =>
-                (
-                    (int) (
-                        $finance['count']
-                        ?? 0
-                    )
-                ) > 0,
+            'outstanding_finance' => (
+                (int) (
+                    $finance['count']
+                    ?? 0
+                )
+            ) > 0,
 
-            'write_off_category' =>
-                $writeOffCategory,
+            'write_off_category' => $writeOffCategory,
 
-            'image_url' =>
-                $vehicle['image_url']
+            'image_url' => $vehicle['image_url']
                 ?? null,
 
             /*
@@ -644,11 +661,9 @@ class ProcessVehicleCheck implements ShouldQueue, ShouldBeUnique
              * sedangkan Report.report_data hanya menyimpan
              * normalized customer report.
              */
-            'raw_api_response' =>
-                $raw,
+            'raw_api_response' => $raw,
 
-            'last_refreshed_at' =>
-                now(),
+            'last_refreshed_at' => now(),
         ];
     }
 }

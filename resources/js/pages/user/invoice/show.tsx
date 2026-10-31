@@ -1,11 +1,7 @@
-import BaseLayout from '@/layouts/base-layout';
 import { Head, Link } from '@inertiajs/react';
-import {
-    ArrowLeft,
-    CheckCircle2,
-    Download,
-    ReceiptText,
-} from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Download, ReceiptText } from 'lucide-react';
+
+import BaseLayout from '@/layouts/base-layout';
 
 type Invoice = {
     id: number;
@@ -28,30 +24,19 @@ type Props = {
     invoice: Invoice;
 };
 
-export default function InvoiceShow({
-    invoice,
-}: Props) {
-    const amount = formatMoney(
-        invoice.amount,
-        invoice.currency,
-    );
+export default function InvoiceShow({ invoice }: Props) {
+    const amount = formatMoney(invoice.amount, invoice.currency);
 
-    const paidDate = invoice.paid_at
-        ? formatDate(invoice.paid_at)
-        : '—';
+    const paidDate = invoice.paid_at ? formatDate(invoice.paid_at) : '—';
 
-    const pdfUrl =
-        `/settings/purchase-history/${invoice.id}/invoice/pdf`;
+    const pdfUrl = `/settings/purchase-history/${invoice.id}/invoice/pdf`;
 
     return (
         <>
-            <Head
-                title={`Invoice ${invoice.invoice_id}`}
-            />
+            <Head title={`Invoice ${invoice.invoice_id}`} />
 
             <main className="min-h-screen bg-surface px-5 py-10 md:px-8 md:py-14">
                 <div className="mx-auto max-w-[920px]">
-
                     <div className="mb-6">
                         <Link
                             href="/settings/purchase-history"
@@ -63,9 +48,7 @@ export default function InvoiceShow({
                     </div>
 
                     <section className="overflow-hidden rounded-xl border border-outline-variant/60 bg-white shadow-[0_14px_40px_rgba(0,13,47,0.06)]">
-
                         <div className="flex flex-col gap-6 border-b border-outline-variant/50 px-6 py-7 sm:flex-row sm:items-start sm:justify-between md:px-8">
-
                             <div className="flex items-center gap-3">
                                 <div className="flex size-11 items-center justify-center rounded-lg bg-primary text-white">
                                     <ReceiptText className="size-5" />
@@ -83,7 +66,7 @@ export default function InvoiceShow({
                             </div>
 
                             <div className="sm:text-right">
-                                <p className="text-xs uppercase tracking-wider text-outline">
+                                <p className="text-xs tracking-wider text-outline uppercase">
                                     Invoice
                                 </p>
 
@@ -91,18 +74,16 @@ export default function InvoiceShow({
                                     {invoice.invoice_id}
                                 </p>
 
-                                <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-green-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-green-700">
+                                <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-green-100 px-2.5 py-1 text-[10px] font-bold tracking-wider text-green-700 uppercase">
                                     <CheckCircle2 className="size-3.5" />
                                     Paid
                                 </div>
                             </div>
-
                         </div>
 
                         <div className="grid gap-8 px-6 py-7 md:grid-cols-2 md:px-8 md:py-9">
-
                             <div>
-                                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-on-surface-variant">
+                                <p className="text-xs font-semibold tracking-[0.14em] text-on-surface-variant uppercase">
                                     Invoice To
                                 </p>
 
@@ -116,7 +97,7 @@ export default function InvoiceShow({
                             </div>
 
                             <div className="md:text-right">
-                                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-on-surface-variant">
+                                <p className="text-xs font-semibold tracking-[0.14em] text-on-surface-variant uppercase">
                                     Payment Details
                                 </p>
 
@@ -130,17 +111,15 @@ export default function InvoiceShow({
                                     {paidDate}
                                 </p>
                             </div>
-
                         </div>
 
                         <div className="mx-6 overflow-hidden rounded-lg border border-outline-variant/60 md:mx-8">
-
                             <div className="grid grid-cols-[1fr_auto] border-b border-outline-variant/60 bg-surface-container-low px-5 py-4">
-                                <span className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">
+                                <span className="text-xs font-bold tracking-wider text-on-surface-variant uppercase">
                                     Description
                                 </span>
 
-                                <span className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">
+                                <span className="text-xs font-bold tracking-wider text-on-surface-variant uppercase">
                                     Amount
                                 </span>
                             </div>
@@ -160,11 +139,9 @@ export default function InvoiceShow({
                                     {amount}
                                 </p>
                             </div>
-
                         </div>
 
                         <div className="mx-6 py-7 md:mx-8">
-
                             <div className="ml-auto max-w-sm space-y-3">
                                 <div className="flex items-center justify-between text-sm">
                                     <span className="text-on-surface-variant">
@@ -186,21 +163,17 @@ export default function InvoiceShow({
                                     </span>
                                 </div>
                             </div>
-
                         </div>
 
                         <div className="border-t border-outline-variant/50 bg-surface-container-low/40 px-6 py-5 md:px-8">
-
                             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-
                                 <div>
                                     <p className="text-xs text-on-surface-variant">
                                         Gateway reference
                                     </p>
 
-                                    <p className="mt-1 break-all text-sm font-medium text-primary">
-                                        {invoice.payment_gateway_ref ??
-                                            '—'}
+                                    <p className="mt-1 text-sm font-medium break-all text-primary">
+                                        {invoice.payment_gateway_ref ?? '—'}
                                     </p>
                                 </div>
 
@@ -211,11 +184,8 @@ export default function InvoiceShow({
                                     <Download className="size-4" />
                                     Download Invoice
                                 </a>
-
                             </div>
-
                         </div>
-
                     </section>
                 </div>
             </main>
@@ -223,41 +193,28 @@ export default function InvoiceShow({
     );
 }
 
-function formatMoney(
-    amount: string,
-    currency: string,
-): string {
-    return new Intl.NumberFormat(
-        'en-GB',
-        {
-            style: 'currency',
-            currency: currency.toUpperCase(),
-        },
-    ).format(Number(amount));
+function formatMoney(amount: string, currency: string): string {
+    return new Intl.NumberFormat('en-GB', {
+        style: 'currency',
+        currency: currency.toUpperCase(),
+    }).format(Number(amount));
 }
 
-function formatDate(
-    value: string,
-): string {
+function formatDate(value: string): string {
     const date = new Date(value);
 
     if (Number.isNaN(date.getTime())) {
         return '—';
     }
 
-    return new Intl.DateTimeFormat(
-        'en-GB',
-        {
-            day: '2-digit',
-            month: 'long',
-            year: 'numeric',
-        },
-    ).format(date);
+    return new Intl.DateTimeFormat('en-GB', {
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric',
+    }).format(date);
 }
 
-function formatPaymentMethod(
-    value: string,
-): string {
+function formatPaymentMethod(value: string): string {
     if (value === 'stripe') {
         return 'Stripe';
     }
@@ -269,6 +226,4 @@ function formatPaymentMethod(
     return value;
 }
 
-InvoiceShow.layout = (
-    page: React.ReactNode,
-) => <BaseLayout>{page}</BaseLayout>;
+InvoiceShow.layout = (page: React.ReactNode) => <BaseLayout>{page}</BaseLayout>;

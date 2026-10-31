@@ -1,5 +1,10 @@
 import { Head, usePage } from '@inertiajs/react';
-import { AlertCircle, AlertTriangle, CheckCircle, RotateCcw } from 'lucide-react';
+import {
+    AlertCircle,
+    AlertTriangle,
+    CheckCircle,
+    RotateCcw,
+} from 'lucide-react';
 import React, { useState } from 'react';
 
 import EmptyState from '@/components/admin/empty-state';
@@ -297,7 +302,7 @@ export default function Transactions({
                                                     onClick={() =>
                                                         setRefundTarget(tx)
                                                     }
-                                                    className="inline-flex items-center gap-1.5 rounded bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700 transition hover:bg-amber-100 hover:text-amber-800 border border-amber-200"
+                                                    className="inline-flex items-center gap-1.5 rounded border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700 transition hover:bg-amber-100 hover:text-amber-800"
                                                 >
                                                     <RotateCcw className="h-3 w-3" />
                                                     Refund

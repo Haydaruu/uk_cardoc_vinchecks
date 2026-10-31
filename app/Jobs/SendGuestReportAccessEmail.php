@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\URL;
 use RuntimeException;
 
-class SendGuestReportAccessEmail implements ShouldQueue, ShouldBeUnique
+class SendGuestReportAccessEmail implements ShouldBeUnique, ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
@@ -28,8 +28,7 @@ class SendGuestReportAccessEmail implements ShouldQueue, ShouldBeUnique
 
     public function __construct(
         public int $purchaseId,
-    ) {
-    }
+    ) {}
 
     public function uniqueId(): string
     {
@@ -62,10 +61,7 @@ class SendGuestReportAccessEmail implements ShouldQueue, ShouldBeUnique
             return;
         }
 
-        if (
-            ! is_string($purchase->email)
-            || ! filter_var($purchase->email, FILTER_VALIDATE_EMAIL)
-        ) {
+        if (! filter_var($purchase->email, FILTER_VALIDATE_EMAIL)) {
             throw new RuntimeException(
                 'Guest report purchase has no valid customer email address.'
             );

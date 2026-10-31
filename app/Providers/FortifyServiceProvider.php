@@ -11,13 +11,12 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
-use Illuminate\Http\RedirectResponse;
-use Laravel\Fortify\Actions\RedirectIfTwoFactorAuthenticatable;
-use Laravel\Fortify\Contracts\RegisterResponse;
-use Laravel\Fortify\Contracts\LogoutResponse;
-use Laravel\Fortify\Contracts\LoginResponse;
-use Laravel\Fortify\Fortify;
 use Inertia\Inertia;
+use Laravel\Fortify\Actions\RedirectIfTwoFactorAuthenticatable;
+use Laravel\Fortify\Contracts\LoginResponse;
+use Laravel\Fortify\Contracts\LogoutResponse;
+use Laravel\Fortify\Contracts\RegisterResponse;
+use Laravel\Fortify\Fortify;
 
 class FortifyServiceProvider extends ServiceProvider
 {
@@ -84,14 +83,15 @@ class FortifyServiceProvider extends ServiceProvider
         });
 
         $this->app->singleton(RegisterResponse::class, function () {
-            return new class implements RegisterResponse {
+            return new class implements RegisterResponse
+            {
                 public function toResponse($request)
                 {
                     Inertia::clearHistory();
 
                     $user = $request->user();
 
-                    if(!$user->hasVerifiedEmail()) {
+                    if (! $user->hasVerifiedEmail()) {
                         return redirect()->route('verification.notice');
                     }
 
@@ -103,14 +103,15 @@ class FortifyServiceProvider extends ServiceProvider
         });
 
         $this->app->singleton(LoginResponse::class, function () {
-            return new class implements LoginResponse {
+            return new class implements LoginResponse
+            {
                 public function toResponse($request)
                 {
                     Inertia::clearHistory();
 
                     $user = $request->user();
 
-                    if(!$user->hasVerifiedEmail()) {
+                    if (! $user->hasVerifiedEmail()) {
                         return redirect()->route('verification.notice');
                     }
 
@@ -122,7 +123,8 @@ class FortifyServiceProvider extends ServiceProvider
         });
 
         $this->app->singleton(LogoutResponse::class, function () {
-            return new class implements LogoutResponse {
+            return new class implements LogoutResponse
+            {
                 public function toResponse($request)
                 {
                     Inertia::clearHistory();

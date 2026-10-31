@@ -1,7 +1,16 @@
 import { useForm, router } from '@inertiajs/react';
+import {
+    ArrowRight,
+    Car,
+    Crown,
+    ExternalLink,
+    Gem,
+    Plus,
+    Star,
+} from 'lucide-react';
+import { useState } from 'react';
+import type { FormEvent } from 'react';
 import { store } from '@/actions/App/Http/Controllers/VehicleCheckController';
-import { ArrowRight, Car, Crown, ExternalLink, Gem, Plus, Star } from 'lucide-react';
-import { FormEvent, useState } from 'react';
 
 type ReportBadgeTone = 'neutral' | 'alert';
 
@@ -32,7 +41,11 @@ type UserDashboardProps = {
     recentSearches?: string[];
 };
 
-export default function UserDashboard({ user, recentReports = [], recentSearches = [] }: UserDashboardProps) {
+export default function UserDashboard({
+    user,
+    recentReports = [],
+    recentSearches = [],
+}: UserDashboardProps) {
     const firstName = user.name.split(' ')[0];
     const { data, setData, post, processing, errors } = useForm({
         registration_number: '',
@@ -44,8 +57,8 @@ export default function UserDashboard({ user, recentReports = [], recentSearches
     const subscriptionTier = !user.is_premium
         ? null
         : planName.includes('max')
-        ? { name: 'Premium Max', badge: 'PREMIUM MAX', Icon: Crown }
-        : planName.includes('plus')
+          ? { name: 'Premium Max', badge: 'PREMIUM MAX', Icon: Crown }
+          : planName.includes('plus')
             ? { name: 'Premium Plus', badge: 'PREMIUM PLUS', Icon: Gem }
             : { name: 'Premium', badge: 'PREMIUM', Icon: Star };
 
@@ -63,11 +76,20 @@ export default function UserDashboard({ user, recentReports = [], recentSearches
                 </h1>
                 <p className="mt-2 max-w-xl text-slate-500">
                     {user.is_premium ? (
-                        <>Your Premium status is active. Access unlimited history reports, live auction valuations, and priority support.</>
+                        <>
+                            Your Premium status is active. Access unlimited
+                            history reports, live auction valuations, and
+                            priority support.
+                        </>
                     ) : (
                         <>
-                            You have <span className="font-bold text-slate-700">{user.credits}</span> credit
-                            {user.credits === 1 ? '' : 's'} remaining. Perform a full vehicle history check to uncover hidden pasts,
+                            You have{' '}
+                            <span className="font-bold text-slate-700">
+                                {user.credits}
+                            </span>{' '}
+                            credit
+                            {user.credits === 1 ? '' : 's'} remaining. Perform a
+                            full vehicle history check to uncover hidden pasts,
                             finance markers, and salvage data.
                         </>
                     )}
@@ -78,30 +100,45 @@ export default function UserDashboard({ user, recentReports = [], recentSearches
                 {/* Hero Search Module */}
                 <div className="relative overflow-hidden rounded-lg border border-slate-200 bg-white p-8 md:col-span-8">
                     <div className="relative z-10">
-                        <h2 className="text-xl font-bold text-primary-container">Start New Check</h2>
+                        <h2 className="text-xl font-bold text-primary-container">
+                            Start New Check
+                        </h2>
                         <p className="mt-1 text-sm text-slate-500">
-                            Enter the VRM (Registration) or VIN to instantly pull UK government and private database records.
+                            Enter the VRM (Registration) or VIN to instantly
+                            pull UK government and private database records.
                         </p>
 
-                        <form onSubmit={handleCheck} className="mt-4 flex flex-col gap-3 sm:flex-row">
-                            <div className={`flex-1 transition-transform duration-200 ${isSearchFocused ? 'scale-[1.01]' : ''}`}>
+                        <form
+                            onSubmit={handleCheck}
+                            className="mt-4 flex flex-col gap-3 sm:flex-row"
+                        >
+                            <div
+                                className={`flex-1 transition-transform duration-200 ${isSearchFocused ? 'scale-[1.01]' : ''}`}
+                            >
                                 <input
                                     type="text"
                                     value={data.registration_number}
-                                    onChange={(e) => setData('registration_number', e.target.value)}
+                                    onChange={(e) =>
+                                        setData(
+                                            'registration_number',
+                                            e.target.value,
+                                        )
+                                    }
                                     onFocus={() => setIsSearchFocused(true)}
                                     onBlur={() => setIsSearchFocused(false)}
                                     placeholder="ENTER REG (E.G. AB12 CDE)"
-                                    className="h-14 w-full rounded border border-slate-200 px-4 text-sm uppercase tracking-widest placeholder:normal-case placeholder:text-slate-400 focus:border-primary-container focus:outline-none"
+                                    className="h-14 w-full rounded border border-slate-200 px-4 text-sm tracking-widest uppercase placeholder:text-slate-400 placeholder:normal-case focus:border-primary-container focus:outline-none"
                                 />
                                 {errors.registration_number && (
-                                    <p className="mt-1 text-xs text-red-600">{errors.registration_number}</p>
+                                    <p className="mt-1 text-xs text-red-600">
+                                        {errors.registration_number}
+                                    </p>
                                 )}
                             </div>
                             <button
                                 type="submit"
                                 disabled={processing}
-                                className="flex h-14 items-center justify-center gap-2 rounded bg-secondary px-8 text-sm font-bold uppercase tracking-widest text-white transition-all hover:bg-secondary-container active:scale-95 disabled:opacity-60"
+                                className="flex h-14 items-center justify-center gap-2 rounded bg-secondary px-8 text-sm font-bold tracking-widest text-white uppercase transition-all hover:bg-secondary-container active:scale-95 disabled:opacity-60"
                             >
                                 {processing ? (
                                     'Checking...'
@@ -116,13 +153,20 @@ export default function UserDashboard({ user, recentReports = [], recentSearches
 
                         {recentSearches.length > 0 && (
                             <div className="mt-4 flex items-center gap-4">
-                                <span className="text-xs font-bold uppercase tracking-wide text-slate-400">Recent Searches:</span>
+                                <span className="text-xs font-bold tracking-wide text-slate-400 uppercase">
+                                    Recent Searches:
+                                </span>
                                 <div className="flex gap-2">
                                     {recentSearches.map((reg) => (
                                         <button
                                             key={reg}
                                             type="button"
-                                            onClick={() => setData('registration_number', reg)}
+                                            onClick={() =>
+                                                setData(
+                                                    'registration_number',
+                                                    reg,
+                                                )
+                                            }
                                             className="cursor-pointer rounded border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-primary-container hover:bg-slate-100"
                                         >
                                             {reg}
@@ -154,16 +198,17 @@ export default function UserDashboard({ user, recentReports = [], recentSearches
                             </span>
 
                             <span className="rounded border border-white/20 bg-white/10 px-3 py-1 text-[10px] font-bold tracking-wide text-white">
-                                {user.credits} {user.credits === 1 ? 'CREDIT' : 'CREDITS'}
+                                {user.credits}{' '}
+                                {user.credits === 1 ? 'CREDIT' : 'CREDITS'}
                             </span>
                         </div>
 
                         <div className="mt-auto">
-                            <p className="text-sm font-semibold uppercase tracking-widest text-white/70">
+                            <p className="text-sm font-semibold tracking-widest text-white/70 uppercase">
                                 Credits Remaining
                             </p>
 
-                            <p className="mt-2 text-4xl font-black leading-none">
+                            <p className="mt-2 text-4xl leading-none font-black">
                                 {user.credits}
                             </p>
 
@@ -174,11 +219,17 @@ export default function UserDashboard({ user, recentReports = [], recentSearches
                             <button
                                 type="button"
                                 onClick={() =>
-                                    router.visit(user.is_premium ? '/billing' : '/pricing')
+                                    router.visit(
+                                        user.is_premium
+                                            ? '/billing'
+                                            : '/pricing',
+                                    )
                                 }
                                 className="mt-6 w-full rounded bg-white py-2.5 text-sm font-bold text-primary-container transition-colors hover:bg-slate-50"
                             >
-                                {user.is_premium ? 'View Billing History' : 'Add More Credits'}
+                                {user.is_premium
+                                    ? 'View Billing History'
+                                    : 'Add More Credits'}
                             </button>
                         </div>
                     </div>
@@ -188,10 +239,17 @@ export default function UserDashboard({ user, recentReports = [], recentSearches
                 <div className="md:col-span-12">
                     <div className="mb-6 flex items-end justify-between">
                         <div>
-                            <h3 className="text-xl font-bold text-primary-container">Recent Reports</h3>
-                            <p className="text-sm text-slate-500">Tracked vehicle history and valuation alerts.</p>
+                            <h3 className="text-xl font-bold text-primary-container">
+                                Recent Reports
+                            </h3>
+                            <p className="text-sm text-slate-500">
+                                Tracked vehicle history and valuation alerts.
+                            </p>
                         </div>
-                        <a href="/reports" className="flex items-center gap-1 text-sm font-bold text-secondary hover:underline">
+                        <a
+                            href="/reports"
+                            className="flex items-center gap-1 text-sm font-bold text-secondary hover:underline"
+                        >
                             View all reports
                             <ExternalLink className="size-4" />
                         </a>
@@ -202,8 +260,10 @@ export default function UserDashboard({ user, recentReports = [], recentSearches
                             <a
                                 key={report.id}
                                 href={`/report/${report.id}`}
-                                className={`group overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition-all hover:shadow-md border-l-4 ${
-                                    report.status === 'alert' ? 'border-l-secondary' : 'border-l-[#22c55e]'
+                                className={`group overflow-hidden rounded-lg border border-l-4 border-slate-200 bg-white shadow-sm transition-all hover:shadow-md ${
+                                    report.status === 'alert'
+                                        ? 'border-l-secondary'
+                                        : 'border-l-[#22c55e]'
                                 }`}
                             >
                                 <div className="relative h-40 overflow-hidden bg-slate-100">
@@ -215,15 +275,22 @@ export default function UserDashboard({ user, recentReports = [], recentSearches
                                         />
                                     ) : (
                                         <div className="flex h-full w-full items-center justify-center text-slate-300">
-                                            <Car className="size-10" strokeWidth={1.5} />
+                                            <Car
+                                                className="size-10"
+                                                strokeWidth={1.5}
+                                            />
                                         </div>
                                     )}
                                     <div
                                         className={`absolute top-3 right-3 rounded px-2 py-1 text-[11px] font-bold shadow-sm ${
-                                            report.status === 'alert' ? 'bg-secondary text-white' : 'bg-white/90 text-primary-container backdrop-blur'
+                                            report.status === 'alert'
+                                                ? 'bg-secondary text-white'
+                                                : 'bg-white/90 text-primary-container backdrop-blur'
                                         }`}
                                     >
-                                        {report.status === 'alert' ? 'ALERT' : 'COMPLETED'}
+                                        {report.status === 'alert'
+                                            ? 'ALERT'
+                                            : 'COMPLETED'}
                                     </div>
                                 </div>
                                 <div className="p-4">
@@ -235,13 +302,17 @@ export default function UserDashboard({ user, recentReports = [], recentSearches
                                             {report.registration}
                                         </span>
                                     </div>
-                                    <p className="mb-4 text-xs text-slate-500">Checked on {report.checkedOn}</p>
+                                    <p className="mb-4 text-xs text-slate-500">
+                                        Checked on {report.checkedOn}
+                                    </p>
                                     <div className="flex flex-wrap gap-2">
                                         {report.badges.map((badge) => (
                                             <span
                                                 key={badge.label}
                                                 className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase ${
-                                                    badge.tone === 'alert' ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-500'
+                                                    badge.tone === 'alert'
+                                                        ? 'bg-red-100 text-red-700'
+                                                        : 'bg-slate-100 text-slate-500'
                                                 }`}
                                             >
                                                 {badge.label}
@@ -255,14 +326,24 @@ export default function UserDashboard({ user, recentReports = [], recentSearches
                         {/* New Check placeholder — selalu tampil di akhir grid */}
                         <button
                             type="button"
-                            onClick={() => document.querySelector<HTMLInputElement>('input[placeholder^="ENTER REG"]')?.focus()}
+                            onClick={() =>
+                                document
+                                    .querySelector<HTMLInputElement>(
+                                        'input[placeholder^="ENTER REG"]',
+                                    )
+                                    ?.focus()
+                            }
                             className="group flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-slate-200 p-8 text-center transition-colors hover:bg-slate-50"
                         >
                             <div className="mb-4 flex size-12 items-center justify-center rounded-full bg-slate-100 transition-transform group-hover:scale-110">
                                 <Plus className="size-5 text-slate-400" />
                             </div>
-                            <p className="font-bold text-primary-container">New Check</p>
-                            <p className="text-xs text-slate-500">Add another vehicle to your dashboard</p>
+                            <p className="font-bold text-primary-container">
+                                New Check
+                            </p>
+                            <p className="text-xs text-slate-500">
+                                Add another vehicle to your dashboard
+                            </p>
                         </button>
                     </div>
                 </div>

@@ -1,8 +1,4 @@
-export type SourceCriticality =
-    | 'low'
-    | 'medium'
-    | 'high'
-    | 'critical';
+export type SourceCriticality = 'low' | 'medium' | 'high' | 'critical';
 
 export type SourceProfile = {
     criticality: SourceCriticality;
@@ -16,42 +12,23 @@ export type AvailabilitySection<T = unknown> = {
 };
 
 export type SalvageRecord = {
-    salvage_auction_record_id:
-        | string
-        | number
-        | null;
+    salvage_auction_record_id: string | number | null;
 
-    salvage_auction_reference?:
-        | string
-        | number
-        | null;
+    salvage_auction_reference?: string | number | null;
 
-    salvage_auction_lot_desc:
-        | string
-        | null;
+    salvage_auction_lot_desc: string | null;
 
-    salvage_auction_lot_date:
-        | string
-        | null;
+    salvage_auction_lot_date: string | null;
 
-    mileage:
-        | number
-        | null;
+    mileage: number | null;
 
-    primary_damage_desc:
-        | string
-        | null;
+    primary_damage_desc: string | null;
 
-    secondary_damage_desc:
-        | string
-        | null;
+    secondary_damage_desc: string | null;
 
-    salvage_auction_location:
-        | string
-        | null;
+    salvage_auction_location: string | null;
 
-    external_image_urls:
-        string[];
+    external_image_urls: string[];
 
     /*
      * Tetap izinkan vendor menambah field
@@ -67,8 +44,8 @@ export type NormalizedReport = {
         provider: string;
         strategy?: 'single' | 'hybrid';
         providers?: string[];
-        sources?: Record<string,string>;
-        source_profiles?: Record<string,SourceProfile>;
+        sources?: Record<string, string>;
+        source_profiles?: Record<string, SourceProfile>;
         lab_fixture?: boolean;
         identity_verified?: boolean;
         fixture_inputs?: {
@@ -222,10 +199,7 @@ export type NormalizedReport = {
         current?: {
             mot_status: string | null;
 
-            mot_status_source:
-                | 'provider'
-                | 'derived'
-                | 'unavailable';
+            mot_status_source: 'provider' | 'derived' | 'unavailable';
 
             mot_expiry_date: string | null;
 
@@ -237,8 +211,8 @@ export type NormalizedReport = {
         };
 
         /*
-        * Legacy compatibility.
-        */
+         * Legacy compatibility.
+         */
         status?: string | null;
         expiry_date?: string | null;
         summary?: unknown;

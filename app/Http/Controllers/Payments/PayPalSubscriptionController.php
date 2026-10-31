@@ -5,16 +5,18 @@ namespace App\Http\Controllers\Payments;
 use App\Http\Controllers\Controller;
 use App\Models\Subscription;
 use App\Services\PayPalService;
-use App\Jobs\SendTelegramSaleNotification;
-use Illuminate\Support\Collection;
 use Carbon\Carbon;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use Inertia\Response as InertiaResponse;
 use RuntimeException;
+use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 
 class PayPalSubscriptionController extends Controller
 {
-    public function create(Request $request, PayPalService $payPalService)
+    public function create(Request $request, PayPalService $payPalService): JsonResponse
     {
         $request->validate([
             'plan' => ['required', 'string'],
@@ -24,13 +26,13 @@ class PayPalSubscriptionController extends Controller
         $planSlug = $request->string('plan')->toString();
         $plan = config("credit_plans.{$planSlug}");
 
-        if(! $plan || $plan['type'] !== 'subscription') {
+        if (! $plan || $plan['type'] !== 'subscription') {
             return response()->json([
                 'message' => 'Invalid subscription plan.',
             ], 422);
         }
 
-        if($user->activeSubscription()) {
+        if ($user->activeSubscription()) {
             return response()->json([
                 'message' => 'You already have an active subscription.',
             ], 409);
@@ -38,7 +40,7 @@ class PayPalSubscriptionController extends Controller
 
         $paypalPlanId = $plan['paypal_plan_id'] ?? null;
 
-        if(! $paypalPlanId) {
+        if (! $paypalPlanId) {
             return response()->json([
                 'message' => 'PayPal billing plan is not configured.',
             ], 422);
@@ -46,7 +48,7 @@ class PayPalSubscriptionController extends Controller
 
         try {
             $subscription = $payPalService->createSubscription($user, $planSlug);
-        } catch(RuntimeException $e) {
+        } catch (RuntimeException $e) {
             report($e);
 
             return response()->json([
@@ -56,7 +58,7 @@ class PayPalSubscriptionController extends Controller
 
         $subscriptionId = $subscription['id'] ?? null;
 
-        if(! $subscriptionId) {
+        if (! $subscriptionId) {
             return response()->json([
                 'message' => 'PayPal did not return a subscription ID.',
             ], 502);
@@ -67,7 +69,7 @@ class PayPalSubscriptionController extends Controller
         ]);
     }
 
-    public function confirm(Request $request, PayPalService $payPalService)
+    public function confirm(Request $request, PayPalService $payPalService): JsonResponse
     {
         $request->validate([
             'subscription_id' => ['required', 'string'],
@@ -78,7 +80,7 @@ class PayPalSubscriptionController extends Controller
 
         try {
             $paypalSubscription = $payPalService->getSubscription($subscriptionId);
-        } catch(RuntimeException $e) {
+        } catch (RuntimeException $e) {
             report($e);
 
             return response()->json([
@@ -94,7 +96,7 @@ class PayPalSubscriptionController extends Controller
             null
         );
 
-        if((string) $subscriptionUserId !== (string) $user->id) {
+        if ((string) $subscriptionUserId !== (string) $user->id) {
             return response()->json([
                 'message' => 'PayPal subscription does not belong to this account.',
             ], 403);
@@ -102,7 +104,7 @@ class PayPalSubscriptionController extends Controller
 
         $plan = $planSlug ? config("credit_plans.{$planSlug}") : null;
 
-        if(! $plan || $plan['type'] !== 'subscription') {
+        if (! $plan || $plan['type'] !== 'subscription') {
             return response()->json([
                 'message' => 'Unable to resolve subscription plan.',
             ], 422);
@@ -110,7 +112,7 @@ class PayPalSubscriptionController extends Controller
 
         $paypalPlanId = $paypalSubscription['plan_id'] ?? null;
 
-        if(! $paypalPlanId || $paypalPlanId !== $plan['paypal_plan_id']) {
+        if (! $paypalPlanId || $paypalPlanId !== $plan['paypal_plan_id']) {
             return response()->json([
                 'message' => 'PayPal subscription plan validation failed.',
             ], 422);
@@ -118,7 +120,7 @@ class PayPalSubscriptionController extends Controller
 
         $paypalStatus = $paypalSubscription['status'] ?? null;
 
-        if($paypalStatus !== 'ACTIVE') {
+        if ($paypalStatus !== 'ACTIVE') {
             return response()->json([
                 'message' => 'PayPal subscription is not active yet.',
             ], 409);
@@ -132,7 +134,7 @@ class PayPalSubscriptionController extends Controller
             ? Carbon::parse($paypalSubscription['billing_info']['next_billing_time'])
             : null;
 
-        $transaction = Subscription::updateOrCreate(
+        $subscription = Subscription::updateOrCreate(
             [
                 'paypal_subscription_id' => $subscriptionId,
             ],
@@ -152,22 +154,6 @@ class PayPalSubscriptionController extends Controller
             ]
         );
 
-        if ($transaction->wasRecentlyCreated && (float) $transaction->amount > 0) {
-            $amount = number_format(
-                (float) $transaction->amount,
-                2,
-                '.',
-                ','
-            );
-
-            SendTelegramSaleNotification::dispatch(
-                'Subscription payment',
-                'PayPal',
-                (string) $transaction->payment_gateway_ref,
-                strtoupper((string) $transaction->currency).' '.$amount,
-            )->afterCommit();
-        }
-
         return response()->json([
             'status' => 'success',
             'redirect' => route('checkout.paypal.subscription.success', [
@@ -176,7 +162,7 @@ class PayPalSubscriptionController extends Controller
         ]);
     }
 
-    public function success(Request $request, PayPalService $payPalService)
+    public function success(Request $request, PayPalService $payPalService): InertiaResponse|RedirectResponse
     {
         $request->validate([
             'subscription_id' => ['required', 'string'],
@@ -187,7 +173,7 @@ class PayPalSubscriptionController extends Controller
 
         try {
             $paypalSubscription = $payPalService->getSubscription($subscriptionId);
-        } catch(RuntimeException $e) {
+        } catch (RuntimeException $e) {
             report($e);
 
             return redirect('/')->with('modal', 'payment_failed');
@@ -201,21 +187,21 @@ class PayPalSubscriptionController extends Controller
             null
         );
 
-        if((string) $subscriptionUserId !== (string) $user->id) {
+        if ((string) $subscriptionUserId !== (string) $user->id) {
             abort(403);
         }
 
         $plan = $planSlug ? config("credit_plans.{$planSlug}") : null;
 
-        if(! $plan || $plan['type'] !== 'subscription') {
+        if (! $plan || $plan['type'] !== 'subscription') {
             return redirect('/');
         }
 
-        if(($paypalSubscription['status'] ?? null) !== 'ACTIVE') {
+        if (($paypalSubscription['status'] ?? null) !== 'ACTIVE') {
             return redirect('/')->with('modal', 'payment_failed');
         }
 
-        if(($paypalSubscription['plan_id'] ?? null) !== ($plan['paypal_plan_id'] ?? null)) {
+        if (($paypalSubscription['plan_id'] ?? null) !== ($plan['paypal_plan_id'] ?? null)) {
             abort(403);
         }
 
@@ -227,7 +213,7 @@ class PayPalSubscriptionController extends Controller
             'purchaseType' => 'subscription',
 
             'order' => [
-                'number' => 'UKC-PPS-'. strtoupper(
+                'number' => 'UKC-PPS-'.strtoupper(
                     substr(str_replace('I-', '', $subscriptionId), 0, 8)
                 ),
 
@@ -243,7 +229,7 @@ class PayPalSubscriptionController extends Controller
         ]);
     }
 
-    public function changePlan(Request $request, PayPalService $payPalService)
+    public function changePlan(Request $request, PayPalService $payPalService): SymfonyResponse
     {
         $request->validate([
             'plan' => ['required', 'string'],
@@ -252,7 +238,7 @@ class PayPalSubscriptionController extends Controller
         $user = $request->user();
         $subscription = $user->activeSubscription();
 
-        if(
+        if (
             ! $subscription ||
             $subscription->payment_method !== 'paypal' ||
             ! $subscription->paypal_subscription_id
@@ -263,17 +249,17 @@ class PayPalSubscriptionController extends Controller
         $planSlug = $request->string('plan')->toString();
         $plan = config("credit_plans.{$planSlug}");
 
-        if(! $plan || $plan['type'] !== 'subscription') {
+        if (! $plan || $plan['type'] !== 'subscription') {
             abort(422, 'Invalid subscription plan.');
         }
 
-        if($subscription->plan_name === $planSlug) {
+        if ($subscription->plan_name === $planSlug) {
             return back()->with('info', 'You are already subscribed to this plan.');
         }
 
         $payPalPlanId = $plan['paypal_plan_id'] ?? null;
 
-        if(! $payPalPlanId) {
+        if (! $payPalPlanId) {
             return back()->with('error', 'PayPal billing plan is not configured.');
         }
 
@@ -293,7 +279,7 @@ class PayPalSubscriptionController extends Controller
                 $returnUrl,
                 $cancelUrl
             );
-        } catch(\Throwable $e) {
+        } catch (\Throwable $e) {
             report($e);
 
             return back()->with(
@@ -302,12 +288,25 @@ class PayPalSubscriptionController extends Controller
             );
         }
 
-        $approvalLink = collect($revision['links'] ?? [])
-            ->firstWhere('rel', 'approve');
+        $approvalUrl = null;
+        $links = $revision['links'] ?? [];
 
-        $approvalUrl = $approvalLink['href'] ?? null;
+        if (is_array($links)) {
+            foreach ($links as $link) {
+                if (! is_array($link) || ($link['rel'] ?? null) !== 'approve') {
+                    continue;
+                }
 
-        if(! $approvalUrl) {
+                $href = $link['href'] ?? null;
+
+                if (is_string($href) && $href !== '') {
+                    $approvalUrl = $href;
+                    break;
+                }
+            }
+        }
+
+        if (! $approvalUrl) {
             return back()->with(
                 'error',
                 'PayPal approval URL was not returned.'
@@ -317,7 +316,7 @@ class PayPalSubscriptionController extends Controller
         return Inertia::location($approvalUrl);
     }
 
-    public function changePlanApproved(Request $request, PayPalService $payPalService)
+    public function changePlanApproved(Request $request, PayPalService $payPalService): RedirectResponse
     {
         $request->validate([
             'subscription_id' => ['required', 'string'],
@@ -332,17 +331,19 @@ class PayPalSubscriptionController extends Controller
             ->where('paypal_subscription_id', $subscriptionId)
             ->first();
 
-        if(! $subscription) abort(403);
+        if (! $subscription) {
+            abort(403);
+        }
 
         $plan = config("credit_plans.{$planSlug}");
 
-        if(! $plan || $plan['type'] !== 'subscription') {
+        if (! $plan || $plan['type'] !== 'subscription') {
             abort(422, 'Invalid subscription plan.');
         }
 
         try {
             $paypalSubscription = $payPalService->getSubscription($subscriptionId);
-        } catch(\Throwable $e) {
+        } catch (\Throwable $e) {
             report($e);
 
             return redirect()
@@ -350,7 +351,7 @@ class PayPalSubscriptionController extends Controller
                 ->with('error', 'Unable to verify PayPal plan change.');
         }
 
-        if(
+        if (
             ($paypalSubscription['plan_id'] ?? null)
             !== ($plan['paypal_plan_id'] ?? null)
         ) {
@@ -379,12 +380,12 @@ class PayPalSubscriptionController extends Controller
             );
     }
 
-    public function cancel(Request $request, PayPalService $payPalService)
+    public function cancel(Request $request, PayPalService $payPalService): RedirectResponse
     {
         $user = $request->user();
         $subscription = $user->activeSubscription();
 
-        if(
+        if (
             ! $subscription ||
             $subscription->payment_method !== 'paypal' ||
             ! $subscription->paypal_subscription_id
@@ -396,7 +397,7 @@ class PayPalSubscriptionController extends Controller
             $payPalService->cancelSubscription(
                 $subscription->paypal_subscription_id
             );
-        } catch(\Throwable $e) {
+        } catch (\Throwable $e) {
             report($e);
 
             return back()->with('error', 'Unable to cancel PayPal subscription.');

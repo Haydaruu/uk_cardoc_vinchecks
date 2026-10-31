@@ -18,8 +18,8 @@ return new class extends Migration
             $table->string('provider_user_id');
             $table->string('provider_email')->nullable();
             $table->string('avatar')->nullable();
-            $table->unique(['provider','provider_user_id']);
-            $table->unique(['user_id','provider']);
+            $table->unique(['provider', 'provider_user_id']);
+            $table->unique(['user_id', 'provider']);
             $table->timestamps();
         });
     }

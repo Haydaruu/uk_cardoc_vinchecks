@@ -34,9 +34,11 @@ export default function VerifyEmail() {
 
                 <p className="mt-2 text-sm text-slate-500">
                     We&apos;ve sent a verification link to{' '}
-                    <span className="font-semibold text-slate-700">{email}</span>.
-                    Please check your inbox and click the link to activate your
-                    account.
+                    <span className="font-semibold text-slate-700">
+                        {email}
+                    </span>
+                    . Please check your inbox and click the link to activate
+                    your account.
                 </p>
 
                 {sent && (
@@ -49,7 +51,7 @@ export default function VerifyEmail() {
                     type="button"
                     onClick={resend}
                     disabled={processing}
-                    className="mt-6 flex w-full items-center justify-center gap-2 rounded-sm bg-secondary py-3 text-[11px] font-bold uppercase tracking-widest text-white transition-colors hover:bg-secondary-container disabled:opacity-60"
+                    className="mt-6 flex w-full items-center justify-center gap-2 rounded-sm bg-secondary py-3 text-[11px] font-bold tracking-widest text-white uppercase transition-colors hover:bg-secondary-container disabled:opacity-60"
                 >
                     Resend Link
                     <Send size={14} />
@@ -64,7 +66,7 @@ export default function VerifyEmail() {
                         Change email address
                     </Link>
                     <Link
-                        href='/auth-page'
+                        href="/auth-page"
                         className="flex items-center gap-1.5 text-slate-500 hover:text-primary-container"
                     >
                         <ArrowLeft size={14} />

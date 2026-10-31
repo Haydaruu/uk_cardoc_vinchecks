@@ -5,8 +5,9 @@ namespace App\Http\Controllers\Settings;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\UpdateProfileRequest;
 use App\Models\Transaction;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -29,7 +30,7 @@ class SettingsController extends Controller
         ]);
     }
 
-    public function updateProfile(UpdateProfileRequest $request)
+    public function updateProfile(UpdateProfileRequest $request): RedirectResponse
     {
         $request->user()->update(
             $request->validated()
@@ -42,7 +43,7 @@ class SettingsController extends Controller
     }
 
     public function security(Request $request): Response
-    {  
+    {
         $user = $request->user();
 
         $currentSessionId = $request->session()->getId();
@@ -51,32 +52,32 @@ class SettingsController extends Controller
             ->where('user_id', $user->id)
             ->orderByDesc('last_activity')
             ->get()
-            ->map(function ($session) use ($currentSessionId){ 
+            ->map(function ($session) use ($currentSessionId) {
 
-            $agent = $session->user_agent ?? '';
+                $agent = $session->user_agent ?? '';
 
-            $device = 'Unknown Device';
-            $browser = 'Unknown Browser';
+                $device = 'Unknown Device';
+                $browser = 'Unknown Browser';
 
-            if(str_contains($agent, 'Chrome')) {
-                $browser = 'Chrome';
-            }
+                if (str_contains($agent, 'Chrome')) {
+                    $browser = 'Chrome';
+                }
 
-            if(str_contains($agent, 'Windows')) {
-                $device = 'Windows';
-            }
+                if (str_contains($agent, 'Windows')) {
+                    $device = 'Windows';
+                }
 
-            return[
-                'key' => hash_hmac('sha256', $session->id, config('app.key')),
-                'browser' => $browser,
-                'device' => $device,
-                'last_activity' => $session->last_activity,
-                'is_current' => $session->id === $currentSessionId,
-            ];
+                return [
+                    'key' => hash_hmac('sha256', $session->id, config('app.key')),
+                    'browser' => $browser,
+                    'device' => $device,
+                    'last_activity' => $session->last_activity,
+                    'is_current' => $session->id === $currentSessionId,
+                ];
 
-        });
+            });
 
-        return Inertia::render('user/settings/security',[
+        return Inertia::render('user/settings/security', [
             'security' => [
                 'has_password' => ! is_null($request->user()->password),
                 'sessions' => $session,
@@ -106,7 +107,7 @@ class SettingsController extends Controller
                     'can_disconnect' => $accounts->has('google') && $loginMethods > 1,
                 ],
 
-                 'microsoft' => [
+                'microsoft' => [
                     'connected' => $accounts->has('microsoft'),
                     'email' => $accounts->get('microsoft')?->provider_email,
                     'can_disconnect' => $accounts->has('microsoft') && $loginMethods > 1,
@@ -122,7 +123,7 @@ class SettingsController extends Controller
         $search = $request->string('search')->toString();
 
         $period = $request->string('period', 'all')->toString();
-        
+
         $status = $request->string('status', 'all')->toString();
 
         $baseQuery = Transaction::query()
@@ -138,7 +139,7 @@ class SettingsController extends Controller
         $creditPurchases = (clone $successfulPayments)
             ->where('category', 'credit_purchase')
             ->sum('amount');
-        
+
         $subscriptionPayments = (clone $successfulPayments)
             ->where('category', 'subscription')
             ->sum('amount');
@@ -178,16 +179,14 @@ class SettingsController extends Controller
                 'payment_method' => $transaction->payment_method,
                 'paid_at' => $transaction->paid_at,
 
-                 'invoice_url' =>
-                    $transaction->status === 'success'
-                        ? route(
-                            'invoice.show',
-                            $transaction
-                        )
-                        : null,
+                'invoice_url' => $transaction->status === 'success'
+                       ? route(
+                           'invoice.show',
+                           $transaction
+                       )
+                       : null,
 
-                'invoice_download_url' =>
-                    $transaction->status === 'success'
+                'invoice_download_url' => $transaction->status === 'success'
                         ? route(
                             'invoice.download',
                             $transaction
@@ -195,9 +194,9 @@ class SettingsController extends Controller
                         : null,
             ]);
 
-        return Inertia::render('user/settings/purchase-history',[ 
-            'transactions' => $transaction, 
-            
+        return Inertia::render('user/settings/purchase-history', [
+            'transactions' => $transaction,
+
             'summary' => [
                 'total_spent' => $totalSpent,
                 'credit_purchases' => $creditPurchases,
@@ -214,132 +213,124 @@ class SettingsController extends Controller
 
     public function subscription(Request $request): Response
     {
- $user = $request->user();
+        $user = $request->user();
 
-    $subscription = $user->subscriptions()
-        ->latest()
-        ->first();
+        $subscription = $user->subscriptions()
+            ->latest()
+            ->first();
 
-    $currentPlan = $subscription
-        ? config("credit_plans.{$subscription->plan_name}")
-        : null;
+        $currentPlan = $subscription
+            ? config("credit_plans.{$subscription->plan_name}")
+            : null;
 
-    $pendingPlan = $subscription?->pending_plan_name
-        ? config("credit_plans.{$subscription->pending_plan_name}")
-        : null;
+        $pendingPlan = $subscription?->pending_plan_name
+            ? config("credit_plans.{$subscription->pending_plan_name}")
+            : null;
 
-    $availablePlans = collect(config('credit_plans'))
-        ->filter(
-            fn ($plan) =>
-                $plan['type'] === 'subscription'
-        )
-        ->map(
-            fn ($plan, $slug) => [
-                'slug' => $slug,
-                'name' => $plan['label'],
-                'price' => $plan['amount_display'],
-                'monthly_credits' => $plan['credits'],
-            ]
-        )
-        ->values();
+        /** @var array<string, array{
+         *     price_id: string|null,
+         *     paypal_plan_id?: string|null,
+         *     type: 'one_time'|'subscription',
+         *     credits: int,
+         *     label: string,
+         *     amount_minor: int,
+         *     currency: string,
+         *     amount_display: string
+         * }> $creditPlans
+         */
+        $creditPlans = config('credit_plans', []);
 
-    $recentInvoices = Transaction::query()
-        ->where('user_id', $user->id)
-        ->where('category', 'subscription')
-        ->where('status', 'success')
-        ->latest('paid_at')
-        ->limit(5)
-        ->get()
-        ->map(
-            fn ($transaction) => [
-                'id' => $transaction->id,
-                'invoice_id' => $transaction->invoice_id,
-                'amount' => $transaction->amount,
-                'currency' => $transaction->currency,
-                'status' => $transaction->status,
-                'paid_at' => $transaction->paid_at,
-                'description' => $transaction->description,
-            ]
-        );
+        $availablePlans = collect($creditPlans)
+            ->filter(
+                fn ($plan) => $plan['type'] === 'subscription'
+            )
+            ->map(
+                fn ($plan, $slug) => [
+                    'slug' => $slug,
+                    'name' => $plan['label'],
+                    'price' => $plan['amount_display'],
+                    'monthly_credits' => $plan['credits'],
+                ]
+            )
+            ->values();
 
-    return Inertia::render(
-        'user/settings/subscription',
-        [
-            'subscription' => $subscription
-                ? [
-                    'plan_name' =>
-                        $subscription->plan_name,
+        $recentInvoices = Transaction::query()
+            ->where('user_id', $user->id)
+            ->where('category', 'subscription')
+            ->where('status', 'success')
+            ->latest('paid_at')
+            ->limit(5)
+            ->get()
+            ->map(
+                fn ($transaction) => [
+                    'id' => $transaction->id,
+                    'invoice_id' => $transaction->invoice_id,
+                    'amount' => $transaction->amount,
+                    'currency' => $transaction->currency,
+                    'status' => $transaction->status,
+                    'paid_at' => $transaction->paid_at,
+                    'description' => $transaction->description,
+                ]
+            );
 
-                    'price' =>
-                        $subscription->price,
+        return Inertia::render(
+            'user/settings/subscription',
+            [
+                'subscription' => $subscription
+                    ? [
+                        'plan_name' => $subscription->plan_name,
 
-                    'status' =>
-                        $subscription->status,
+                        'price' => $subscription->price,
 
-                    'monthly_credits' =>
-                        $subscription->monthly_credits,
+                        'status' => $subscription->status,
 
-                    'payment_method' =>
-                        $subscription->payment_method,
+                        'monthly_credits' => $subscription->monthly_credits,
 
-                    'start_date' =>
-                        $subscription->start_date,
+                        'payment_method' => $subscription->payment_method,
 
-                    'current_period_end' =>
-                        $subscription->current_period_end,
+                        'start_date' => $subscription->start_date,
 
-                    'cancel_at_period_end' =>
-                        $subscription->cancel_at_period_end,
+                        'current_period_end' => $subscription->current_period_end,
 
-                    'cancelled_at' =>
-                        $subscription->cancelled_at,
+                        'cancel_at_period_end' => $subscription->cancel_at_period_end,
 
-                    'scheduled_change' =>
-                        $pendingPlan
-                            ? [
-                                'slug' =>
-                                    $subscription
+                        'cancelled_at' => $subscription->cancelled_at,
+
+                        'scheduled_change' => $pendingPlan
+                                ? [
+                                    'slug' => $subscription
                                         ->pending_plan_name,
 
-                                'name' =>
-                                    $pendingPlan['label'],
+                                    'name' => $pendingPlan['label'],
 
-                                'price' =>
-                                    $pendingPlan[
-                                        'amount_display'
-                                    ],
+                                    'price' => $pendingPlan[
+                                            'amount_display'
+                                        ],
 
-                                'monthly_credits' =>
-                                    $pendingPlan['credits'],
+                                    'monthly_credits' => $pendingPlan['credits'],
 
-                                'effective_at' =>
-                                    $subscription
+                                    'effective_at' => $subscription
                                         ->pending_plan_effective_at,
-                            ]
-                            : null,
-                ]
-                : null,
+                                ]
+                                : null,
+                    ]
+                    : null,
 
-            'plan' => $currentPlan
-                ? [
-                    'name' =>
-                        $currentPlan['label'],
+                'plan' => $currentPlan
+                    ? [
+                        'name' => $currentPlan['label'],
 
-                    'price' =>
-                        $currentPlan['amount_display'],
+                        'price' => $currentPlan['amount_display'],
 
-                    'monthly_credits' =>
-                        $currentPlan['credits'],
-                ]
-                : null,
+                        'monthly_credits' => $currentPlan['credits'],
+                    ]
+                    : null,
 
-            'availablePlans' =>
-                $availablePlans,
+                'availablePlans' => $availablePlans,
 
-            'recentInvoices' =>
-                $recentInvoices,
-        ]
-    );
+                'recentInvoices' => $recentInvoices,
+            ]
+        );
     }
 
     public function help(): Response

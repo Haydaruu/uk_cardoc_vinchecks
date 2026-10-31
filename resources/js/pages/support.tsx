@@ -1,5 +1,6 @@
 import { Head, useForm, usePage } from '@inertiajs/react';
-import { useState, type FormEvent } from 'react';
+import { useState } from 'react';
+import type { FormEvent } from 'react';
 import FaqAccordion from '@/components/faq/faq-accordion';
 import BaseLayout from '@/layouts/base-layout';
 
@@ -29,6 +30,7 @@ function Support() {
         subject: 'Data Discrepancy',
         message: '',
     });
+
     const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
         setSubmitted(false);
@@ -41,6 +43,7 @@ function Support() {
             },
         });
     };
+
     return (
         <>
             <Head title="Support" />
@@ -48,24 +51,27 @@ function Support() {
             {/* Hero */}
             <section className="relative overflow-hidden bg-primary-container px-6 py-section-padding text-white md:px-12">
                 <div className="pointer-events-none absolute inset-0 opacity-10">
-                    <div className="absolute -right-20 -top-20 size-96 rotate-45 border-[40px] border-white" />
+                    <div className="absolute -top-20 -right-20 size-96 rotate-45 border-[40px] border-white" />
                     <div className="absolute bottom-10 left-10 size-48 -rotate-12 border-[20px] border-secondary" />
                 </div>
 
                 <div className="relative z-10 mx-auto max-w-4xl text-center">
-                    <h1 className="text-h1 mb-6 text-white">How can we help you today?</h1>
+                    <h1 className="mb-6 text-h1 text-white">
+                        How can we help you today?
+                    </h1>
                     <div className="group relative mx-auto max-w-2xl">
-                        <span className="material-symbols-outlined absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 transition-colors group-focus-within:text-secondary">
+                        <span className="material-symbols-outlined absolute top-1/2 left-5 -translate-y-1/2 text-slate-400 transition-colors group-focus-within:text-secondary">
                             search
                         </span>
                         <input
                             type="text"
                             placeholder="Search for reports, billing, or technical issues..."
-                            className="dashboard-shadow text-body-lg w-full rounded-xl border-none bg-white py-5 pl-14 pr-6 text-on-surface shadow-xl transition-transform duration-300 placeholder:text-outline focus:ring-2 focus:ring-secondary"
+                            className="dashboard-shadow w-full rounded-xl border-none bg-white py-5 pr-6 pl-14 text-body-lg text-on-surface shadow-xl transition-transform duration-300 placeholder:text-outline focus:ring-2 focus:ring-secondary"
                         />
                     </div>
-                    <p className="text-body-md mt-6 text-on-primary-container opacity-80">
-                        Popular: &quot;Refund Policy&quot;, &quot;Download PDF&quot;, &quot;Ulez Compliance&quot;
+                    <p className="mt-6 text-body-md text-on-primary-container opacity-80">
+                        Popular: &quot;Refund Policy&quot;, &quot;Download
+                        PDF&quot;, &quot;Ulez Compliance&quot;
                     </p>
                 </div>
             </section>
@@ -74,7 +80,9 @@ function Support() {
             <section className="mx-auto max-w-container-max px-6 py-section-padding md:px-12">
                 <div className="mb-12">
                     <div className="sovereign-line mb-4" />
-                    <h2 className="text-h2 text-primary-container">Browse by Topic</h2>
+                    <h2 className="text-h2 text-primary-container">
+                        Browse by Topic
+                    </h2>
                 </div>
 
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-4">
@@ -84,14 +92,27 @@ function Support() {
                             <span className="material-symbols-outlined mb-6 block text-4xl text-secondary">
                                 description
                             </span>
-                            <h3 className="text-h3 mb-4 text-primary-container">Reports &amp; Data</h3>
+                            <h3 className="mb-4 text-h3 text-primary-container">
+                                Reports &amp; Data
+                            </h3>
                             <p className="text-body-md text-on-surface-variant">
-                                Understand your vehicle history reports, mileage anomalies, and technical specifications provided by DVLA and HPI.
+                                Understand your vehicle history reports, mileage
+                                anomalies, and technical specifications provided
+                                by DVLA and HPI.
                             </p>
                             <ul className="mt-6 space-y-3">
-                                {['Interpreting MOT history', 'VIN mismatch guide', 'Finance check details'].map((link) => (
-                                    <li key={link} className="flex items-center text-sm font-medium text-primary-container hover:underline">
-                                        <span className="material-symbols-outlined mr-2 text-xs">arrow_forward</span>
+                                {[
+                                    'Interpreting MOT history',
+                                    'VIN mismatch guide',
+                                    'Finance check details',
+                                ].map((link) => (
+                                    <li
+                                        key={link}
+                                        className="flex items-center text-sm font-medium text-primary-container hover:underline"
+                                    >
+                                        <span className="material-symbols-outlined mr-2 text-xs">
+                                            arrow_forward
+                                        </span>
                                         {link}
                                     </li>
                                 ))}
@@ -104,9 +125,12 @@ function Support() {
                         <span className="material-symbols-outlined mb-4 block text-3xl text-primary-container">
                             payments
                         </span>
-                        <h3 className="mb-2 text-xl font-semibold text-primary-container">Payments &amp; Credits</h3>
+                        <h3 className="mb-2 text-xl font-semibold text-primary-container">
+                            Payments &amp; Credits
+                        </h3>
                         <p className="text-body-md text-sm text-on-surface-variant">
-                            Managing invoices, refund requests, and credit bundles.
+                            Managing invoices, refund requests, and credit
+                            bundles.
                         </p>
                     </div>
 
@@ -115,22 +139,28 @@ function Support() {
                         <span className="material-symbols-outlined mb-4 block text-3xl text-primary-container">
                             manage_accounts
                         </span>
-                        <h3 className="mb-2 text-xl font-semibold text-primary-container">Account Settings</h3>
+                        <h3 className="mb-2 text-xl font-semibold text-primary-container">
+                            Account Settings
+                        </h3>
                         <p className="text-body-md text-sm text-on-surface-variant">
-                            Update your email, password, and communication preferences.
+                            Update your email, password, and communication
+                            preferences.
                         </p>
                     </div>
 
                     {/* Wide accent — Technical Support */}
                     <div className="dashboard-shadow dashboard-shadow-hover group relative cursor-pointer overflow-hidden rounded-xl bg-secondary p-8 text-white transition-all md:col-span-2">
                         <div className="relative z-10">
-                            <span className="material-symbols-outlined mb-4 block text-3xl">terminal</span>
-                            <h3 className="text-h3 mb-2">Technical Support</h3>
+                            <span className="material-symbols-outlined mb-4 block text-3xl">
+                                terminal
+                            </span>
+                            <h3 className="mb-2 text-h3">Technical Support</h3>
                             <p className="text-body-md opacity-90">
-                                Troubleshooting PDF generation, browser compatibility, and API integrations.
+                                Troubleshooting PDF generation, browser
+                                compatibility, and API integrations.
                             </p>
                         </div>
-                        <div className="absolute right-0 top-0 h-full w-32 translate-x-16 skew-x-12 bg-white/10" />
+                        <div className="absolute top-0 right-0 h-full w-32 translate-x-16 skew-x-12 bg-white/10" />
                     </div>
                 </div>
             </section>
@@ -139,9 +169,12 @@ function Support() {
             <section className="bg-surface-container-low px-6 py-section-padding md:px-12">
                 <div className="mx-auto max-w-3xl">
                     <div className="mb-16 text-center">
-                        <h2 className="text-h2 mb-4">Frequently Asked Questions</h2>
+                        <h2 className="mb-4 text-h2">
+                            Frequently Asked Questions
+                        </h2>
                         <p className="text-body-md text-on-surface-variant">
-                            Quick answers to the most common queries from our community.
+                            Quick answers to the most common queries from our
+                            community.
                         </p>
                     </div>
                     <FaqAccordion items={faqItems} />
@@ -152,20 +185,28 @@ function Support() {
             <section className="mx-auto max-w-container-max px-6 py-section-padding md:px-12">
                 <div className="grid grid-cols-1 gap-16 lg:grid-cols-2">
                     <div>
-                        <h2 className="text-h2 mb-6">Still need help?</h2>
-                        <p className="text-body-lg mb-12 text-on-surface-variant">
-                            Our dedicated support team in London is ready to assist you with any complex inquiries or commercial partnership requests.
+                        <h2 className="mb-6 text-h2">Still need help?</h2>
+                        <p className="mb-12 text-body-lg text-on-surface-variant">
+                            Our dedicated support team in London is ready to
+                            assist you with any complex inquiries or commercial
+                            partnership requests.
                         </p>
 
                         <div className="space-y-8">
                             <div className="flex gap-6">
                                 <div className="flex size-12 items-center justify-center rounded-lg bg-surface-container-high text-primary-container">
-                                    <span className="material-symbols-outlined">mail</span>
+                                    <span className="material-symbols-outlined">
+                                        mail
+                                    </span>
                                 </div>
                                 <div>
-                                    <h4 className="font-bold text-primary-container">Email Support</h4>
-                                    <p className="text-on-surface-variant">support@ukcardoc.com</p>
-                                    <p className="mt-1 text-xs font-bold uppercase tracking-tighter text-secondary">
+                                    <h4 className="font-bold text-primary-container">
+                                        Email Support
+                                    </h4>
+                                    <p className="text-on-surface-variant">
+                                        support@ukcardoc.com
+                                    </p>
+                                    <p className="mt-1 text-xs font-bold tracking-tighter text-secondary uppercase">
                                         Response within 4 hours
                                     </p>
                                 </div>
@@ -173,12 +214,20 @@ function Support() {
 
                             <div className="flex gap-6">
                                 <div className="flex size-12 items-center justify-center rounded-lg bg-surface-container-high text-primary-container">
-                                    <span className="material-symbols-outlined">schedule</span>
+                                    <span className="material-symbols-outlined">
+                                        schedule
+                                    </span>
                                 </div>
                                 <div>
-                                    <h4 className="font-bold text-primary-container">Business Hours</h4>
-                                    <p className="text-on-surface-variant">Monday – Friday: 08:00 – 18:00</p>
-                                    <p className="text-on-surface-variant">Saturday: 09:00 – 13:00</p>
+                                    <h4 className="font-bold text-primary-container">
+                                        Business Hours
+                                    </h4>
+                                    <p className="text-on-surface-variant">
+                                        Monday – Friday: 08:00 – 18:00
+                                    </p>
+                                    <p className="text-on-surface-variant">
+                                        Saturday: 09:00 – 13:00
+                                    </p>
                                 </div>
                             </div>
                         </div>
@@ -191,7 +240,8 @@ function Support() {
                                     role="status"
                                     className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800"
                                 >
-                                    Thanks for contacting us. Your message has been submitted successfully.
+                                    Thanks for contacting us. Your message has
+                                    been submitted successfully.
                                 </div>
                             )}
 
@@ -217,14 +267,21 @@ function Support() {
                                         type="text"
                                         autoComplete="name"
                                         value={form.data.name}
-                                        onChange={(event) => form.setData('name', event.target.value)}
+                                        onChange={(event) =>
+                                            form.setData(
+                                                'name',
+                                                event.target.value,
+                                            )
+                                        }
                                         maxLength={100}
                                         required
                                         className="w-full rounded border-slate-200 text-sm focus:border-secondary focus:ring-secondary"
                                         placeholder="John Smith"
                                     />
                                     {form.errors.name && (
-                                        <p className="text-sm text-red-600">{form.errors.name}</p>
+                                        <p className="text-sm text-red-600">
+                                            {form.errors.name}
+                                        </p>
                                     )}
                                 </div>
 
@@ -240,14 +297,21 @@ function Support() {
                                         type="email"
                                         autoComplete="email"
                                         value={form.data.email}
-                                        onChange={(event) => form.setData('email', event.target.value)}
+                                        onChange={(event) =>
+                                            form.setData(
+                                                'email',
+                                                event.target.value,
+                                            )
+                                        }
                                         maxLength={254}
                                         required
                                         className="w-full rounded border-slate-200 text-sm focus:border-secondary focus:ring-secondary"
                                         placeholder="john@example.com"
                                     />
                                     {form.errors.email && (
-                                        <p className="text-sm text-red-600">{form.errors.email}</p>
+                                        <p className="text-sm text-red-600">
+                                            {form.errors.email}
+                                        </p>
                                     )}
                                 </div>
                             </div>
@@ -262,17 +326,30 @@ function Support() {
                                 <select
                                     id="support-subject"
                                     value={form.data.subject}
-                                    onChange={(event) => form.setData('subject', event.target.value)}
+                                    onChange={(event) =>
+                                        form.setData(
+                                            'subject',
+                                            event.target.value,
+                                        )
+                                    }
                                     required
                                     className="w-full rounded border-slate-200 text-sm focus:border-secondary focus:ring-secondary"
                                 >
-                                    <option value="Data Discrepancy">Data Discrepancy</option>
-                                    <option value="Billing Issue">Billing Issue</option>
-                                    <option value="Business API Inquiry">Business API Inquiry</option>
+                                    <option value="Data Discrepancy">
+                                        Data Discrepancy
+                                    </option>
+                                    <option value="Billing Issue">
+                                        Billing Issue
+                                    </option>
+                                    <option value="Business API Inquiry">
+                                        Business API Inquiry
+                                    </option>
                                     <option value="Other">Other</option>
                                 </select>
                                 {form.errors.subject && (
-                                    <p className="text-sm text-red-600">{form.errors.subject}</p>
+                                    <p className="text-sm text-red-600">
+                                        {form.errors.subject}
+                                    </p>
                                 )}
                             </div>
 
@@ -287,14 +364,21 @@ function Support() {
                                     id="support-message"
                                     rows={5}
                                     value={form.data.message}
-                                    onChange={(event) => form.setData('message', event.target.value)}
+                                    onChange={(event) =>
+                                        form.setData(
+                                            'message',
+                                            event.target.value,
+                                        )
+                                    }
                                     maxLength={5000}
                                     required
                                     className="w-full resize-y rounded border-slate-200 text-sm focus:border-secondary focus:ring-secondary"
                                     placeholder="Tell us more about your issue..."
                                 />
                                 {form.errors.message && (
-                                    <p className="text-sm text-red-600">{form.errors.message}</p>
+                                    <p className="text-sm text-red-600">
+                                        {form.errors.message}
+                                    </p>
                                 )}
                             </div>
 
@@ -303,10 +387,11 @@ function Support() {
                                 disabled={form.processing}
                                 className="w-full rounded bg-secondary py-4 font-bold text-white transition-colors hover:bg-[#930012] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
                             >
-                                {form.processing ? 'Sending Message...' : 'Send Message'}
+                                {form.processing
+                                    ? 'Sending Message...'
+                                    : 'Send Message'}
                             </button>
                         </form>
-
                     </div>
                 </div>
             </section>

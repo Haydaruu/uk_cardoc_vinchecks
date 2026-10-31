@@ -20,8 +20,7 @@ class GuestReportAccessReadyMail extends Mailable
         public string $invoiceUrl,
         public string $invoicePdfPath,
         public string $invoicePdfFileName,
-    ) {
-    }
+    ) {}
 
     public function envelope(): Envelope
     {
@@ -37,6 +36,9 @@ class GuestReportAccessReadyMail extends Mailable
         );
     }
 
+    /**
+     * @return array<int, Attachment>
+     */
     public function attachments(): array
     {
         return [

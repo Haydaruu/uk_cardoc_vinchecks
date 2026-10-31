@@ -1,17 +1,9 @@
-import {
-    Head,
-    usePage,
-} from '@inertiajs/react';
+import { Head, usePage } from '@inertiajs/react';
+import type { ReactNode } from 'react';
 
-import UserDashboard, {
-    type RecentReport,
-} from '@/components/home/user-dashboard';
-
+import UserDashboard from '@/components/home/user-dashboard';
+import type { RecentReport } from '@/components/home/user-dashboard';
 import BaseLayout from '@/layouts/base-layout';
-
-import {
-    type ReactNode,
-} from 'react';
 
 type DashboardPageProps = {
     auth: {
@@ -23,21 +15,14 @@ type DashboardPageProps = {
         } | null;
     };
 
-    recentReports:
-        RecentReport[];
+    recentReports: RecentReport[];
 
-    recentSearches:
-        string[];
+    recentSearches: string[];
 };
 
 function Dashboard() {
-    const {
-        auth,
-        recentReports,
-        recentSearches,
-    } =
-        usePage<DashboardPageProps>()
-            .props;
+    const { auth, recentReports, recentSearches } =
+        usePage<DashboardPageProps>().props;
 
     /*
      * Route dashboard memang
@@ -54,26 +39,14 @@ function Dashboard() {
             <Head title="UK Vehicle History Check" />
 
             <UserDashboard
-                user={
-                    auth.user
-                }
-                recentReports={
-                    recentReports
-                }
-                recentSearches={
-                    recentSearches
-                }
+                user={auth.user}
+                recentReports={recentReports}
+                recentSearches={recentSearches}
             />
         </>
     );
 }
 
-Dashboard.layout = (
-    page: ReactNode,
-) => (
-    <BaseLayout>
-        {page}
-    </BaseLayout>
-);
+Dashboard.layout = (page: ReactNode) => <BaseLayout>{page}</BaseLayout>;
 
 export default Dashboard;

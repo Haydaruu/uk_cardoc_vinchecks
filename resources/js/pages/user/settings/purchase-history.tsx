@@ -1,4 +1,3 @@
-import SettingsLayout from "@/layouts/settings/settings-layout";
 import { router } from '@inertiajs/react';
 import {
     CalendarDays,
@@ -14,6 +13,7 @@ import {
     Ban,
 } from 'lucide-react';
 import { useState } from 'react';
+import SettingsLayout from '@/layouts/settings/settings-layout';
 
 type Transaction = {
     id: number;
@@ -36,8 +36,6 @@ type PaginationLink = {
     label: string;
     active: boolean;
 };
-
-
 
 type PaginatedTransactions = {
     data: Transaction[];
@@ -70,11 +68,13 @@ type Props = {
     filters: Filters;
 };
 
-export default function PurchaseHistory({transactions, summary, filters}: Props) {
-    const [ search, setSearch ] = useState(filters.search);
-    const updateFilters = ( 
-        values: Partial<Filters>, 
-    ) => {
+export default function PurchaseHistory({
+    transactions,
+    summary,
+    filters,
+}: Props) {
+    const [search, setSearch] = useState(filters.search);
+    const updateFilters = (values: Partial<Filters>) => {
         router.get(
             '/settings/purchase-history',
             {
@@ -91,9 +91,7 @@ export default function PurchaseHistory({transactions, summary, filters}: Props)
         );
     };
 
-    const submitSearch = (
-        event: React.FormEvent,
-    ) => {
+    const submitSearch = (event: React.FormEvent) => {
         event.preventDefault();
 
         updateFilters({
@@ -105,16 +103,15 @@ export default function PurchaseHistory({transactions, summary, filters}: Props)
         <SettingsLayout>
             <div className="min-h-screen bg-surface">
                 <div className="mx-auto w-full max-w-container-max px-margin-mobile py-8 md:px-gutter md:py-12">
-
                     {/* Header */}
                     <header className="mb-10">
                         <h1 className="font-h2 text-h2 text-primary">
                             Purchase History
                         </h1>
 
-                        <p className="mt-2 max-w-2xl font-body-lg text-body-lg text-on-surface-variant">
-                            View your credit purchases and
-                            subscription payments.
+                        <p className="font-body-lg mt-2 max-w-2xl text-body-lg text-on-surface-variant">
+                            View your credit purchases and subscription
+                            payments.
                         </p>
                     </header>
 
@@ -122,19 +119,13 @@ export default function PurchaseHistory({transactions, summary, filters}: Props)
                     <div className="mb-12 grid grid-cols-1 gap-6 md:grid-cols-3">
                         <SummaryCard
                             label="Total Spent"
-                            value={formatMoney(
-                                summary.total_spent,
-                                'GBP',
-                            )}
+                            value={formatMoney(summary.total_spent, 'GBP')}
                             icon={<WalletCards />}
                         />
 
                         <SummaryCard
                             label="Credit Purchases"
-                            value={formatMoney(
-                                summary.credit_purchases,
-                                'GBP',
-                            )}
+                            value={formatMoney(summary.credit_purchases, 'GBP')}
                             icon={<Database />}
                         />
 
@@ -150,57 +141,42 @@ export default function PurchaseHistory({transactions, summary, filters}: Props)
 
                     {/* Table container */}
                     <section className="overflow-hidden rounded-xl border border-outline-variant bg-surface shadow-[0_4px_20px_rgba(0,32,91,0.04)]">
-
                         {/* Filters */}
                         <div className="flex flex-col items-center justify-between gap-4 border-b border-outline-variant bg-surface-bright p-6 lg:flex-row">
-
                             <form
                                 onSubmit={submitSearch}
                                 className="relative w-full lg:w-96"
                             >
-                                <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-on-surface-variant" />
+                                <Search className="absolute top-1/2 left-3 h-5 w-5 -translate-y-1/2 text-on-surface-variant" />
 
                                 <input
                                     value={search}
                                     onChange={(event) =>
-                                        setSearch(
-                                            event.target.value,
-                                        )
+                                        setSearch(event.target.value)
                                     }
                                     placeholder="Search transactions..."
-                                    className="w-full rounded-lg border border-outline-variant bg-surface py-2.5 pl-10 pr-4 font-body-md text-body-md text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/60 focus:border-primary focus:ring-1 focus:ring-primary"
+                                    className="font-body-md w-full rounded-lg border border-outline-variant bg-surface py-2.5 pr-4 pl-10 text-body-md text-on-surface transition-colors outline-none placeholder:text-on-surface-variant/60 focus:border-primary focus:ring-1 focus:ring-primary"
                                 />
                             </form>
 
                             <div className="flex w-full gap-3 lg:w-auto">
-
                                 <div className="relative flex-1 lg:flex-none">
                                     <select
                                         value={filters.period}
                                         onChange={(event) =>
                                             updateFilters({
-                                                period:
-                                                    event.target
-                                                        .value,
+                                                period: event.target.value,
                                             })
                                         }
-                                        className="w-full appearance-none rounded-lg border border-outline-variant bg-surface py-2.5 pl-4 pr-10 font-body-md text-body-md text-on-surface outline-none lg:w-48"
+                                        className="font-body-md w-full appearance-none rounded-lg border border-outline-variant bg-surface py-2.5 pr-10 pl-4 text-body-md text-on-surface outline-none lg:w-48"
                                     >
-                                        <option value="all">
-                                            All Time
-                                        </option>
-                                        <option value="30">
-                                            Last 30 Days
-                                        </option>
-                                        <option value="90">
-                                            Last 90 Days
-                                        </option>
-                                        <option value="year">
-                                            This Year
-                                        </option>
+                                        <option value="all">All Time</option>
+                                        <option value="30">Last 30 Days</option>
+                                        <option value="90">Last 90 Days</option>
+                                        <option value="year">This Year</option>
                                     </select>
 
-                                    <CalendarDays className="pointer-events-none absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-on-surface-variant" />
+                                    <CalendarDays className="pointer-events-none absolute top-1/2 right-3 h-5 w-5 -translate-y-1/2 text-on-surface-variant" />
                                 </div>
 
                                 <div className="relative flex-1 lg:flex-none">
@@ -208,12 +184,10 @@ export default function PurchaseHistory({transactions, summary, filters}: Props)
                                         value={filters.status}
                                         onChange={(event) =>
                                             updateFilters({
-                                                status:
-                                                    event.target
-                                                        .value,
+                                                status: event.target.value,
                                             })
                                         }
-                                        className="w-full appearance-none rounded-lg border border-outline-variant bg-surface py-2.5 pl-4 pr-10 font-body-md text-body-md text-on-surface outline-none lg:w-48"
+                                        className="font-body-md w-full appearance-none rounded-lg border border-outline-variant bg-surface py-2.5 pr-10 pl-4 text-body-md text-on-surface outline-none lg:w-48"
                                     >
                                         <option value="all">
                                             All Statuses
@@ -221,18 +195,14 @@ export default function PurchaseHistory({transactions, summary, filters}: Props)
                                         <option value="success">
                                             Successful
                                         </option>
-                                        <option value="pending">
-                                            Pending
-                                        </option>
-                                        <option value="failed">
-                                            Failed
-                                        </option>
+                                        <option value="pending">Pending</option>
+                                        <option value="failed">Failed</option>
                                         <option value="refunded">
                                             Refunded
                                         </option>
                                     </select>
 
-                                    <Filter className="pointer-events-none absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-on-surface-variant" />
+                                    <Filter className="pointer-events-none absolute top-1/2 right-3 h-5 w-5 -translate-y-1/2 text-on-surface-variant" />
                                 </div>
                             </div>
                         </div>
@@ -244,17 +214,11 @@ export default function PurchaseHistory({transactions, summary, filters}: Props)
                             <table className="w-full border-collapse text-left">
                                 <thead>
                                     <tr className="border-b border-outline-variant bg-surface-container-low">
-                                        <TableHeader>
-                                            Date
-                                        </TableHeader>
+                                        <TableHeader>Date</TableHeader>
 
-                                        <TableHeader>
-                                            Description
-                                        </TableHeader>
+                                        <TableHeader>Description</TableHeader>
 
-                                        <TableHeader>
-                                            Type
-                                        </TableHeader>
+                                        <TableHeader>Type</TableHeader>
 
                                         <TableHeader align="right">
                                             Amount
@@ -271,28 +235,20 @@ export default function PurchaseHistory({transactions, summary, filters}: Props)
                                 </thead>
 
                                 <tbody className="divide-y divide-outline-variant">
-                                    {transactions.data.length >
-                                    0 ? (
-                                        transactions.data.map(
-                                            (transaction) => (
-                                                <TransactionRow
-                                                    key={
-                                                        transaction.id
-                                                    }
-                                                    transaction={
-                                                        transaction
-                                                    }
-                                                />
-                                            ),
-                                        )
+                                    {transactions.data.length > 0 ? (
+                                        transactions.data.map((transaction) => (
+                                            <TransactionRow
+                                                key={transaction.id}
+                                                transaction={transaction}
+                                            />
+                                        ))
                                     ) : (
                                         <tr>
                                             <td
                                                 colSpan={6}
-                                                className="px-6 py-14 text-center font-body-md text-on-surface-variant"
+                                                className="font-body-md px-6 py-14 text-center text-on-surface-variant"
                                             >
-                                                No transactions
-                                                found.
+                                                No transactions found.
                                             </td>
                                         </tr>
                                     )}
@@ -310,17 +266,13 @@ export default function PurchaseHistory({transactions, summary, filters}: Props)
 
                             <div className="flex gap-2">
                                 <PaginationButton
-                                    url={
-                                        transactions.prev_page_url
-                                    }
+                                    url={transactions.prev_page_url}
                                 >
                                     Previous
                                 </PaginationButton>
 
                                 <PaginationButton
-                                    url={
-                                        transactions.next_page_url
-                                    }
+                                    url={transactions.next_page_url}
                                 >
                                     Next
                                 </PaginationButton>
@@ -346,12 +298,11 @@ function SummaryCard({
 }) {
     return (
         <div className="group relative overflow-hidden rounded-xl border border-outline-variant bg-surface p-6 shadow-[0_4px_20px_rgba(0,32,91,0.04)] transition-all hover:border-primary-container hover:shadow-[0_8px_30px_rgba(0,32,91,0.08)]">
-
-            <div className="absolute right-4 top-4 [&>svg]:h-16 [&>svg]:w-16 [&>svg]:text-primary [&>svg]:opacity-10">
+            <div className="absolute top-4 right-4 [&>svg]:h-16 [&>svg]:w-16 [&>svg]:text-primary [&>svg]:opacity-10">
                 {icon}
             </div>
 
-            <p className="mb-2 font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant">
+            <p className="font-label-sm mb-2 text-label-sm tracking-wider text-on-surface-variant uppercase">
                 {label}
             </p>
 
@@ -368,16 +319,12 @@ function SummaryCard({
     );
 }
 
-function TransactionRow({
-    transaction,
-}: {
-    transaction: Transaction;
-}) {
+function TransactionRow({ transaction }: { transaction: Transaction }) {
     const date = formatDate(transaction.paid_at);
 
     return (
         <tr className="group transition-colors hover:bg-surface-bright">
-            <td className="whitespace-nowrap px-6 py-4 font-body-md text-body-md text-on-surface">
+            <td className="font-body-md px-6 py-4 text-body-md whitespace-nowrap text-on-surface">
                 <div className="flex flex-col">
                     <span>{date.date}</span>
 
@@ -387,10 +334,8 @@ function TransactionRow({
                 </div>
             </td>
 
-            <td className="px-6 py-4 font-body-md font-medium text-on-surface">
-                {transaction.description ??
-                    transaction.invoice_id ??
-                    'Payment'}
+            <td className="font-body-md px-6 py-4 font-medium text-on-surface">
+                {transaction.description ?? transaction.invoice_id ?? 'Payment'}
             </td>
 
             <td className="px-6 py-4">
@@ -399,17 +344,12 @@ function TransactionRow({
                 </span>
             </td>
 
-            <td className="whitespace-nowrap px-6 py-4 text-right font-body-md font-medium text-on-surface">
-                {formatMoney(
-                    transaction.amount,
-                    transaction.currency,
-                )}
+            <td className="font-body-md px-6 py-4 text-right font-medium whitespace-nowrap text-on-surface">
+                {formatMoney(transaction.amount, transaction.currency)}
             </td>
 
             <td className="px-6 py-4 text-center">
-                <TransactionStatus
-                    status={transaction.status}
-                />
+                <TransactionStatus status={transaction.status} />
             </td>
 
             <td className="px-6 py-4 text-center">
@@ -418,9 +358,7 @@ function TransactionRow({
                 transaction.invoice_download_url ? (
                     <div className="inline-flex items-center gap-2">
                         <a
-                            href={
-                                transaction.invoice_url
-                            }
+                            href={transaction.invoice_url}
                             title="View invoice"
                             className="inline-flex items-center justify-center rounded-md p-2 text-primary transition-colors hover:bg-surface-container hover:text-primary-container"
                         >
@@ -428,9 +366,7 @@ function TransactionRow({
                         </a>
 
                         <a
-                            href={
-                                transaction.invoice_download_url
-                            }
+                            href={transaction.invoice_download_url}
                             title="Download invoice"
                             className="inline-flex items-center justify-center rounded-md p-2 text-primary transition-colors hover:bg-surface-container hover:text-primary-container"
                         >
@@ -447,18 +383,12 @@ function TransactionRow({
     );
 }
 
-function TransactionStatus({
-    status,
-}: {
-    status: Transaction['status'];
-}) {
+function TransactionStatus({ status }: { status: Transaction['status'] }) {
     if (status === 'success') {
         return (
             <div className="inline-flex items-center gap-1.5 text-emerald-600">
                 <CheckCircle2 className="h-4 w-4" />
-                <span className="font-label-sm text-label-sm">
-                    Successful
-                </span>
+                <span className="font-label-sm text-label-sm">Successful</span>
             </div>
         );
     }
@@ -467,15 +397,13 @@ function TransactionStatus({
         return (
             <div className="inline-flex items-center gap-1.5 text-error">
                 <XCircle className="h-4 w-4" />
-                <span className="font-label-sm text-label-sm">
-                    Failed
-                </span>
+                <span className="font-label-sm text-label-sm">Failed</span>
             </div>
         );
     }
 
     return (
-        <span className="font-label-sm text-label-sm capitalize text-on-surface-variant">
+        <span className="font-label-sm text-label-sm text-on-surface-variant capitalize">
             {status}
         </span>
     );
@@ -490,7 +418,7 @@ function TableHeader({
 }) {
     return (
         <th
-            className={`whitespace-nowrap px-6 py-4 font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant ${
+            className={`font-label-sm px-6 py-4 text-label-sm tracking-wider whitespace-nowrap text-on-surface-variant uppercase ${
                 align === 'right'
                     ? 'text-right'
                     : align === 'center'
@@ -533,10 +461,7 @@ function PaginationButton({
     );
 }
 
-function formatMoney(
-    amount: string | number,
-    currency: string,
-) {
+function formatMoney(amount: string | number, currency: string) {
     return new Intl.NumberFormat('en-GB', {
         style: 'currency',
         currency: currency.toUpperCase(),
@@ -568,12 +493,13 @@ function formatDate(value: string | null) {
     };
 }
 
-function transactionTypeLabel1(transaction: Transaction,) {
-    if( transaction.type === 'refund') {
+function transactionTypeLabel1(transaction: Transaction) {
+    if (transaction.type === 'refund') {
         return 'Refund';
     }
-    if(transaction.category === 'subscription') {
-        return 'subscription'
+
+    if (transaction.category === 'subscription') {
+        return 'subscription';
     }
 
     return 'Credit Purchase';

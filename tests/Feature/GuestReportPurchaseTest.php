@@ -1,12 +1,12 @@
 <?php
 
+use App\Jobs\ProcessVehicleCheck;
 use App\Models\GuestReportPurchase;
-use App\Services\GuestReportCheckoutService;
-use App\Services\GuestReportPaymentService;
 use App\Models\Report;
 use App\Models\Vehicle;
 use App\Models\VinCheck;
-use App\Jobs\ProcessVehicleCheck;
+use App\Services\GuestReportCheckoutService;
+use App\Services\GuestReportPaymentService;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Schema;
 
@@ -61,7 +61,7 @@ test('guest purchase and report are related in both directions', function () {
     )->toBeTrue();
 });
 
-test('guest checkout rejects a report that is not ready', function (){
+test('guest checkout rejects a report that is not ready', function () {
     $vehicle = Vehicle::create([
         'registration_number' => 'GUEST-TEST-001',
     ]);
@@ -82,7 +82,7 @@ test('guest checkout rejects a report that is not ready', function (){
         ))
         ->toThrow(RuntimeException::class, 'This report is not ready for a guest full-report purchase.');
 
-    $reportUrl = route('page.my-report.show',[
+    $reportUrl = route('page.my-report.show', [
         'report' => $report->id,
     ]);
 
@@ -103,7 +103,7 @@ test('guest checkout rejects a report that is not ready', function (){
     $this->assertDatabaseCount('guest_report_purchases', 0);
 });
 
-test('guest checkout rejects a report with an existing paid purchase', function() {
+test('guest checkout rejects a report with an existing paid purchase', function () {
     $vinCheck = VinCheck::create([
         'registration_number' => 'GUEST-TEST-002',
         'check_type' => 'free',
@@ -141,7 +141,7 @@ test('guest checkout rejects a report with an existing paid purchase', function(
         ))
         ->toThrow(RuntimeException::class, 'A successful purchase already exists for this report.');
 
-    $reportUrl = route('page.my-report.show',[
+    $reportUrl = route('page.my-report.show', [
         'report' => $report->id,
     ]);
 
@@ -161,7 +161,6 @@ test('guest checkout rejects a report with an existing paid purchase', function(
 
     $this->assertDatabaseCount('guest_report_purchases', 1);
 });
-
 
 test('guest purchase becomes paid only when the Stripe amount and currency match', function () {
     Queue::fake();
@@ -222,8 +221,7 @@ test('guest purchase becomes paid only when the Stripe amount and currency match
     expect($purchase->paid_at)->not->toBeNull();
     Queue::assertPushed(ProcessVehicleCheck::class);
     expect($purchase->fresh()->fulfillment_status)->toBe(GuestReportPurchase::FULFILLMENT_PENDING);
-    
-    
+
 });
 
 test('duplicate successful guest payment webhook does not reset paid time', function () {

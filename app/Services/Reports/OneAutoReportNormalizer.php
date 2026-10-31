@@ -6,6 +6,10 @@ use Carbon\Carbon;
 
 class OneAutoReportNormalizer
 {
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
     public function normalize(array $data): array
     {
         $autoCheck = $data['auto_check'] ?? [];
@@ -18,17 +22,18 @@ class OneAutoReportNormalizer
         $compliance = $data['compliance'] ?? [];
         $mot = $data['mot'] ?? [];
         $motTests = collect(
-            data_get(
-                $mot,
-                'result.dvsa_data.mot_tests',
-                []
+            $this->rows(
+                data_get(
+                    $mot,
+                    'result.dvsa_data.mot_tests',
+                    []
+                )
             )
         );
 
         $latestMot = $motTests
             ->sortByDesc(
-                fn (array $test) =>
-                    $test['mot_test_date']
+                fn (array $test) => $test['mot_test_date']
                     ?? ''
             )
             ->first();
@@ -137,10 +142,12 @@ class OneAutoReportNormalizer
                 ),
 
                 'history' => collect(
-                    data_get(
-                        $autoCheck,
-                        'result.v5c_data_items',
-                        []
+                    $this->rows(
+                        data_get(
+                            $autoCheck,
+                            'result.v5c_data_items',
+                            []
+                        )
                     )
                 )
                     ->map(fn (array $item) => [
@@ -233,18 +240,18 @@ class OneAutoReportNormalizer
                     ),
 
                     'records' => collect(
-                        data_get(
-                            $autoCheck,
-                            'result.keeper_data_items',
-                            []
+                        $this->rows(
+                            data_get(
+                                $autoCheck,
+                                'result.keeper_data_items',
+                                []
+                            )
                         )
                     )
                         ->map(fn (array $item) => [
-                            'previous_keepers' =>
-                                $item['number_previous_keepers'] ?? null,
+                            'previous_keepers' => $item['number_previous_keepers'] ?? null,
 
-                            'change_date' =>
-                                $item['date_of_last_keeper_change'] ?? null,
+                            'change_date' => $item['date_of_last_keeper_change'] ?? null,
                         ])
                         ->values()
                         ->all(),
@@ -260,27 +267,24 @@ class OneAutoReportNormalizer
                     ),
 
                     'records' => collect(
-                        data_get(
-                            $autoCheck,
-                            'result.cherished_data_items',
-                            []
+                        $this->rows(
+                            data_get(
+                                $autoCheck,
+                                'result.cherished_data_items',
+                                []
+                            )
                         )
                     )
                         ->map(fn (array $item) => [
-                            'current_vrm' =>
-                                $item['current_vehicle_registration_mark'] ?? null,
+                            'current_vrm' => $item['current_vehicle_registration_mark'] ?? null,
 
-                            'previous_vrm' =>
-                                $item['previous_vehicle_registration_mark'] ?? null,
+                            'previous_vrm' => $item['previous_vehicle_registration_mark'] ?? null,
 
-                            'transfer_date' =>
-                                $item['cherished_plate_transfer_date'] ?? null,
+                            'transfer_date' => $item['cherished_plate_transfer_date'] ?? null,
 
-                            'receipt_date' =>
-                                $item['date_of_receipt'] ?? null,
+                            'receipt_date' => $item['date_of_receipt'] ?? null,
 
-                            'transfer_type' =>
-                                $item['transfer_type'] ?? null,
+                            'transfer_type' => $item['transfer_type'] ?? null,
                         ])
                         ->values()
                         ->all(),
@@ -310,56 +314,48 @@ class OneAutoReportNormalizer
                 ),
 
                 'records' => collect(
-                    data_get(
-                        $salvage,
-                        'result.salvage_auction_records',
-                        []
+                    $this->rows(
+                        data_get(
+                            $salvage,
+                            'result.salvage_auction_records',
+                            []
+                        )
                     )
                 )
                     ->map(fn (array $record) => [
-                        'salvage_auction_record_id' =>
-                            $record['salvage_auction_record_id']
+                        'salvage_auction_record_id' => $record['salvage_auction_record_id']
                             ?? null,
 
-                        'salvage_auction_reference' =>
-                            $record['salvage_auction_reference']
+                        'salvage_auction_reference' => $record['salvage_auction_reference']
                             ?? null,
 
-                        'salvage_auction_lot_desc' =>
-                            $record['salvage_auction_lot_desc']
+                        'salvage_auction_lot_desc' => $record['salvage_auction_lot_desc']
                             ?? null,
 
-                        'salvage_auction_lot_date' =>
-                            $record['salvage_auction_lot_date']
+                        'salvage_auction_lot_date' => $record['salvage_auction_lot_date']
                             ?? null,
 
-                        'mileage' =>
-                            isset($record['mileage'])
+                        'mileage' => isset($record['mileage'])
                                 ? (int) $record['mileage']
                                 : null,
 
-                        'primary_damage_desc' =>
-                            $record['primary_damage_desc']
+                        'primary_damage_desc' => $record['primary_damage_desc']
                             ?? null,
 
-                        'secondary_damage_desc' =>
-                            $record['secondary_damage_desc']
+                        'secondary_damage_desc' => $record['secondary_damage_desc']
                             ?? null,
 
-                        'salvage_auction_location' =>
-                            $record['salvage_auction_location']
+                        'salvage_auction_location' => $record['salvage_auction_location']
                             ?? null,
 
-                        'external_image_urls' =>
-                            array_values(
-                                array_filter(
-                                    $record['external_image_urls']
-                                    ?? [],
-                                    fn ($url) =>
-                                        is_string($url)
-                                        && $url !== ''
-                                )
-                            ),
+                        'external_image_urls' => array_values(
+                            array_filter(
+                                $record['external_image_urls']
+                                ?? [],
+                                fn ($url) => is_string($url)
+                                    && $url !== ''
+                            )
+                        ),
                     ])
                     ->values()
                     ->all(),
@@ -622,42 +618,38 @@ class OneAutoReportNormalizer
                 ],
 
                 'current' => [
-                    'mot_status' =>
-                        $currentMotStatus,
+                    'mot_status' => $currentMotStatus,
 
-                    'mot_status_source' =>
-                        $currentMotStatus !== null
+                    'mot_status_source' => $currentMotStatus !== null
                             ? 'derived'
                             : 'unavailable',
 
-                    'mot_expiry_date' =>
-                        $latestMotExpiry,
+                    'mot_expiry_date' => $latestMotExpiry,
 
-                    'tax_service_available' =>
-                        (bool) data_get(
-                            $mot,
-                            'result.is_dvla_service_available',
-                            false
-                        ),
+                    'tax_service_available' => (bool) data_get(
+                        $mot,
+                        'result.is_dvla_service_available',
+                        false
+                    ),
 
-                    'tax_status' =>
-                        data_get(
-                            $mot,
-                            'result.dvla_data.tax_status'
-                        ),
+                    'tax_status' => data_get(
+                        $mot,
+                        'result.dvla_data.tax_status'
+                    ),
 
-                    'tax_expiry_date' =>
-                        data_get(
-                            $mot,
-                            'result.dvla_data.tax_expiry_date'
-                        ),
+                    'tax_expiry_date' => data_get(
+                        $mot,
+                        'result.dvla_data.tax_expiry_date'
+                    ),
                 ],
 
                 'tests' => collect(
-                    data_get(
-                        $mot,
-                        'result.dvsa_data.mot_tests',
-                        []
+                    $this->rows(
+                        data_get(
+                            $mot,
+                            'result.dvsa_data.mot_tests',
+                            []
+                        )
                     )
                 )
                     ->map(fn (array $test) => [
@@ -669,8 +661,8 @@ class OneAutoReportNormalizer
                         'mileage' => $test['observation_mileage'] ?? null,
                         'mileage_unit' => 'MI',
 
-                        'defects' => collect(
-                            $test['reason_for_refusal_and_comments'] ?? []
+                        'defects' => collect($this->rows(
+                            $test['reason_for_refusal_and_comments'] ?? [])
                         )
                             ->map(fn (array $defect) => [
                                 'type' => $defect['type'] ?? null,
@@ -683,8 +675,8 @@ class OneAutoReportNormalizer
                     ->values()
                     ->all(),
 
-                'mileage_history' => collect(
-                    data_get($mot, 'result.dvsa_data.mot_tests', [])
+                'mileage_history' => collect($this->rows(
+                    data_get($mot, 'result.dvsa_data.mot_tests', []))
                 )
                     ->map(fn (array $test) => [
                         'date' => $test['mot_test_date'] ?? null,
@@ -759,6 +751,24 @@ class OneAutoReportNormalizer
 
         return null;
     }
+
+    /**
+     * @return list<array<array-key, mixed>>
+     */
+    private function rows(mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        $rows = [];
+
+        foreach ($value as $item) {
+            if (is_array($item)) {
+                $rows[] = $item;
+            }
+        }
+
+        return $rows;
+    }
 }
-
-

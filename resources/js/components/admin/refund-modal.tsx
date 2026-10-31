@@ -1,5 +1,11 @@
 import { useForm } from '@inertiajs/react';
-import { AlertCircle, AlertTriangle, Loader2, RotateCcw, X } from 'lucide-react';
+import {
+    AlertCircle,
+    AlertTriangle,
+    Loader2,
+    RotateCcw,
+    X,
+} from 'lucide-react';
 import React from 'react';
 
 interface RefundModalProps {
@@ -129,7 +135,7 @@ export default function RefundModal({
                                 <span className="block text-[10px] font-bold tracking-wider text-on-surface-variant uppercase">
                                     Payment Method
                                 </span>
-                                <span className="mt-0.5 block font-medium capitalize text-on-surface">
+                                <span className="mt-0.5 block font-medium text-on-surface capitalize">
                                     {transaction.payment_method}
                                 </span>
                                 <span className="block text-[10px] text-on-surface-variant">

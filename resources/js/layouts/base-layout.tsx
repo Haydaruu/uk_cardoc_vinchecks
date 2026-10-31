@@ -1,6 +1,6 @@
+import type { PropsWithChildren } from 'react';
 import SiteFooter from '@/components/site-footer';
 import SiteNavbar from '@/components/site-navbar';
-import { PropsWithChildren } from 'react';
 
 export default function BaseLayout({ children }: PropsWithChildren) {
     return (

@@ -1,4 +1,3 @@
-
 import { Head, Link } from '@inertiajs/react';
 import { ArrowLeft, FileText, ShieldCheck } from 'lucide-react';
 import BaseLayout from '@/layouts/base-layout';
@@ -139,13 +138,11 @@ export default function TermsAndConditions() {
                         <FileText size={26} />
                     </div>
 
-                    <p className="mb-3 font-label-sm text-label-sm uppercase tracking-widest text-white/60">
+                    <p className="font-label-sm mb-3 text-label-sm tracking-widest text-white/60 uppercase">
                         Legal information
                     </p>
 
-                    <h1 className="font-h1 text-h1 mb-5">
-                        Terms & Conditions
-                    </h1>
+                    <h1 className="font-h1 mb-5 text-h1">Terms & Conditions</h1>
 
                     <p className="max-w-2xl text-body-lg text-white/75">
                         Please read these terms carefully before using VinCheck
@@ -163,7 +160,9 @@ export default function TermsAndConditions() {
                     <aside className="h-fit rounded-xl border border-surface-variant bg-surface p-6">
                         <div className="mb-4 flex items-center gap-2 text-primary">
                             <ShieldCheck size={20} />
-                            <h2 className="font-semibold">Before you proceed</h2>
+                            <h2 className="font-semibold">
+                                Before you proceed
+                            </h2>
                         </div>
 
                         <p className="text-sm leading-6 text-on-surface-variant">
@@ -180,13 +179,13 @@ export default function TermsAndConditions() {
                         </Link>
                     </aside>
 
-                    <article className="min-w-0 max-w-3xl space-y-0">
+                    <article className="max-w-3xl min-w-0 space-y-0">
                         {sections.map((section) => (
                             <section
                                 key={section.title}
                                 className="scroll-mt-8 border-b border-surface-variant py-8 first:pt-0 last:border-0 last:pb-0"
                             >
-                                <h2 className="font-h2 text-h2 mb-4 text-primary">
+                                <h2 className="font-h2 mb-4 text-h2 text-primary">
                                     {section.title}
                                 </h2>
 
@@ -198,16 +197,20 @@ export default function TermsAndConditions() {
                                     {section.title === '16. Contact Us' && (
                                         <div className="rounded-lg bg-surface-container-low p-5">
                                             <p>
-                                                <strong>Operator:</strong>{' '}
-                                                [Full Legal Name of Operator]
+                                                <strong>Operator:</strong> [Full
+                                                Legal Name of Operator]
                                             </p>
                                             <p className="mt-2">
-                                                <strong>Business address:</strong>{' '}
-                                                [Full Business Address in Indonesia]
+                                                <strong>
+                                                    Business address:
+                                                </strong>{' '}
+                                                [Full Business Address in
+                                                Indonesia]
                                             </p>
                                             <p className="mt-2">
                                                 <strong>Support email:</strong>{' '}
-                                                [Confirmed Support Email Address]
+                                                [Confirmed Support Email
+                                                Address]
                                             </p>
                                             <p className="mt-2">
                                                 <strong>Privacy Policy:</strong>{' '}

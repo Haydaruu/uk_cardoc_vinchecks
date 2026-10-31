@@ -52,7 +52,7 @@ export default function SuspendCustomerModal({
 
                 <div className="p-6">
                     {/* Header */}
-                    <div className="flex items-center justify-between pb-4 border-b border-outline-variant/60">
+                    <div className="flex items-center justify-between border-b border-outline-variant/60 pb-4">
                         <div className="flex items-center gap-3">
                             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-error/10 text-error">
                                 <UserX className="h-5 w-5" />
@@ -79,7 +79,7 @@ export default function SuspendCustomerModal({
                     <form onSubmit={handleSubmit} className="mt-5 space-y-4">
                         {/* Caution notice */}
                         <div className="flex items-start gap-3 rounded-lg border border-error/30 bg-error-container/20 p-3 text-xs text-error">
-                            <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                             <div className="space-y-1 text-on-surface-variant">
                                 <p className="font-semibold text-error">
                                     Immediate Account Suspension
@@ -138,7 +138,7 @@ export default function SuspendCustomerModal({
                         </div>
 
                         {/* Actions */}
-                        <div className="mt-6 flex items-center justify-end gap-3 pt-3 border-t border-outline-variant/60">
+                        <div className="mt-6 flex items-center justify-end gap-3 border-t border-outline-variant/60 pt-3">
                             <button
                                 type="button"
                                 onClick={onClose}

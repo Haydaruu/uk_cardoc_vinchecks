@@ -15,6 +15,12 @@ use Throwable;
 
 class GuestReportCheckoutService
 {
+    /**
+     * @return array{
+     *     purchase: GuestReportPurchase|null,
+     *     checkout_url: string|null
+     * }
+     */
     public function startCheckout(
         Report $report,
         string $name,
@@ -327,6 +333,13 @@ class GuestReportCheckoutService
         );
     }
 
+    /**
+     * @return array{
+     *     amountMinor: int,
+     *     currency: string,
+     *     amountDisplay: string
+     * }
+     */
     public function getCheckoutSummary(Report $report): array
     {
         $this->assertReportCanBePurchased($report);
@@ -416,8 +429,8 @@ class GuestReportCheckoutService
                 'amount_minor' => $price->unit_amount,
                 'currency' => strtolower($price->currency),
                 'stripe_price_id' => $price->id,
-                ]);
-            });
+            ]);
+        });
     }
 
     private function retrieveValidPrice(

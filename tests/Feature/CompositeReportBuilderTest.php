@@ -90,11 +90,11 @@ test('composite builder combines data from both providers for the same vehicle',
     expect($result['provider'])->toBe('hybrid')
         ->and($result['meta']['identity_verified'])->toBeTrue()
         ->and($result['meta']['providers'])
-            ->toBe(['checkcardetails', 'oneauto'])
+        ->toBe(['checkcardetails', 'oneauto'])
         ->and($result['normalized']['history']['finance']['count'])
-            ->toBe(3)
+        ->toBe(3)
         ->and($result['normalized']['specifications']['power_bhp'])
-            ->toBe(150);
+        ->toBe(150);
 });
 
 test('composite builder rejects data from a different vehicle', function () {
@@ -159,13 +159,13 @@ test('composite builder falls back when one provider fails', function () {
 
     expect($result['provider'])->toBe('hybrid')
         ->and($result['normalized']['vehicle']['vrm'])
-            ->toBe($vrm)
+        ->toBe($vrm)
         ->and($result['normalized']['meta']['strategy'])
-            ->toBe('hybrid_fallback')
+        ->toBe('hybrid_fallback')
         ->and($result['normalized']['meta']['providers'])
-            ->toBe(['checkcardetails'])
+        ->toBe(['checkcardetails'])
         ->and($result['normalized']['meta']['identity_verified'])
-            ->toBeTrue();
+        ->toBeTrue();
 });
 
 test('composite builder uses fallback when the preferred section is unavailable', function () {

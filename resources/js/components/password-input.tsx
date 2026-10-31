@@ -9,7 +9,10 @@ export default function PasswordInput({
     ref,
     passwordrules,
     ...props
-}: Omit<ComponentProps<'input'>, 'type'> & { ref?: Ref<HTMLInputElement>; passwordrules?: string }) {
+}: Omit<ComponentProps<'input'>, 'type'> & {
+    ref?: Ref<HTMLInputElement>;
+    passwordrules?: string;
+}) {
     const [showPassword, setShowPassword] = useState(false);
 
     return (
@@ -24,7 +27,7 @@ export default function PasswordInput({
             <button
                 type="button"
                 onClick={() => setShowPassword((prev) => !prev)}
-                className="absolute inset-y-0 right-0 flex items-center rounded-r-md px-3 text-muted-foreground hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:outline-none"
+                className="text-muted-foreground hover:text-foreground focus-visible:ring-ring absolute inset-y-0 right-0 flex items-center rounded-r-md px-3 focus-visible:ring-[3px] focus-visible:outline-none"
                 aria-label={showPassword ? 'Hide password' : 'Show password'}
                 tabIndex={-1}
             >

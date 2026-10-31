@@ -4,6 +4,10 @@ namespace App\Services\Reports;
 
 class CheckCarDetailsReportNormalizer
 {
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
     public function normalize(array $data): array
     {
         $registration = $data['registration'] ?? [];
@@ -90,8 +94,7 @@ class CheckCarDetailsReportNormalizer
                     'DateScrapped'
                 ] ?? null,
 
-                'certificate_of_destruction_issued' =>
-                    $vehicleRegistration[
+                'certificate_of_destruction_issued' => $vehicleRegistration[
                         'CertificateOfDestructionIssued'
                     ] ?? null,
 
@@ -105,17 +108,14 @@ class CheckCarDetailsReportNormalizer
                     'V5CCertificateCount'
                 ] ?? null,
 
-                'history' => collect(
-                    $vehicleHistory['V5CCertificateList'] ?? []
-                )
+                'history' => collect($this->rows($vehicleHistory['V5CCertificateList'] ?? []))
                     ->map(fn (array $item) => [
                         'issue_date' => $item['CertificateDate'] ?? null,
                     ])
                     ->values()
                     ->all(),
 
-                'latest_issue_date' =>
-                    $registration['dateOfLastV5CIssued']
+                'latest_issue_date' => $registration['dateOfLastV5CIssued']
                     ?? data_get(
                         $vehicleHistory,
                         'V5CCertificateList.0.CertificateDate'
@@ -162,9 +162,7 @@ class CheckCarDetailsReportNormalizer
                         'KeeperChangesCount'
                     ] ?? 0,
 
-                    'records' => collect(
-                        $vehicleHistory['KeeperChangesList'] ?? []
-                    )
+                    'records' => collect($this->rows($vehicleHistory['KeeperChangesList'] ?? []))
                         ->map(fn (array $item) => [
                             'previous_keepers' => $item['NumberOfPreviousKeepers'] ?? null,
                             'change_date' => $item['DateOfLastKeeperChange'] ?? null,
@@ -179,9 +177,7 @@ class CheckCarDetailsReportNormalizer
                         'PlateChangeCount'
                     ] ?? 0,
 
-                    'records' => collect(
-                        $vehicleHistory['PlateChangeList'] ?? []
-                    )
+                    'records' => collect($this->rows($vehicleHistory['PlateChangeList'] ?? []))
                         ->map(fn (array $item) => [
                             'current_vrm' => $item['CurrentVRM'] ?? null,
                             'previous_vrm' => $item['PreviousVRM'] ?? null,
@@ -380,25 +376,22 @@ class CheckCarDetailsReportNormalizer
                 ] ?? null,
 
                 'current' => [
-                    'mot_status' =>
-                        data_get(
-                            $mot,
-                            'mot.motStatus'
-                        ),
+                    'mot_status' => data_get(
+                        $mot,
+                        'mot.motStatus'
+                    ),
 
-                    'mot_status_source' =>
-                        data_get(
-                            $mot,
-                            'mot.motStatus'
-                        ) !== null
+                    'mot_status_source' => data_get(
+                        $mot,
+                        'mot.motStatus'
+                    ) !== null
                             ? 'provider'
                             : 'unavailable',
 
-                    'mot_expiry_date' =>
-                        data_get(
-                            $mot,
-                            'mot.motDueDate'
-                        ),
+                    'mot_expiry_date' => data_get(
+                        $mot,
+                        'mot.motDueDate'
+                    ),
 
                     /*
                     * Kita belum punya current tax-state
@@ -406,17 +399,14 @@ class CheckCarDetailsReportNormalizer
                     *
                     * Road-tax price ≠ current tax status.
                     */
-                    'tax_service_available' =>
-                        false,
+                    'tax_service_available' => false,
 
-                    'tax_status' =>
-                        null,
+                    'tax_status' => null,
 
-                    'tax_expiry_date' =>
-                        null,
+                    'tax_expiry_date' => null,
                 ],
 
-                'tests' => collect($motHistory)
+                'tests' => collect($this->rows($motHistory))
                     ->map(fn (array $test) => [
                         'test_number' => $test['motTestNumber'] ?? null,
                         'date' => $test['completedDate'] ?? null,
@@ -429,7 +419,7 @@ class CheckCarDetailsReportNormalizer
 
                         'mileage_unit' => $test['odometerUnit'] ?? null,
 
-                        'defects' => collect($test['defects'] ?? [])
+                        'defects' => collect($this->rows($test['defects'] ?? []))
                             ->map(fn (array $defect) => [
                                 'type' => $defect['type'] ?? null,
                                 'description' => $defect['text'] ?? null,
@@ -441,7 +431,7 @@ class CheckCarDetailsReportNormalizer
                     ->values()
                     ->all(),
 
-                'mileage_history' => collect($motHistory)
+                'mileage_history' => collect($this->rows($motHistory))
                     ->map(fn (array $test) => [
                         'date' => $test[
                             'completedDate'
@@ -473,5 +463,27 @@ class CheckCarDetailsReportNormalizer
                 'assessment_type' => 'provider',
             ],
         ];
+    }
+
+    /**
+     * Normalize provider list data into rows.
+     *
+     * @return list<array<array-key, mixed>>
+     */
+    private function rows(mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        $rows = [];
+
+        foreach ($value as $item) {
+            if (is_array($item)) {
+                $rows[] = $item;
+            }
+        }
+
+        return $rows;
     }
 }

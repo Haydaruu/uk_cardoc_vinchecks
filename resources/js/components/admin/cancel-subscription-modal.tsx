@@ -102,7 +102,7 @@ export default function CancelSubscriptionModal({
                                 <span className="block text-[10px] font-bold tracking-wider text-on-surface-variant uppercase">
                                     Gateway
                                 </span>
-                                <span className="mt-0.5 block font-semibold capitalize text-on-surface">
+                                <span className="mt-0.5 block font-semibold text-on-surface capitalize">
                                     {subscription.gateway}
                                 </span>
                             </div>
@@ -123,14 +123,13 @@ export default function CancelSubscriptionModal({
                                         Access ends
                                     </span>
                                     <span className="mt-0.5 block font-medium text-on-surface">
-                                        {new Date(accessEnds).toLocaleDateString(
-                                            'en-GB',
-                                            {
-                                                day: 'numeric',
-                                                month: 'long',
-                                                year: 'numeric',
-                                            },
-                                        )}
+                                        {new Date(
+                                            accessEnds,
+                                        ).toLocaleDateString('en-GB', {
+                                            day: 'numeric',
+                                            month: 'long',
+                                            year: 'numeric',
+                                        })}
                                     </span>
                                 </div>
                             )}

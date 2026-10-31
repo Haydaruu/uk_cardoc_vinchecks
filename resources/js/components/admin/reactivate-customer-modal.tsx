@@ -52,7 +52,7 @@ export default function ReactivateCustomerModal({
 
                 <div className="p-6">
                     {/* Header */}
-                    <div className="flex items-center justify-between pb-4 border-b border-outline-variant/60">
+                    <div className="flex items-center justify-between border-b border-outline-variant/60 pb-4">
                         <div className="flex items-center gap-3">
                             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
                                 <UserCheck className="h-5 w-5" />
@@ -79,7 +79,7 @@ export default function ReactivateCustomerModal({
                     <form onSubmit={handleSubmit} className="mt-5 space-y-4">
                         {/* Status notification */}
                         <div className="flex items-start gap-3 rounded-lg border border-emerald-200 bg-emerald-50/60 p-3 text-xs text-emerald-800">
-                            <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" />
+                            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
                             <div className="space-y-1">
                                 <p className="font-semibold">
                                     Restoring Account Privileges
@@ -90,9 +90,9 @@ export default function ReactivateCustomerModal({
                                     purchase credits.
                                 </p>
                                 {customer.suspended_reason && (
-                                    <p className="mt-1 text-[11px] italic text-on-surface-variant">
-                                        Suspended Reason was:{' '}
-                                        &ldquo;{customer.suspended_reason}&rdquo;
+                                    <p className="mt-1 text-[11px] text-on-surface-variant italic">
+                                        Suspended Reason was: &ldquo;
+                                        {customer.suspended_reason}&rdquo;
                                     </p>
                                 )}
                             </div>
@@ -142,7 +142,7 @@ export default function ReactivateCustomerModal({
                         </div>
 
                         {/* Actions */}
-                        <div className="mt-6 flex items-center justify-end gap-3 pt-3 border-t border-outline-variant/60">
+                        <div className="mt-6 flex items-center justify-end gap-3 border-t border-outline-variant/60 pt-3">
                             <button
                                 type="button"
                                 onClick={onClose}

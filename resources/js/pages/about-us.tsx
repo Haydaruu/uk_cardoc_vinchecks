@@ -1,5 +1,13 @@
 import { Head, Link } from '@inertiajs/react';
-import { ShieldCheck, FileCheck2, Gavel, Siren, Crosshair, Zap, ArrowRight } from 'lucide-react';
+import {
+    ShieldCheck,
+    FileCheck2,
+    Gavel,
+    Siren,
+    Crosshair,
+    Zap,
+    ArrowRight,
+} from 'lucide-react';
 import BaseLayout from '@/layouts/base-layout';
 
 const dataPartners = [
@@ -42,36 +50,43 @@ export default function AboutUs() {
             <section className="bg-primary py-section-padding">
                 <div className="mx-auto max-w-container-max px-gutter">
                     <div className="max-w-3xl">
-                        <div className="mb-6 inline-flex items-center gap-2 font-label-sm text-label-sm uppercase tracking-widest text-white/60">
+                        <div className="font-label-sm mb-6 inline-flex items-center gap-2 text-label-sm tracking-widest text-white/60 uppercase">
                             <span className="h-px w-8 bg-secondary" />
                             Corporate Identity
                         </div>
-                        <h1 className="font-h1 text-h1 mb-6 text-white">
+                        <h1 className="font-h1 mb-6 text-h1 text-white">
                             Institutional Assurance in Automotive Data
                         </h1>
-                        <p className="font-body-lg text-body-lg max-w-2xl text-white/70">
-                            UKcardoc provides the most comprehensive and reliable vehicle history reports in the
-                            United Kingdom, powered by direct official data citations.
+                        <p className="font-body-lg max-w-2xl text-body-lg text-white/70">
+                            UKcardoc provides the most comprehensive and
+                            reliable vehicle history reports in the United
+                            Kingdom, powered by direct official data citations.
                         </p>
                     </div>
                 </div>
             </section>
 
             {/* Our Mission */}
-            <section className="py-section-padding bg-surface-container-lowest">
+            <section className="bg-surface-container-lowest py-section-padding">
                 <div className="mx-auto max-w-container-max px-gutter">
                     <div className="grid grid-cols-1 items-center gap-16 md:grid-cols-2">
                         <div>
-                            <h2 className="font-h2 text-h2 mb-6 text-primary">Our Mission</h2>
+                            <h2 className="font-h2 mb-6 text-h2 text-primary">
+                                Our Mission
+                            </h2>
                             <div className="sovereign-line" />
-                            <p className="font-body-lg text-body-lg border-l-4 border-surface-container-high py-2 pl-6 italic text-on-surface-variant">
-                                "To empower every British motorist and automotive professional with the truth behind
+                            <p className="font-body-lg border-l-4 border-surface-container-high py-2 pl-6 text-body-lg text-on-surface-variant italic">
+                                "To empower every British motorist and
+                                automotive professional with the truth behind
                                 every registration plate."
                             </p>
                             <p className="mt-6 text-on-surface-variant">
-                                We believe that transparency in the secondary car market is not just a preference,
-                                but a fundamental right. By operating at the intersection of public registry data
-                                and advanced algorithmic analysis, we eliminate asymmetry of information.
+                                We believe that transparency in the secondary
+                                car market is not just a preference, but a
+                                fundamental right. By operating at the
+                                intersection of public registry data and
+                                advanced algorithmic analysis, we eliminate
+                                asymmetry of information.
                             </p>
                         </div>
                         <div className="relative aspect-video overflow-hidden rounded-xl border border-surface-variant shadow-sm">
@@ -86,12 +101,12 @@ export default function AboutUs() {
             </section>
 
             {/* Official Data Partners */}
-            <section className="py-section-padding bg-surface">
+            <section className="bg-surface py-section-padding">
                 <div className="mx-auto max-w-container-max px-gutter text-center">
-                    <span className="mb-4 block font-label-sm text-label-sm uppercase tracking-widest text-primary">
+                    <span className="font-label-sm mb-4 block text-label-sm tracking-widest text-primary uppercase">
                         Official Citations
                     </span>
-                    <h2 className="font-h2 text-h2 mb-12 text-primary">
+                    <h2 className="font-h2 mb-12 text-h2 text-primary">
                         Data Sourced Directly From Institutional Registries
                     </h2>
                     <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
@@ -100,8 +115,13 @@ export default function AboutUs() {
                                 key={label}
                                 className="flex flex-col items-center justify-center rounded border border-surface-variant bg-surface-container-lowest p-8 opacity-70 shadow-[0_4px_20px_rgba(0,32,91,0.04)] grayscale transition-all duration-300 hover:opacity-100 hover:grayscale-0"
                             >
-                                <Icon className="mb-4 size-9 text-primary" strokeWidth={1.5} />
-                                <span className="text-center font-label-sm text-label-sm text-primary">{label}</span>
+                                <Icon
+                                    className="mb-4 size-9 text-primary"
+                                    strokeWidth={1.5}
+                                />
+                                <span className="font-label-sm text-center text-label-sm text-primary">
+                                    {label}
+                                </span>
                             </div>
                         ))}
                     </div>
@@ -109,31 +129,39 @@ export default function AboutUs() {
             </section>
 
             {/* Why UKcardoc */}
-            <section className="py-section-padding bg-surface-container-lowest">
+            <section className="bg-surface-container-lowest py-section-padding">
                 <div className="mx-auto max-w-container-max px-gutter">
                     <div className="mb-16 text-center">
-                        <h2 className="font-h2 text-h2 text-primary">Why Choose UKcardoc</h2>
+                        <h2 className="font-h2 text-h2 text-primary">
+                            Why Choose UKcardoc
+                        </h2>
                         <div className="sovereign-line mx-auto w-24" />
                     </div>
                     <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-                        {pillars.map(({ icon: Icon, title, description, accent }) => (
-                            <div
-                                key={title}
-                                className="flex flex-col rounded-lg border border-surface-variant bg-surface p-8 shadow-[0_4px_20px_rgba(0,32,91,0.04)] transition-colors hover:border-primary"
-                            >
+                        {pillars.map(
+                            ({ icon: Icon, title, description, accent }) => (
                                 <div
-                                    className={`mb-6 flex size-12 items-center justify-center rounded ${
-                                        accent === 'secondary'
-                                            ? 'bg-secondary text-white'
-                                            : 'bg-primary-container text-white'
-                                    }`}
+                                    key={title}
+                                    className="flex flex-col rounded-lg border border-surface-variant bg-surface p-8 shadow-[0_4px_20px_rgba(0,32,91,0.04)] transition-colors hover:border-primary"
                                 >
-                                    <Icon className="size-6" />
+                                    <div
+                                        className={`mb-6 flex size-12 items-center justify-center rounded ${
+                                            accent === 'secondary'
+                                                ? 'bg-secondary text-white'
+                                                : 'bg-primary-container text-white'
+                                        }`}
+                                    >
+                                        <Icon className="size-6" />
+                                    </div>
+                                    <h3 className="font-h3 mb-3 text-h3 text-primary">
+                                        {title}
+                                    </h3>
+                                    <p className="text-on-surface-variant">
+                                        {description}
+                                    </p>
                                 </div>
-                                <h3 className="font-h3 text-h3 mb-3 text-primary">{title}</h3>
-                                <p className="text-on-surface-variant">{description}</p>
-                            </div>
-                        ))}
+                            ),
+                        )}
                     </div>
                 </div>
             </section>
@@ -143,7 +171,7 @@ export default function AboutUs() {
                 {/* Soft ambient glow — replaces the striped background */}
                 <div
                     aria-hidden="true"
-                    className="pointer-events-none absolute -right-24 -top-32 -z-10 size-96 rounded-full bg-secondary/15 blur-3xl"
+                    className="pointer-events-none absolute -top-32 -right-24 -z-10 size-96 rounded-full bg-secondary/15 blur-3xl"
                 />
                 <div
                     aria-hidden="true"
@@ -155,24 +183,25 @@ export default function AboutUs() {
                         <div className="max-w-2xl">
                             <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-2">
                                 <span className="size-2 rounded-full bg-secondary" />
-                                <span className="text-xs font-semibold uppercase tracking-[0.16em] text-white/70">
+                                <span className="text-xs font-semibold tracking-[0.16em] text-white/70 uppercase">
                                     Vehicle Intelligence
                                 </span>
                             </div>
 
-                            <h2 className="font-h2 text-h2 mb-5 max-w-xl text-white">
+                            <h2 className="font-h2 mb-5 max-w-xl text-h2 text-white">
                                 Ready to verify your next vehicle?
                             </h2>
 
                             <p className="max-w-xl text-base leading-7 text-white/70 md:text-lg">
-                                Get the vehicle history information you need to make a
-                                more informed decision before your next purchase.
+                                Get the vehicle history information you need to
+                                make a more informed decision before your next
+                                purchase.
                             </p>
 
                             <div className="mt-8 flex flex-wrap items-center gap-4">
                                 <Link
                                     href="/"
-                                    className="group inline-flex items-center gap-3 rounded-lg bg-secondary px-6 py-4 font-semibold text-white shadow-lg shadow-black/10 transition-all duration-200 hover:-translate-y-0.5 hover:bg-secondary-container focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-primary"
+                                    className="group inline-flex items-center gap-3 rounded-lg bg-secondary px-6 py-4 font-semibold text-white shadow-lg shadow-black/10 transition-all duration-200 hover:-translate-y-0.5 hover:bg-secondary-container focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-primary focus-visible:outline-none"
                                 >
                                     Start a Check
                                     <ArrowRight className="size-5 transition-transform duration-200 group-hover:translate-x-1" />

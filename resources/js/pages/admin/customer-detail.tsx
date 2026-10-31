@@ -1,5 +1,11 @@
 import { Head, Link, usePage } from '@inertiajs/react';
-import { AlertCircle, CheckCircle, Coins, UserCheck, UserX } from 'lucide-react';
+import {
+    AlertCircle,
+    CheckCircle,
+    Coins,
+    UserCheck,
+    UserX,
+} from 'lucide-react';
 import React, { useState } from 'react';
 
 import AdjustCreditsModal from '@/components/admin/adjust-credits-modal';

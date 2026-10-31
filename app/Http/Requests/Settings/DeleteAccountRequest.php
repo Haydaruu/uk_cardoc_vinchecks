@@ -26,7 +26,7 @@ class DeleteAccountRequest extends FormRequest
             'confirmation' => ['required', 'string', 'in:DELETE'],
         ];
 
-        if(! is_null($this->user()->password)) {
+        if (! is_null($this->user()->password)) {
             $rules['current_password'] = [
                 'required',
                 'current_password:web',

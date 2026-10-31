@@ -19,12 +19,12 @@ return new class extends Migration
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password')->nullable();
-            $table->enum('register_provider', ['google','microsoft','local'])->default('local');
+            $table->enum('register_provider', ['google', 'microsoft', 'local'])->default('local');
             $table->unsignedInteger('credits')->default(0);
             $table->timestamp('last_login_at')->nullable();
             $table->softDeletes();
             $table->rememberToken();
-            $table->timestamps(); //created_at & updated_at
+            $table->timestamps(); // created_at & updated_at
         });
 
         Schema::create('password_reset_tokens', function (Blueprint $table) {

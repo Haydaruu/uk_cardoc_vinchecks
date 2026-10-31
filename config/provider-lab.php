@@ -51,8 +51,7 @@ return [
              */
             'provenance_status' => 'needs_review',
 
-            'notes' =>
-                'Currently used as the base provider for general vehicle data, MOT, specifications and valuation.',
+            'notes' => 'Currently used as the base provider for general vehicle data, MOT, specifications and valuation.',
         ],
 
         'oneauto' => [
@@ -70,8 +69,7 @@ return [
 
             'provenance_status' => 'needs_review',
 
-            'notes' =>
-                'Currently evaluated for finance, stolen, write-off, high-risk, salvage and recall enrichment.',
+            'notes' => 'Currently evaluated for finance, stolen, write-off, high-risk, salvage and recall enrichment.',
         ],
 
         /*

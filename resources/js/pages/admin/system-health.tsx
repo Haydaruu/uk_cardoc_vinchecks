@@ -344,8 +344,8 @@ export default function SystemHealth({ health: initialHealth }: Props) {
                                             (health.database.latency_ms ?? 0) <
                                             100
                                                 ? 'text-emerald-600'
-                                                : (health.database
-                                                        .latency_ms ?? 0) < 500
+                                                : (health.database.latency_ms ??
+                                                        0) < 500
                                                   ? 'text-blue-600'
                                                   : 'text-amber-600'
                                         }`}
@@ -659,7 +659,7 @@ export default function SystemHealth({ health: initialHealth }: Props) {
                                     <span className="text-slate-500">
                                         Encryption:
                                     </span>
-                                    <span className="font-mono uppercase text-slate-700">
+                                    <span className="font-mono text-slate-700 uppercase">
                                         {health.mail.encryption}
                                     </span>
                                 </div>

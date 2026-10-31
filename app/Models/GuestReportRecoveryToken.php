@@ -25,6 +25,9 @@ class GuestReportRecoveryToken extends Model
         'created_at' => 'datetime',
     ];
 
+    /**
+     * @return BelongsTo<GuestReportPurchase, $this>
+     */
     public function purchase(): BelongsTo
     {
         return $this->belongsTo(GuestReportPurchase::class, 'guest_report_purchase_id');

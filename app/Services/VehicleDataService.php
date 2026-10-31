@@ -1,20 +1,21 @@
 <?php
 
 namespace App\Services;
-use App\Models\ApiLog;
-use App\Models\Vehicle;
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
-use App\Contracts\VehicleDataProviderInterface;
 
+use App\Contracts\VehicleDataProviderInterface;
+use App\Exceptions\VehicleNotFoundException;
+use App\Models\ApiLog;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\Response;
+use Illuminate\Support\Facades\Http;
 
 class VehicleDataService implements VehicleDataProviderInterface
 {
     /**
      * Create a new class instance.
      */
-
     private string $apiKey;
+
     private string $baseUrl;
 
     public function __construct()
@@ -23,19 +24,19 @@ class VehicleDataService implements VehicleDataProviderInterface
         $this->baseUrl = config('services.checkcardetails.base_url');
     }
 
-
-    private function fetch(string $dataPoint, string $vrm) : array
+    /** @return array<string, mixed> */
+    private function fetch(string $dataPoint, string $vrm): array
     {
         $startTime = microtime(true);
         $endpoint = "{$this->baseUrl}/vehicledata/{$dataPoint}";
 
         try {
             $response = Http::timeout(20)
-            ->retry(2, 500)
-            ->get($endpoint, [
-                'apikey' => $this->apiKey,
-                'vrm' => $vrm,
-            ]);
+                ->retry(2, 500)
+                ->get($endpoint, [
+                    'apikey' => $this->apiKey,
+                    'vrm' => $vrm,
+                ]);
 
             $durationMs = (int) ((microtime(true) - $startTime) * 1000);
 
@@ -49,7 +50,7 @@ class VehicleDataService implements VehicleDataProviderInterface
             );
 
             return $this->handleResponse($response, $dataPoint);
-        } catch (\Illuminate\Http\Client\ConnectionException $e) {
+        } catch (ConnectionException $e) {
             $this->logApiCall(
                 vin: $vrm,
                 endpoint: $dataPoint,
@@ -61,37 +62,58 @@ class VehicleDataService implements VehicleDataProviderInterface
                 status: 'timeout',
             );
 
-            throw new \RuntimeException("Vehicle data data provider tidak bisa dihubungi. Coba lagi nanti.");
+            throw new \RuntimeException('Vehicle data data provider tidak bisa dihubungi. Coba lagi nanti.');
         }
     }
 
-    private function handleResponse($response, string $dataPoint): array
-    {
-        return match ($response->status()){
-            200 => $response->json(),
+    /**
+     * @return array<string, mixed>
+     */
+    private function handleResponse(
+        Response $response,
+        string $dataPoint
+    ): array {
+        $payload = $response->json();
 
-            404 => throw new \App\Exceptions\VehicleNotFoundException(
-                "Vehicle dengan registrasi ini tidak ditemukan."
+        if ($response->status() === 200 && ! is_array($payload)) {
+            throw new \RuntimeException(
+                'Vehicle data provider returned an invalid JSON response.'
+            );
+        }
+
+        $message = is_array($payload) && is_string($payload['message'] ?? null)
+            ? $payload['message']
+            : null;
+
+        return match ($response->status()) {
+            200 => $payload,
+
+            404 => throw new VehicleNotFoundException(
+                'Vehicle dengan registrasi ini tidak ditemukan.'
             ),
 
             400 => throw new \RuntimeException(
-                "Bad request: " . ($response->json()['message'] ?? 'Cek format VRM atau API key kamu.')
+                'Bad request: '.($message ?? 'Cek format VRM atau API key kamu.')
             ),
 
             403 => throw new \RuntimeException(
-                "Forbidden: " . ($response->json()['message'] ?? 'API key invalid, belum punya akses, atau limit harian tercapai.')
+                'Forbidden: '.($message ?? 'API key invalid, belum punya akses, atau limit harian tercapai.')
             ),
 
             500 => throw new \RuntimeException(
-                "Server checkcardetails.co.uk sedang bermasalah (bukan salah kode kamu). Coba lagi beberapa saat."
+                'Server checkcardetails.co.uk sedang bermasalah (bukan salah kode kamu). Coba lagi beberapa saat.'
             ),
 
             default => throw new \RuntimeException(
                 "Status tidak dikenal: {$response->status()}"
             ),
-        };    
+        };
     }
 
+    /**
+     * @param  array<string, mixed>  $requestPayload
+     * @param  array<string, mixed>|null  $responsePayload
+     */
     private function logApiCall(
         string $vin,
         string $endpoint,
@@ -119,9 +141,10 @@ class VehicleDataService implements VehicleDataProviderInterface
 
     public function getRegistrationDetails(string $vrm): array
     {
-        return $this->fetch('vehicleregistration', $vrm );
+        return $this->fetch('vehicleregistration', $vrm);
     }
 
+    /** @return array<string, mixed> */
     public function getFullVehicleData(string $vrm): array
     {
         return $this->fetch('ukvehicledata', $vrm);
@@ -136,10 +159,12 @@ class VehicleDataService implements VehicleDataProviderInterface
     {
         return $this->fetch('mot', $vrm);
     }
+
     public function getMileageHistory(string $vrm): array
     {
         return $this->fetch('mileage', $vrm);
     }
+
     public function getVehicleImage(string $vrm): array
     {
         return $this->fetch('vehicleimage', $vrm);
@@ -163,24 +188,5 @@ class VehicleDataService implements VehicleDataProviderInterface
         }
 
         return $data;
-    }
-
-    private function mapToVehicleModel(array $apiResponse, string $vrm): array
-    {
-        return [
-            'registration_number' => $apiResponse['registrationNumber'] ?? $vrm,
-            'brand' => $apiResponse['make'] ?? null,
-            'model' => $apiResponse['model'] ?? null,
-            'colour' => $apiResponse['colour'] ?? null,
-            'fuel_type' => $apiResponse['fuelType'] ?? null,
-            'engine_capacity' => $apiResponse['engineCapacity'] ?? null,
-            'year' => $apiResponse['yearOfManufacture'] ?? null,
-            'year_of_manufacture' => $apiResponse['yearOfManufacture'] ?? null,
-            'co2_emissions' => $apiResponse['co2Emissions'] ?? null,
-            'tax_status' => $apiResponse['tax']['taxStatus'] ?? null,
-            'mot_expiry_date' => $apiResponse['mot']['motDueDate'] ?? null,
-            'raw_api_response' => $apiResponse,
-            'last_refreshed_at' => now(),
-        ];
     }
 }

@@ -26,7 +26,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('subscriptions', function (Blueprint $table) {
-                $table->dropColumn([
+            $table->dropColumn([
                 'pending_plan_name',
                 'pending_stripe_price_id',
                 'pending_price',

@@ -12,7 +12,6 @@ import {
 import { logout } from '@/routes';
 import type { Auth } from '@/types';
 
-
 type PageProps = {
     auth: Auth;
 };
@@ -23,12 +22,19 @@ type NavItem = {
     icon: typeof User;
 };
 
-
 const NAV_ITEMS: NavItem[] = [
     { label: 'Profile', href: '/settings/profile', icon: User },
     { label: 'Security', href: '/settings/security', icon: Shield },
-    { label: 'Connected Accounts', href: '/settings/connected-accounts', icon: Link2 },
-    { label: 'Purchase History', href: '/settings/purchase-history', icon: Receipt },
+    {
+        label: 'Connected Accounts',
+        href: '/settings/connected-accounts',
+        icon: Link2,
+    },
+    {
+        label: 'Purchase History',
+        href: '/settings/purchase-history',
+        icon: Receipt,
+    },
     { label: 'Subscription', href: '/settings/subscription', icon: CreditCard },
     { label: 'Help Centre', href: '/settings/help', icon: HelpCircle },
 ];
@@ -37,7 +43,9 @@ export default function SettingsSidebar() {
     const { props, url } = usePage<PageProps>();
     const user = props.auth.user;
 
-    if (!user) return null;
+    if (!user) {
+        return null;
+    }
 
     const initials = user.name
         .split(' ')
@@ -49,20 +57,26 @@ export default function SettingsSidebar() {
     const checkLabel = `${user.credits} vehicle check${user.credits === 1 ? '' : 's'} available`;
 
     return (
-        <nav className="fixed left-0 top-0 z-50 hidden h-screen w-64 flex-col border-r border-outline-variant bg-surface-container-low p-base shadow-sm md:flex">
+        <nav className="fixed top-0 left-0 z-50 hidden h-screen w-64 flex-col border-r border-outline-variant bg-surface-container-low p-base shadow-sm md:flex">
             <div className="mb-8 px-4">
                 <div className="mt-4 flex items-center gap-2">
                     <div className="flex size-8 items-center justify-center rounded bg-primary">
                         <Car className="size-5 text-on-primary" />
                     </div>
-                    <span className="font-h3 text-h3 block truncate font-bold text-primary">UKCarDoc</span>
+                    <span className="font-h3 block truncate text-h3 font-bold text-primary">
+                        UKCarDoc
+                    </span>
                 </div>
             </div>
 
             <div className="mb-8 flex items-center gap-3 px-4">
                 <div className="size-10 flex-shrink-0 overflow-hidden rounded-full border border-outline-variant bg-surface-container-high">
                     {user.avatar ? (
-                        <img src={user.avatar} alt={user.name} className="size-full object-cover" />
+                        <img
+                            src={user.avatar}
+                            alt={user.name}
+                            className="size-full object-cover"
+                        />
                     ) : (
                         <div className="flex size-full items-center justify-center font-bold text-primary">
                             {initials}
@@ -70,8 +84,10 @@ export default function SettingsSidebar() {
                     )}
                 </div>
                 <div className="min-w-0">
-                    <p className="font-body-md text-body-md truncate font-semibold text-primary">{user.name}</p>
-                    <p className="font-label-sm text-label-sm truncate font-normal text-on-surface-variant">
+                    <p className="font-body-md truncate text-body-md font-semibold text-primary">
+                        {user.name}
+                    </p>
+                    <p className="font-label-sm truncate text-label-sm font-normal text-on-surface-variant">
                         {user.email}
                     </p>
                 </div>
@@ -80,15 +96,19 @@ export default function SettingsSidebar() {
             <div className="mb-6 px-4">
                 <div className="rounded-lg border border-outline-variant/50 bg-primary/5 p-3">
                     <div className="mb-1 flex items-center justify-between">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">
+                        <span className="text-[10px] font-bold tracking-wider text-on-surface-variant uppercase">
                             Available Credits
                         </span>
-                        <span className="font-mono text-sm font-bold text-primary">{user.credits}</span>
+                        <span className="font-mono text-sm font-bold text-primary">
+                            {user.credits}
+                        </span>
                     </div>
-                    <p className="mb-2 text-[11px] text-on-surface-variant">{checkLabel}</p>
+                    <p className="mb-2 text-[11px] text-on-surface-variant">
+                        {checkLabel}
+                    </p>
                     <Link
                         href="/pricing"
-                        className="block w-full rounded bg-secondary py-1.5 text-center text-[11px] font-bold uppercase text-on-secondary transition-colors hover:bg-secondary-container"
+                        className="block w-full rounded bg-secondary py-1.5 text-center text-[11px] font-bold text-on-secondary uppercase transition-colors hover:bg-secondary-container"
                     >
                         Top Up Credits
                     </Link>
@@ -98,7 +118,9 @@ export default function SettingsSidebar() {
             <div className="flex-1 space-y-1 overflow-y-auto">
                 {NAV_ITEMS.map((item) => {
                     const currentPath = url.split('?')[0];
-                    const isActive = currentPath === item.href || currentPath.startsWith(`${item.href}/`);
+                    const isActive =
+                        currentPath === item.href ||
+                        currentPath.startsWith(`${item.href}/`);
                     const Icon = item.icon;
 
                     return (
@@ -120,13 +142,13 @@ export default function SettingsSidebar() {
             </div>
 
             <div className="mt-auto space-y-2 border-t border-outline-variant pt-4">
-            {!user.is_premium && (
-                <Link
-                    href="/pricing"
-                    className="font-label-sm text-label-sm block w-full rounded bg-primary px-4 py-2 text-center text-on-primary shadow-sm transition-colors hover:bg-primary-container"
-                >
-                    Upgrade Plan
-                </Link>
+                {!user.is_premium && (
+                    <Link
+                        href="/pricing"
+                        className="font-label-sm block w-full rounded bg-primary px-4 py-2 text-center text-label-sm text-on-primary shadow-sm transition-colors hover:bg-primary-container"
+                    >
+                        Upgrade Plan
+                    </Link>
                 )}
                 <Link
                     href={logout.url()}

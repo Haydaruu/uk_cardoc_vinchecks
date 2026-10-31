@@ -1,5 +1,9 @@
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useState } from 'react';
+import {
+    Collapsible,
+    CollapsibleContent,
+    CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 
 type FaqItem = {
     question: string;
@@ -26,7 +30,7 @@ export default function FaqAccordion({ items }: FaqAccordionProps) {
                     >
                         <div className="dashboard-shadow overflow-hidden rounded-lg border border-slate-200 bg-white">
                             <CollapsibleTrigger className="flex w-full items-center justify-between p-6 text-left transition-colors hover:bg-slate-50">
-                                <span className="text-body-lg pr-4 font-semibold text-primary-container">
+                                <span className="pr-4 text-body-lg font-semibold text-primary-container">
                                     {item.question}
                                 </span>
                                 <span
@@ -38,7 +42,7 @@ export default function FaqAccordion({ items }: FaqAccordionProps) {
                                 </span>
                             </CollapsibleTrigger>
                             <CollapsibleContent>
-                                <div className="text-body-md px-6 pb-6 text-on-surface-variant">
+                                <div className="px-6 pb-6 text-body-md text-on-surface-variant">
                                     {item.answer}
                                 </div>
                             </CollapsibleContent>

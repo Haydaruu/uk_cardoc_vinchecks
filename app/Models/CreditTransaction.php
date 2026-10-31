@@ -2,7 +2,9 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class CreditTransaction extends Model
 {
@@ -21,17 +23,28 @@ class CreditTransaction extends Model
         'balance_after' => 'integer',
     ];
 
-    public function User()
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function User(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
-    public function scopePurchase($query)
+    /**
+     * @param  Builder<CreditTransaction>  $query
+     * @return Builder<CreditTransaction>
+     */
+    public function scopePurchase(Builder $query): Builder
     {
         return $query->where('type', 'purchase');
     }
 
-    public function scopeUsage($query)
+    /**
+     * @param  Builder<CreditTransaction>  $query
+     * @return Builder<CreditTransaction>
+     */
+    public function scopeUsage(Builder $query): Builder
     {
         return $query->where('type', 'usage');
     }

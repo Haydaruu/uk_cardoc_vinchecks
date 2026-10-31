@@ -70,8 +70,7 @@ it('routes guest report checkout events to the guest payment service', function 
         ->shouldReceive('handleCheckoutSession')
         ->once()
         ->with(
-            Mockery::on(fn ($session) =>
-                ($session->id ?? null) === 'cs_test_guest_report'
+            Mockery::on(fn ($session) => ($session->id ?? null) === 'cs_test_guest_report'
                 && ($session->metadata->purpose ?? null)
                     === 'guest_report_purchase'
             ),
@@ -125,7 +124,7 @@ it('rejects guest webhook events with an invalid signature', function () {
         $this,
         $payload,
         $secret,
-        't=' . time() . ',v1=invalid_signature'
+        't='.time().',v1=invalid_signature'
     );
 
     $response

@@ -44,7 +44,7 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user' => $user ? [
                     'id' => $user->id,
-                    'role'=> $user->role,
+                    'role' => $user->role,
                     'name' => $user->name,
                     'email' => $user->email,
                     'avatar' => $user->avatar,
@@ -56,7 +56,7 @@ class HandleInertiaRequests extends Middleware
             'flash' => [
                 'modal' => fn () => $request->session()->get('modal'),
                 'success' => fn () => $request->session()->get('success'),
-                'error' => fn() => $request->session()->get('error'),
+                'error' => fn () => $request->session()->get('error'),
             ],
         ];
     }

@@ -1,6 +1,4 @@
-
 import { Head, router, usePage } from '@inertiajs/react';
-import { useEffect, useState, type ReactNode } from 'react';
 import {
     Lock,
     Leaf,
@@ -9,11 +7,13 @@ import {
     AlertTriangle,
     Gauge,
 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import type { ReactNode } from 'react';
 
-import BaseLayout from '@/layouts/base-layout';
-import LoginRequiredModal from '@/components/report/login-required-modal';
 import CreditsExhaustedModal from '@/components/report/credits-exhausted-modal';
 import GuestCheckoutModal from '@/components/report/guest-checkout-modal';
+import LoginRequiredModal from '@/components/report/login-required-modal';
+import BaseLayout from '@/layouts/base-layout';
 
 type ReportProps = {
     report: {
@@ -79,6 +79,7 @@ export default function ShowReport({ report }: ReportProps) {
 
     useEffect(() => {
         if (props.flash?.modal) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect -- Sync Inertia flash modal when the report page remains mounted after a redirect.
             setModal(props.flash.modal);
         }
     }, [props.flash?.modal]);
@@ -86,6 +87,7 @@ export default function ShowReport({ report }: ReportProps) {
     function handleUnlock() {
         if (!props.auth?.user) {
             setShowGuestCheckout(true);
+
             return;
         }
 
@@ -122,7 +124,7 @@ export default function ShowReport({ report }: ReportProps) {
                             <button
                                 type="button"
                                 onClick={handleUnlock}
-                                className="flex items-center gap-2 rounded-md bg-secondary px-6 py-3.5 text-sm font-bold uppercase tracking-wide text-white shadow-md transition-transform hover:bg-secondary-container active:scale-[0.98]"
+                                className="flex items-center gap-2 rounded-md bg-secondary px-6 py-3.5 text-sm font-bold tracking-wide text-white uppercase shadow-md transition-transform hover:bg-secondary-container active:scale-[0.98]"
                             >
                                 <Lock className="size-4" />
                                 Unlock Full Report
@@ -142,10 +144,7 @@ export default function ShowReport({ report }: ReportProps) {
                         </div>
 
                         <div className="absolute inset-x-0 bottom-0 flex gap-3 bg-gradient-to-t from-black/60 to-transparent p-6">
-                            <StatChip
-                                label="Fuel Type"
-                                value={data.fuelType}
-                            />
+                            <StatChip label="Fuel Type" value={data.fuelType} />
 
                             <StatChip
                                 label="Engine"
@@ -165,7 +164,7 @@ export default function ShowReport({ report }: ReportProps) {
 
                     {/* ULEZ Compliance */}
                     <div
-                        className={`flex flex-col items-center justify-center rounded-lg border border-slate-200 border-l-4 bg-white p-8 text-center shadow-sm md:col-span-4 ${
+                        className={`flex flex-col items-center justify-center rounded-lg border border-l-4 border-slate-200 bg-white p-8 text-center shadow-sm md:col-span-4 ${
                             ulezCompliant
                                 ? 'border-l-green-500'
                                 : 'border-l-red-500'
@@ -194,9 +193,7 @@ export default function ShowReport({ report }: ReportProps) {
 
                     {/* Outstanding Finance — locked */}
                     <LockedStatCard
-                        icon={
-                            <TrendingDown className="size-5 text-red-600" />
-                        }
+                        icon={<TrendingDown className="size-5 text-red-600" />}
                         borderColor="border-l-red-500"
                         title="Outstanding Finance"
                         note="Active finance agreements may exist. Unlock to verify."
@@ -213,7 +210,7 @@ export default function ShowReport({ report }: ReportProps) {
                     />
 
                     {/* Mileage Analysis */}
-                    <div className="rounded-lg border border-slate-200 border-l-4 border-l-blue-500 bg-white p-6 shadow-sm md:col-span-4">
+                    <div className="rounded-lg border border-l-4 border-slate-200 border-l-blue-500 bg-white p-6 shadow-sm md:col-span-4">
                         <div className="mb-6 flex items-start justify-between">
                             <h4 className="flex items-center gap-2 font-bold text-primary">
                                 <Gauge className="size-5 text-blue-600" />
@@ -251,8 +248,9 @@ export default function ShowReport({ report }: ReportProps) {
                             </div>
                         </div>
 
-                        <p className="mt-6 text-xs italic text-slate-400">
-                            Basic MOT records available. Unlock for full mileage chart.
+                        <p className="mt-6 text-xs text-slate-400 italic">
+                            Basic MOT records available. Unlock for full mileage
+                            chart.
                         </p>
                     </div>
                 </div>
@@ -260,15 +258,11 @@ export default function ShowReport({ report }: ReportProps) {
 
             {/* Existing user modals */}
             {modal === 'login_required' && (
-                <LoginRequiredModal
-                    onClose={() => setModal(null)}
-                />
+                <LoginRequiredModal onClose={() => setModal(null)} />
             )}
 
             {modal === 'credits_exhausted' && (
-                <CreditsExhaustedModal
-                    onClose={() => setModal(null)}
-                />
+                <CreditsExhaustedModal onClose={() => setModal(null)} />
             )}
 
             {/* Guest checkout modal */}
@@ -282,16 +276,10 @@ export default function ShowReport({ report }: ReportProps) {
     );
 }
 
-function StatChip({
-    label,
-    value,
-}: {
-    label: string;
-    value: string;
-}) {
+function StatChip({ label, value }: { label: string; value: string }) {
     return (
         <div className="rounded-lg bg-white/20 px-4 py-2 text-white backdrop-blur-md">
-            <p className="text-[10px] font-bold uppercase tracking-widest opacity-80">
+            <p className="text-[10px] font-bold tracking-widest uppercase opacity-80">
                 {label}
             </p>
             <p className="font-bold">{value}</p>
@@ -312,7 +300,7 @@ function LockedStatCard({
 }) {
     return (
         <div
-            className={`rounded-lg border border-slate-200 border-l-4 bg-white p-6 shadow-sm md:col-span-4 ${borderColor}`}
+            className={`rounded-lg border border-l-4 border-slate-200 bg-white p-6 shadow-sm md:col-span-4 ${borderColor}`}
         >
             <div className="mb-6 flex items-start justify-between">
                 <h4 className="flex items-center gap-2 font-bold text-primary">
@@ -335,13 +323,9 @@ function LockedStatCard({
                 </p>
             </div>
 
-            <p className="mt-6 text-xs italic text-slate-500">
-                {note}
-            </p>
+            <p className="mt-6 text-xs text-slate-500 italic">{note}</p>
         </div>
     );
 }
 
-ShowReport.layout = (page: ReactNode) => (
-    <BaseLayout>{page}</BaseLayout>
-);
+ShowReport.layout = (page: ReactNode) => <BaseLayout>{page}</BaseLayout>;

@@ -3,20 +3,21 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Support\Facades\Auth;
-use Laravel\Socialite\Socialite;
-use App\Models\User;
 use App\Models\SocialAccount;
+use App\Models\User;
+use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
+use Laravel\Socialite\Socialite;
+use Symfony\Component\HttpFoundation\RedirectResponse;
 
 class MicrosoftAuthController extends Controller
 {
-    public function redirect()
+    public function redirect(): RedirectResponse
     {
         return Socialite::driver('microsoft')->redirect();
     }
 
-    public function callback()
+    public function callback(): RedirectResponse
     {
         $microsoftUser = Socialite::driver('microsoft')->user();
 
@@ -32,7 +33,7 @@ class MicrosoftAuthController extends Controller
                 $microsoftUser->getEmail()
             )->first();
 
-            if (!$user) {
+            if (! $user) {
                 $user = User::create([
                     'name' => $microsoftUser->getName(),
                     'email' => $microsoftUser->getEmail(),

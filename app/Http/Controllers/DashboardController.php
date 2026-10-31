@@ -2,28 +2,51 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
 use App\Models\Report;
+use App\Models\User;
 use App\Models\VinCheck;
+use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Inertia\Inertia;
+use Inertia\Response as InertiaResponse;
 
 class DashboardController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request): InertiaResponse
     {
+        /** @var User|null $user */
         $user = $request->user();
- 
+
         return Inertia::render('user/dashboard', [
             'recentReports' => $user ? $this->recentReports($user) : [],
-            'recentSearches' => $user ? $this->recentSearches($user): [],
+            'recentSearches' => $user ? $this->recentSearches($user) : [],
         ]);
     }
 
-    private function recentReports($user)
+    /**
+     * @return Collection<int, array{
+     *     id: int,
+     *     make: string|null,
+     *     model: string|null,
+     *     registration: string|null,
+     *     checkedOn: string|null,
+     *     imageUrl: string|null,
+     *     reportType: 'basic'|'full'|'premium'|null,
+     *     status: 'alert'|'completed',
+     *     badges: array{
+     *         0: array{label: 'Finance Recorded'|'No Finance', tone: 'alert'|'neutral'},
+     *         1: array{label: string, tone: 'alert'|'neutral}
+     *     }
+     * }>
+     */
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function recentReports(User $user): array
     {
-         return Report::with('vehicle')
+        return Report::with('vehicle')
             ->where('user_id', $user->id)
-            ->whereNotNull('vehicle_id') // saring report lama yang vehicle_id-nya null (dari bug sebelum fix)
+            ->whereNotNull('vehicle_id')
             ->latest('generated_at')
             ->take(2)
             ->get()
@@ -34,8 +57,6 @@ class DashboardController extends Controller
                 'registration' => $report->vehicle->registration_number,
                 'checkedOn' => optional($report->generated_at)->format('d M Y'),
                 'imageUrl' => $report->vehicle->image_url,
-                // report_type ikut dikirim supaya frontend bisa nampilin badge
-                // "Basic"/"Premium" kalau nanti dibutuhkan, tanpa harus nebak dari status.
                 'reportType' => $report->report_type,
                 'status' => ($report->vehicle->outstanding_finance || $report->vehicle->write_off_category)
                     ? 'alert'
@@ -50,10 +71,14 @@ class DashboardController extends Controller
                         'tone' => $report->vehicle->write_off_category ? 'alert' : 'neutral',
                     ],
                 ],
-            ]);
+            ])
+            ->all();
     }
 
-    private function recentSearches($user)
+    /**
+     * @return Collection<int, string>
+     */
+    private function recentSearches(User $user): Collection
     {
         return VinCheck::where('user_id', $user->id)
             ->latest()

@@ -6,9 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
-import { email as passwordEmail } from '@/routes/password';
-import { login } from '@/routes';
 import AuthLayout from '@/layouts/auth/auth-layout';
+import { login } from '@/routes';
+import { email as passwordEmail } from '@/routes/password';
 
 type SharedProps = {
     status?: string;
@@ -27,7 +27,9 @@ export default function ForgotPassword() {
                 <div className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-10 shadow-sm">
                     {/* Logo */}
                     <div className="mb-8 text-center">
-                        <h1 className="text-lg font-black tracking-tight text-[#00205b]">UKCARDOC</h1>
+                        <h1 className="text-lg font-black tracking-tight text-[#00205b]">
+                            UKCARDOC
+                        </h1>
                         <div className="mx-auto mt-2 h-0.5 w-8 bg-[#bb001a]" />
                     </div>
 
@@ -36,7 +38,9 @@ export default function ForgotPassword() {
                             Forgot password?
                         </h2>
                         <p className="text-sm leading-relaxed text-[#757681]">
-                            Enter the email address associated with your account and we&apos;ll send you a link to reset your password.
+                            Enter the email address associated with your account
+                            and we&apos;ll send you a link to reset your
+                            password.
                         </p>
                     </div>
 
@@ -55,11 +59,14 @@ export default function ForgotPassword() {
                         {({ processing, errors: formErrors }) => (
                             <div className="grid gap-5">
                                 <div className="grid gap-1.5">
-                                    <Label htmlFor="forgot-email" className="text-[11px] font-semibold uppercase tracking-wider text-[#151c27]">
+                                    <Label
+                                        htmlFor="forgot-email"
+                                        className="text-[11px] font-semibold tracking-wider text-[#151c27] uppercase"
+                                    >
                                         Email Address
                                     </Label>
                                     <div className="relative">
-                                        <Mail className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+                                        <Mail className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-slate-400" />
                                         <Input
                                             id="forgot-email"
                                             type="email"
@@ -68,16 +75,20 @@ export default function ForgotPassword() {
                                             autoFocus
                                             autoComplete="email"
                                             placeholder="name@company.com"
-                                            className="h-11 rounded border-[#c5c6d1] bg-white pl-10 pr-4 text-sm text-[#151c27] placeholder:text-[#c5c6d1] transition-all focus:border-[#00205b] focus:ring-2 focus:ring-[#00205b]/10"
+                                            className="h-11 rounded border-[#c5c6d1] bg-white pr-4 pl-10 text-sm text-[#151c27] transition-all placeholder:text-[#c5c6d1] focus:border-[#00205b] focus:ring-2 focus:ring-[#00205b]/10"
                                         />
                                     </div>
-                                    <InputError message={formErrors.email || errors?.email} />
+                                    <InputError
+                                        message={
+                                            formErrors.email || errors?.email
+                                        }
+                                    />
                                 </div>
 
                                 <Button
                                     type="submit"
                                     disabled={processing}
-                                    className="flex h-12 w-full items-center justify-center gap-2 rounded bg-[#bb001a] text-sm font-bold uppercase tracking-widest text-white shadow-sm transition-all hover:bg-[#930012] active:scale-[0.98]"
+                                    className="flex h-12 w-full items-center justify-center gap-2 rounded bg-[#bb001a] text-sm font-bold tracking-widest text-white uppercase shadow-sm transition-all hover:bg-[#930012] active:scale-[0.98]"
                                 >
                                     {processing ? (
                                         <Spinner className="h-4 w-4 text-white" />
@@ -107,7 +118,10 @@ export default function ForgotPassword() {
 
                 <p className="mt-6 max-w-md text-center text-sm text-[#757681]">
                     Having trouble? Contact our{' '}
-                    <Link href="/support" className="font-medium text-[#00205b] underline hover:text-[#bb001a]">
+                    <Link
+                        href="/support"
+                        className="font-medium text-[#00205b] underline hover:text-[#bb001a]"
+                    >
                         support team
                     </Link>{' '}
                     for official assistance.
@@ -117,4 +131,6 @@ export default function ForgotPassword() {
     );
 }
 
-ForgotPassword.layout = (page: React.ReactNode) => <AuthLayout>{page}</AuthLayout>;
+ForgotPassword.layout = (page: React.ReactNode) => (
+    <AuthLayout>{page}</AuthLayout>
+);

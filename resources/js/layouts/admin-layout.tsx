@@ -1,5 +1,5 @@
 import { usePage } from '@inertiajs/react';
-import type { PropsWithChildren} from 'react';
+import type { PropsWithChildren } from 'react';
 import React, { useState } from 'react';
 
 import AdminHeader from '@/components/admin/admin-header';

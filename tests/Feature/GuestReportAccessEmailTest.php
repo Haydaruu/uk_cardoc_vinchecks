@@ -143,7 +143,7 @@ it('sends a completed report email with a valid report link', function () {
     Mail::assertSent(
         GuestReportAccessReadyMail::class,
         function (GuestReportAccessReadyMail $mail) use (
-            $purchase,
+
             $token,
         ): bool {
             return $mail->customerName === 'Email Test Customer'

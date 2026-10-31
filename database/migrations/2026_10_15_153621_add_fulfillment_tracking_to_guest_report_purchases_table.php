@@ -13,8 +13,8 @@ return new class extends Migration
     {
         Schema::table('guest_report_purchases', function (Blueprint $table) {
             $table->string('fulfillment_status', 20)
-            ->default('locked')
-            ->index();
+                ->default('locked')
+                ->index();
 
             $table->unsignedSmallInteger('fulfillment_attempts')
                 ->default(0);

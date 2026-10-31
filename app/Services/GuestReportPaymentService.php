@@ -2,8 +2,8 @@
 
 namespace App\Services;
 
-use App\Models\GuestReportPurchase;
 use App\Jobs\ProcessVehicleCheck;
+use App\Models\GuestReportPurchase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
@@ -75,7 +75,7 @@ class GuestReportPaymentService
 
                 throw new RuntimeException('Purchase payment provider does not match Stripe.');
             }
-            
+
             if ((int) $purchase->report_id !== (int) $reportId) {
                 Log::critical('Guest Checkout report metadata mismatch.', [
                     'purchase_id' => $purchase->id,
@@ -117,7 +117,7 @@ class GuestReportPaymentService
                 $amount = $session->amount_total ?? null;
                 $currency = $session->currency ?? null;
 
-                if (! is_numeric($amount) || (int) $amount !== (int) $purchase->amount_minor || 
+                if (! is_numeric($amount) || (int) $amount !== (int) $purchase->amount_minor ||
                     ! is_string($currency) || strtolower($currency) !== strtolower($purchase->currency)
                 ) {
                     Log::critical('Guest checkout amount or currency mismatch.', [
@@ -143,7 +143,7 @@ class GuestReportPaymentService
                 if ($purchase->payment_status === GuestReportPurchase::STATUS_PAID) {
                     $updates = $references;
 
-                    if ( $purchase->fulfillment_status === GuestReportPurchase::FULFILLMENT_LOCKED) {
+                    if ($purchase->fulfillment_status === GuestReportPurchase::FULFILLMENT_LOCKED) {
                         $updates['fulfillment_status'] = GuestReportPurchase::FULFILLMENT_PENDING;
                     }
 
@@ -193,14 +193,13 @@ class GuestReportPaymentService
             throw new RuntimeException('Unsupported guest checkout event type.');
         });
 
-        if(in_array($eventType, $successfulEvents, true)
-            && ($session->payment_status ?? null) === 'paid') 
-        {
+        if (in_array($eventType, $successfulEvents, true)
+            && ($session->payment_status ?? null) === 'paid') {
             $purchase = GuestReportPurchase::query()
                 ->with('report')
                 ->findOrFail($purchaseId);
-            
-            if ( $purchase->payment_status === GuestReportPurchase::STATUS_PAID 
+
+            if ($purchase->payment_status === GuestReportPurchase::STATUS_PAID
                 && in_array(
                     $purchase->fulfillment_status,
                     [

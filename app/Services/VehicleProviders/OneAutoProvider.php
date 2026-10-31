@@ -7,6 +7,7 @@ use RuntimeException;
 
 class OneAutoProvider
 {
+    /** @return array<string, mixed> */
     public function getVehicleDetails(string $vrm): array
     {
         $response = Http::acceptJson()
@@ -20,20 +21,21 @@ class OneAutoProvider
                     'vehicle_registration_mark' => strtoupper($vrm),
                 ]
             );
-        if($response->failed()) {
-            throw new RuntimeException('OneAuto vehicle details request failed: '. $response->body());
+        if ($response->failed()) {
+            throw new RuntimeException('OneAuto vehicle details request failed: '.$response->body());
         }
 
         return $response->json();
     }
 
+    /** @return array<string, mixed> */
     public function getAutoCheck(string $vrm, ?string $vin = null): array
     {
         $params = [
             'vehicle_registration_mark' => strtoupper($vrm),
         ];
 
-        if($vin) {
+        if ($vin) {
             $params['vehicle_identification_number'] = $vin;
         }
 
@@ -46,14 +48,15 @@ class OneAutoProvider
                 .'/experian/autocheck/v3',
                 $params
             );
-        
+
         if ($response->failed()) {
-            throw new RuntimeException('OneAuto AutoCheck request failed: '. $response->body());
+            throw new RuntimeException('OneAuto AutoCheck request failed: '.$response->body());
         }
 
         return $response->json();
     }
 
+    /** @return array<string, mixed> */
     public function getSalvageCheck(string $vrm): array
     {
         $response = Http::acceptJson()
@@ -62,44 +65,46 @@ class OneAutoProvider
             ])
             ->get(
                 rtrim(config('services.oneauto.base_url'), '/')
-                . '/carguide/salvagecheck/v2',
+                .'/carguide/salvagecheck/v2',
                 [
                     'vehicle_registration_mark' => strtoupper($vrm),
                 ]
             );
 
-        if($response->failed()) {
+        if ($response->failed()) {
             throw new RuntimeException(
-                'OneAuto salvage check request failed: '. $response->body()
+                'OneAuto salvage check request failed: '.$response->body()
             );
         }
 
         return $response->json();
     }
 
-    public function  getRecallCheck(string $vrm): array
+    /** @return array<string, mixed> */
+    public function getRecallCheck(string $vrm): array
     {
-            $response = Http::acceptJson()
+        $response = Http::acceptJson()
             ->withHeaders([
                 'x-api-key' => config('services.oneauto.api_key'),
             ])
             ->get(
                 rtrim(config('services.oneauto.base_url'), '/')
-                . '/oneauto/combinedrecallcheckfromvrm/v2',
+                .'/oneauto/combinedrecallcheckfromvrm/v2',
                 [
                     'vehicle_registration_mark' => strtoupper($vrm),
                 ]
             );
 
-        if($response->failed()) {
+        if ($response->failed()) {
             throw new RuntimeException(
-                'OneAuto recall check request failed: '. $response->body()
+                'OneAuto recall check request failed: '.$response->body()
             );
         }
 
         return $response->json();
     }
 
+    /** @return array<string, mixed> */
     public function getVehicleAndModelDetails(string $vrm): array
     {
         $response = Http::acceptJson()
@@ -108,22 +113,23 @@ class OneAutoProvider
             ])
             ->get(
                 rtrim(config('services.oneauto.base_url'), '/')
-                . '/ukvehicledata/vehicleandmodeldetailsfromvrm/v2',
+                .'/ukvehicledata/vehicleandmodeldetailsfromvrm/v2',
                 [
                     'vehicle_registration_mark' => strtoupper($vrm),
                 ]
             );
 
-        if($response->failed()) {
+        if ($response->failed()) {
             throw new RuntimeException(
                 'OneAuto vehicle and model details request failed: '
-                . $response->body()
+                .$response->body()
             );
         }
 
         return $response->json();
     }
 
+    /** @return array<string, mixed> */
     public function getValuation(string $vrm, int $mileage): array
     {
         $response = Http::acceptJson()
@@ -132,48 +138,24 @@ class OneAutoProvider
             ])
             ->get(
                 rtrim(config('services.oneauto.base_url'), '/')
-                . '/autotrader/valuationfromvrm/v2',
+                .'/autotrader/valuationfromvrm/v2',
                 [
                     'vehicle_registration_mark' => strtoupper($vrm),
                     'current_mileage' => $mileage,
                 ]
             );
 
-        if($response->failed()) {
+        if ($response->failed()) {
             throw new RuntimeException(
-                'OneAuto valuation request failed: '. $response->body()
+                'OneAuto valuation request failed: '.$response->body()
             );
         }
 
         return $response->json();
     }
 
+    /** @return array<string, mixed> */
     public function getInsuranceCosts(string $insuranceGroup, string $fuelType): array
-    {
-            $response = Http::acceptJson()
-            ->withHeaders([
-                'x-api-key' => config('services.oneauto.api_key'),
-            ])
-            ->get(
-                rtrim(config('services.oneauto.base_url'), '/')
-                . '/oneauto/insurancecosts/v2',
-                [
-                    'insurance_group_1to50' => $insuranceGroup,
-                    'fuel_type_desc' => $fuelType,
-                ]
-            );
-
-        if($response->failed()) {
-            throw new RuntimeException(
-                'OneAuto insurance costs request failed: '
-                . $response->body()
-            );
-        }
-
-        return $response->json();
-    }
-
-    public function getAutoTraderSpecs(string $derivativeId, string $effectiveDate): array 
     {
         $response = Http::acceptJson()
             ->withHeaders([
@@ -181,28 +163,55 @@ class OneAutoProvider
             ])
             ->get(
                 rtrim(config('services.oneauto.base_url'), '/')
-                . '/autotrader/specandtechdatafromid/v2',
+                .'/oneauto/insurancecosts/v2',
                 [
-                    'autotrader_derivative_id' => $derivativeId,
-                    'effective_date' => $effectiveDate,
+                    'insurance_group_1to50' => $insuranceGroup,
+                    'fuel_type_desc' => $fuelType,
                 ]
             );
 
-        if($response->failed()) {
+        if ($response->failed()) {
             throw new RuntimeException(
-                'OneAuto AutoTrader specs request failed: '
-                . $response->body()
+                'OneAuto insurance costs request failed: '
+                .$response->body()
             );
         }
 
         return $response->json();
     }
 
+    /** @return array<string, mixed> */
+    public function getAutoTraderSpecs(string $derivativeId, string $effectiveDate): array
+    {
+        $response = Http::acceptJson()
+            ->withHeaders([
+                'x-api-key' => config('services.oneauto.api_key'),
+            ])
+            ->get(
+                rtrim(config('services.oneauto.base_url'), '/')
+                .'/autotrader/specandtechdatafromid/v2',
+                [
+                    'autotrader_derivative_id' => $derivativeId,
+                    'effective_date' => $effectiveDate,
+                ]
+            );
+
+        if ($response->failed()) {
+            throw new RuntimeException(
+                'OneAuto AutoTrader specs request failed: '
+                .$response->body()
+            );
+        }
+
+        return $response->json();
+    }
+
+    /** @return array<string, mixed> */
     public function getVehicleTax(string $vrm, ?float $listPrice = null): array
     {
-        $params = ['vehicle_registration_mark' => strtoupper($vrm),];
+        $params = ['vehicle_registration_mark' => strtoupper($vrm)];
 
-        if($listPrice !== null) {
+        if ($listPrice !== null) {
             $params['list_price_inc_options_delivery_vat'] = $listPrice;
         }
 
@@ -212,17 +221,18 @@ class OneAutoProvider
             ])
             ->get(
                 rtrim(config('services.oneauto.base_url'), '/')
-                . '/oneauto/vehicletaxfromvrm/v2',
+                .'/oneauto/vehicletaxfromvrm/v2',
                 $params
             );
 
-        if($response->failed()) {
-            throw new RuntimeException('OneAuto vehicle tax request failed: '. $response->body());
+        if ($response->failed()) {
+            throw new RuntimeException('OneAuto vehicle tax request failed: '.$response->body());
         }
 
         return $response->json();
     }
 
+    /** @return array<string, mixed> */
     public function getMotHistory(string $vrm): array
     {
         $response = Http::acceptJson()
@@ -231,14 +241,14 @@ class OneAutoProvider
             ])
             ->get(
                 rtrim(config('services.oneauto.base_url'), '/')
-                . '/oneauto/mothistoryandtaxstatus/v2',
+                .'/oneauto/mothistoryandtaxstatus/v2',
                 [
                     'vehicle_registration_mark' => strtoupper($vrm),
                 ]
             );
 
         if ($response->failed()) {
-            throw new RuntimeException('OneAuto MOT history request failed: '. $response->body());
+            throw new RuntimeException('OneAuto MOT history request failed: '.$response->body());
         }
 
         return $response->json();

@@ -1,4 +1,3 @@
-
 import { useForm } from '@inertiajs/react';
 import { LockKeyhole, Mail, ShieldCheck, X } from 'lucide-react';
 import { useEffect } from 'react';
@@ -12,13 +11,7 @@ export default function GuestCheckoutModal({
     reportId,
     onClose,
 }: GuestCheckoutModalProps) {
-    const {
-        data,
-        setData,
-        post,
-        processing,
-        errors,
-    } = useForm({
+    const { data, setData, post, processing, errors } = useForm({
         name: '',
         email: '',
         phone: '',
@@ -48,13 +41,9 @@ export default function GuestCheckoutModal({
 
     return (
         <div
-            className="fixed inset-0 z-50 flex items-center justify-center
-                overflow-y-auto bg-primary/50 px-4 py-6 backdrop-blur-sm"
+            className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-primary/50 px-4 py-6 backdrop-blur-sm"
             onMouseDown={(event) => {
-                if (
-                    event.target === event.currentTarget
-                    && !processing
-                ) {
+                if (event.target === event.currentTarget && !processing) {
                     onClose();
                 }
             }}
@@ -63,17 +52,14 @@ export default function GuestCheckoutModal({
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="guest-checkout-title"
-                className="my-auto w-full max-w-lg overflow-hidden rounded-xl
-                    border border-outline-variant/60 bg-white
-                    shadow-[0_20px_60px_rgba(0,13,47,0.18)]"
+                className="my-auto w-full max-w-lg overflow-hidden rounded-xl border border-outline-variant/60 bg-white shadow-[0_20px_60px_rgba(0,13,47,0.18)]"
             >
                 <div className="h-1 bg-secondary" />
 
                 <div className="p-6 sm:p-8">
                     <div className="mb-6 flex items-start justify-between gap-4">
                         <div className="flex items-start gap-3">
-                            <div className="flex size-12 shrink-0 items-center
-                                justify-center rounded-lg bg-surface-container">
+                            <div className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-surface-container">
                                 <ShieldCheck className="size-6 text-primary" />
                             </div>
 
@@ -96,9 +82,7 @@ export default function GuestCheckoutModal({
                             onClick={onClose}
                             disabled={processing}
                             aria-label="Close checkout dialog"
-                            className="rounded-md p-2 text-outline transition
-                                hover:bg-surface-container-low hover:text-primary
-                                disabled:cursor-not-allowed disabled:opacity-50"
+                            className="rounded-md p-2 text-outline transition hover:bg-surface-container-low hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
                         >
                             <X className="size-5" />
                         </button>
@@ -110,8 +94,8 @@ export default function GuestCheckoutModal({
                         </h3>
 
                         <p className="mt-2 text-sm leading-6 text-on-surface-variant">
-                            Enter your contact details before continuing
-                            to secure payment.
+                            Enter your contact details before continuing to
+                            secure payment.
                         </p>
                     </div>
 
@@ -136,11 +120,7 @@ export default function GuestCheckoutModal({
                                 }
                                 placeholder="Enter your full name"
                                 aria-invalid={Boolean(errors.name)}
-                                className="w-full rounded-md border border-outline-variant
-                                    bg-white px-4 py-3 text-sm text-primary outline-none
-                                    transition placeholder:text-outline/70
-                                    focus:border-surface-tint focus:ring-1
-                                    focus:ring-surface-tint"
+                                className="w-full rounded-md border border-outline-variant bg-white px-4 py-3 text-sm text-primary transition outline-none placeholder:text-outline/70 focus:border-surface-tint focus:ring-1 focus:ring-surface-tint"
                             />
 
                             {errors.name && (
@@ -170,11 +150,7 @@ export default function GuestCheckoutModal({
                                 }
                                 placeholder="you@example.com"
                                 aria-invalid={Boolean(errors.email)}
-                                className="w-full rounded-md border border-outline-variant
-                                    bg-white px-4 py-3 text-sm text-primary outline-none
-                                    transition placeholder:text-outline/70
-                                    focus:border-surface-tint focus:ring-1
-                                    focus:ring-surface-tint"
+                                className="w-full rounded-md border border-outline-variant bg-white px-4 py-3 text-sm text-primary transition outline-none placeholder:text-outline/70 focus:border-surface-tint focus:ring-1 focus:ring-surface-tint"
                             />
 
                             {errors.email && (
@@ -205,11 +181,7 @@ export default function GuestCheckoutModal({
                                 }
                                 placeholder="+44 7xxx xxx xxx"
                                 aria-invalid={Boolean(errors.phone)}
-                                className="w-full rounded-md border border-outline-variant
-                                    bg-white px-4 py-3 text-sm text-primary outline-none
-                                    transition placeholder:text-outline/70
-                                    focus:border-surface-tint focus:ring-1
-                                    focus:ring-surface-tint"
+                                className="w-full rounded-md border border-outline-variant bg-white px-4 py-3 text-sm text-primary transition outline-none placeholder:text-outline/70 focus:border-surface-tint focus:ring-1 focus:ring-surface-tint"
                             />
 
                             {errors.phone && (
@@ -239,12 +211,7 @@ export default function GuestCheckoutModal({
                         <button
                             type="submit"
                             disabled={processing}
-                            className="flex w-full items-center justify-center
-                                gap-2 rounded-lg bg-secondary px-6 py-4
-                                text-sm font-semibold text-white shadow-sm
-                                transition hover:bg-secondary-container
-                                active:scale-[0.99] disabled:cursor-wait
-                                disabled:opacity-60"
+                            className="flex w-full items-center justify-center gap-2 rounded-lg bg-secondary px-6 py-4 text-sm font-semibold text-white shadow-sm transition hover:bg-secondary-container active:scale-[0.99] disabled:cursor-wait disabled:opacity-60"
                         >
                             <LockKeyhole className="size-4" />
 
@@ -254,8 +221,8 @@ export default function GuestCheckoutModal({
                         </button>
 
                         <p className="text-center text-xs leading-5 text-outline">
-                            Your contact details are used to prepare
-                            your guest report purchase.
+                            Your contact details are used to prepare your guest
+                            report purchase.
                         </p>
                     </form>
                 </div>

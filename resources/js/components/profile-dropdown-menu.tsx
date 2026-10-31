@@ -22,7 +22,9 @@ export default function ProfileDropdownMenu({ name }: { name: string }) {
                 align="end"
                 className="w-48 rounded-lg border border-outline-variant bg-surface-container-lowest p-1"
             >
-                <div className="px-2 py-1.5 text-sm font-semibold text-on-surface">{name}</div>
+                <div className="px-2 py-1.5 text-sm font-semibold text-on-surface">
+                    {name}
+                </div>
 
                 <DropdownMenuSeparator className="my-1 h-px bg-outline-variant" />
 
@@ -31,7 +33,11 @@ export default function ProfileDropdownMenu({ name }: { name: string }) {
                         href="/settings/profile"
                         className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-on-surface hover:bg-surface-container focus:bg-surface-container"
                     >
-                        <Settings size={16} className="text-on-surface-variant" /> Settings
+                        <Settings
+                            size={16}
+                            className="text-on-surface-variant"
+                        />{' '}
+                        Settings
                     </Link>
                 </DropdownMenuItem>
 

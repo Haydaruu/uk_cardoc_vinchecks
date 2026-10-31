@@ -63,11 +63,17 @@ class GuestReportPurchase extends Model
         'fulfilled_at' => 'datetime',
     ];
 
+    /**
+     * @return BelongsTo<Report, $this>
+     */
     public function report(): BelongsTo
     {
         return $this->belongsTo(Report::class, 'report_id');
     }
 
+    /**
+     * @return HasMany<GuestReportRecoveryToken, $this>
+     */
     public function recoveryTokens(): HasMany
     {
         return $this->hasMany(GuestReportRecoveryToken::class);

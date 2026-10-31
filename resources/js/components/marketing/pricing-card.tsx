@@ -6,7 +6,6 @@ type PricingCardProps = {
     tier: string;
     title: string;
     pricePerReport: string;
-    originalPricePerReport?: string;
     totalPrice: string;
     originalTotalPrice?: string;
     discountLabel?: string;
@@ -21,7 +20,6 @@ export default function PricingCard({
     tier,
     title,
     pricePerReport,
-    originalPricePerReport,
     totalPrice,
     originalTotalPrice,
     discountLabel,
@@ -40,14 +38,14 @@ export default function PricingCard({
             }`}
         >
             {badge && (
-                <div className="absolute -top-px left-0 right-0 rounded-t-sm bg-secondary py-2 text-center text-[10px] font-bold uppercase tracking-widest text-white">
+                <div className="absolute -top-px right-0 left-0 rounded-t-sm bg-secondary py-2 text-center text-[10px] font-bold tracking-widest text-white uppercase">
                     {badge}
                 </div>
             )}
 
             <div className={badge ? 'mt-6' : ''}>
                 <p
-                    className={`text-[10px] font-bold uppercase tracking-widest ${
+                    className={`text-[10px] font-bold tracking-widest uppercase ${
                         highlighted ? 'text-secondary' : 'text-slate-400'
                     }`}
                 >
@@ -85,7 +83,10 @@ export default function PricingCard({
             <ul className="mt-8 flex-1 space-y-3 border-t border-slate-100 pt-6">
                 {bullets.map((bullet) => (
                     <li key={bullet} className="flex items-start gap-3">
-                        <Check size={16} className="mt-0.5 shrink-0 text-secondary" />
+                        <Check
+                            size={16}
+                            className="mt-0.5 shrink-0 text-secondary"
+                        />
                         <span className="text-sm text-slate-600">{bullet}</span>
                     </li>
                 ))}
@@ -93,7 +94,7 @@ export default function PricingCard({
 
             <Link
                 href={ctaHref}
-                className={`mt-8 block rounded-sm py-3.5 text-center text-[11px] font-bold uppercase tracking-widest transition-colors ${
+                className={`mt-8 block rounded-sm py-3.5 text-center text-[11px] font-bold tracking-widest uppercase transition-colors ${
                     highlighted
                         ? 'bg-secondary text-white hover:bg-secondary-container'
                         : 'border border-slate-800 text-slate-800 hover:bg-slate-50'

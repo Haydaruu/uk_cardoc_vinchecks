@@ -1,6 +1,7 @@
 <?php
 
 use App\Contracts\VehicleDataProviderInterface;
+use App\Exceptions\VehicleNotFoundException;
 use App\Jobs\ProcessVehicleCheck;
 use App\Models\Report;
 use App\Models\Vehicle;
@@ -301,4 +302,20 @@ test('basic OneAuto check rejects a mismatched vehicle without saving a report',
                 ->exists()
         )
         ->toBeFalse();
+});
+
+test('vehicle not found exception fails the queue job without retrying', function () {
+    $job = (new ProcessVehicleCheck(1))
+        ->withFakeQueueInteractions();
+
+    $middleware = $job->middleware()[0];
+
+    expect(fn () => $middleware->handle(
+        $job,
+        fn () => throw new VehicleNotFoundException(
+            'Vehicle not found.'
+        ),
+    ))->toThrow(VehicleNotFoundException::class);
+
+    $job->assertFailedWith(VehicleNotFoundException::class);
 });

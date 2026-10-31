@@ -5,26 +5,31 @@ namespace App\Services;
 class EmissionsComplianceService
 {
     /**
-     * Create a new class instance.
+     * @return array{
+     *     meets_minimum_standard: bool|null,
+     *     assessment_type: 'derived',
+     *     reason: string,
+     *     officially_verified: false
+     * }
      */
     public function assess(?string $fuelType, ?string $euroStandard, ?string $vehicleType = null): array
     {
         $fuel = strtolower(trim($fuelType ?? ''));
         $euro = $this->extractEuroNumber($euroStandard);
 
-        if(str_contains($fuel, 'electric')) {
+        if (str_contains($fuel, 'electric')) {
             return $this->result(true, 'Electric vehicle');
         }
 
-        if(!$euro) {
+        if (! $euro) {
             return $this->result(null, 'Euro standard unavailable');
         }
 
-        if(str_contains($fuel, 'petrol')) {
+        if (str_contains($fuel, 'petrol')) {
             return $this->result($euro >= 4, "Petrol Euro {$euro}");
         }
 
-         if(str_contains($fuel, 'diesel')) {
+        if (str_contains($fuel, 'diesel')) {
             return $this->result($euro >= 6, "Diesel Euro {$euro}");
         }
 
@@ -33,13 +38,23 @@ class EmissionsComplianceService
 
     private function extractEuroNumber(?string $value): ?int
     {
-        if(! $value) return null;
+        if (! $value) {
+            return null;
+        }
 
         preg_match('/(\d+)/', $value, $matches);
 
-        return isset($matches[1]) ? (int) $matches[1] :null;
+        return isset($matches[1]) ? (int) $matches[1] : null;
     }
 
+    /**
+     * @return array{
+     *     meets_minimum_standard: bool|null,
+     *     assessment_type: 'derived',
+     *     reason: string,
+     *     officially_verified: false
+     * }
+     */
     private function result(?bool $meetsStandard, string $reason): array
     {
         return [

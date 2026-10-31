@@ -1,6 +1,4 @@
-import SettingsLayout from '@/layouts/settings/settings-layout';
 import { Head, router } from '@inertiajs/react';
-
 import {
     ArrowRight,
     CheckCircle2,
@@ -12,8 +10,10 @@ import {
     Wallet,
     X,
 } from 'lucide-react';
+import { useState } from 'react';
+import type { ReactNode } from 'react';
 
-import { useState, type ReactNode } from 'react';
+import SettingsLayout from '@/layouts/settings/settings-layout';
 
 type PaymentProvider = 'stripe' | 'paypal';
 
@@ -36,17 +36,11 @@ type SubscriptionData = {
     plan_name: string;
     price: string;
 
-    status:
-        | 'active'
-        | 'pending'
-        | 'cancelled'
-        | 'expired';
+    status: 'active' | 'pending' | 'cancelled' | 'expired';
 
     monthly_credits: number;
 
-    payment_method:
-        | PaymentProvider
-        | null;
+    payment_method: PaymentProvider | null;
 
     start_date: string | null;
     current_period_end: string | null;
@@ -54,9 +48,7 @@ type SubscriptionData = {
     cancel_at_period_end: boolean;
     cancelled_at: string | null;
 
-    scheduled_change:
-        | ScheduledChange
-        | null;
+    scheduled_change: ScheduledChange | null;
 };
 
 type Invoice = {
@@ -76,13 +68,9 @@ type CurrentPlan = {
 };
 
 type Props = {
-    subscription:
-        | SubscriptionData
-        | null;
+    subscription: SubscriptionData | null;
 
-    plan:
-        | CurrentPlan
-        | null;
+    plan: CurrentPlan | null;
 
     availablePlans?: AvailablePlan[];
     recentInvoices?: Invoice[];
@@ -102,57 +90,52 @@ export default function Subscription({
 
     const defaultPlan = availablePlans[0] ?? null;
 
-    const displayPlan = plan ?? (
-        defaultPlan
+    const displayPlan =
+        plan ??
+        (defaultPlan
             ? {
                   name: defaultPlan.name,
                   price: defaultPlan.price,
                   monthly_credits: defaultPlan.monthly_credits,
               }
-            : null
-    );
+            : null);
 
     const paymentProvider: PaymentProvider =
-        subscription?.payment_method === 'paypal'
-            ? 'paypal'
-            : 'stripe';
+        subscription?.payment_method === 'paypal' ? 'paypal' : 'stripe';
 
     const paymentProviderLabel =
-        paymentProvider === 'paypal'
-            ? 'PayPal'
-            : 'Stripe';
+        paymentProvider === 'paypal' ? 'PayPal' : 'Stripe';
 
     const subscribe = () => {
-        if(!defaultPlan) return;
+        if (!defaultPlan) {
+            return;
+        }
 
-        router.visit(
-            `/checkout?plan=${encodeURIComponent(defaultPlan.slug)}`,
-            {
-                onStart: () => setIsSubscribing(true),
-                onFinish: () => setIsSubscribing(false),
-            },
-        );
+        router.visit(`/checkout?plan=${encodeURIComponent(defaultPlan.slug)}`, {
+            onStart: () => setIsSubscribing(true),
+            onFinish: () => setIsSubscribing(false),
+        });
     };
 
     const subscribeToPlan = (planSlug: string) => {
         setChangingPlan(planSlug);
 
-        router.visit(
-            `/checkout?plan=${encodeURIComponent(planSlug)}`,
-            {
-                onFinish: () => setChangingPlan(null),
-            },
-        );
+        router.visit(`/checkout?plan=${encodeURIComponent(planSlug)}`, {
+            onFinish: () => setChangingPlan(null),
+        });
     };
 
     const cancelSubscription = () => {
-        if(!subscription) return;
+        if (!subscription) {
+            return;
+        }
 
         setIsCancelling(true);
 
-        const url = paymentProvider === 'paypal'
-            ? '/settings/subscription/paypal'
-            : '/settings/subscription';
+        const url =
+            paymentProvider === 'paypal'
+                ? '/settings/subscription/paypal'
+                : '/settings/subscription';
 
         router.delete(url, {
             preserveScroll: true,
@@ -168,13 +151,16 @@ export default function Subscription({
     };
 
     const changePlan = (planSlug: string) => {
-        if(!subscription) return;
+        if (!subscription) {
+            return;
+        }
 
         setChangingPlan(planSlug);
 
-        const url = paymentProvider === 'paypal'
-            ? '/settings/subscription/paypal/plan'
-            : '/settings/subscription/plan';
+        const url =
+            paymentProvider === 'paypal'
+                ? '/settings/subscription/paypal/plan'
+                : '/settings/subscription/plan';
 
         router.patch(
             url,
@@ -190,7 +176,7 @@ export default function Subscription({
                  * ke halaman approval PayPal.
                  */
                 onSuccess: () => {
-                    if(paymentProvider === 'stripe') {
+                    if (paymentProvider === 'stripe') {
                         setChangePlanOpen(false);
                     }
                 },
@@ -208,35 +194,31 @@ export default function Subscription({
 
             <div className="min-h-screen bg-surface">
                 <div className="mx-auto w-full max-w-container-max px-margin-mobile pb-12 md:px-gutter">
-
                     {/* Header */}
-                    <header className="mb-12 border-b border-outline-variant pb-6 pt-8">
+                    <header className="mb-12 border-b border-outline-variant pt-8 pb-6">
                         <h1 className="font-h1 text-h1 text-primary">
                             Subscription
                         </h1>
 
-                        <p className="mt-2 font-body-lg text-body-lg text-on-surface-variant">
+                        <p className="font-body-lg mt-2 text-body-lg text-on-surface-variant">
                             Manage your current plan and billing preferences.
                         </p>
                     </header>
 
                     <div className="grid grid-cols-1 gap-gutter lg:grid-cols-3">
-
                         {/* Current Plan */}
                         <section className="relative overflow-hidden rounded-xl border border-outline-variant bg-white p-8 shadow-[0_4px_20px_rgba(0,32,91,0.04)] lg:col-span-2">
-                            <div className="absolute left-0 top-0 h-px w-full bg-outline-variant">
+                            <div className="absolute top-0 left-0 h-px w-full bg-outline-variant">
                                 <div className="h-full w-8 bg-secondary" />
                             </div>
 
                             {subscription && displayPlan ? (
                                 <div className="flex h-full flex-col justify-between">
-
                                     <div>
-
                                         {/* Plan Header */}
                                         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                                             <div>
-                                                <p className="mb-1 font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant">
+                                                <p className="font-label-sm mb-1 text-label-sm tracking-wider text-on-surface-variant uppercase">
                                                     Current Plan
                                                 </p>
 
@@ -245,13 +227,20 @@ export default function Subscription({
                                                         {displayPlan.name}
                                                     </h2>
 
-                                                    <StatusBadge status={subscription.status} />
+                                                    <StatusBadge
+                                                        status={
+                                                            subscription.status
+                                                        }
+                                                    />
                                                 </div>
                                             </div>
 
                                             <div className="sm:text-right">
                                                 <p className="font-h3 text-h3 text-primary">
-                                                    £{Number(subscription.price).toFixed(2)}
+                                                    £
+                                                    {Number(
+                                                        subscription.price,
+                                                    ).toFixed(2)}
                                                 </p>
 
                                                 <p className="text-sm text-on-surface-variant">
@@ -263,11 +252,13 @@ export default function Subscription({
                                         {/* Benefits */}
                                         <div className="mb-8 space-y-4">
                                             <Benefit>
-                                                {subscription.monthly_credits} credits every month
+                                                {subscription.monthly_credits}{' '}
+                                                credits every month
                                             </Benefit>
 
                                             <Benefit>
-                                                Credits are added after every successful billing cycle
+                                                Credits are added after every
+                                                successful billing cycle
                                             </Benefit>
 
                                             <Benefit>
@@ -275,7 +266,8 @@ export default function Subscription({
                                             </Benefit>
 
                                             <Benefit>
-                                                Unlock full vehicle reports using your credits
+                                                Unlock full vehicle reports
+                                                using your credits
                                             </Benefit>
                                         </div>
 
@@ -283,35 +275,43 @@ export default function Subscription({
                                         {subscription.scheduled_change && (
                                             <div className="mb-8 rounded-xl border border-amber-200 bg-amber-50/70 p-5">
                                                 <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-
                                                     <div className="flex items-start gap-3">
                                                         <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-amber-100">
                                                             <Clock3 className="size-4 text-amber-700" />
                                                         </div>
 
                                                         <div>
-                                                            <p className="text-[10px] font-bold uppercase tracking-wider text-amber-700">
-                                                                Plan Change Scheduled
+                                                            <p className="text-[10px] font-bold tracking-wider text-amber-700 uppercase">
+                                                                Plan Change
+                                                                Scheduled
                                                             </p>
 
                                                             <div className="mt-2 flex flex-wrap items-center gap-2">
                                                                 <span className="font-semibold text-primary">
-                                                                    {displayPlan.name}
+                                                                    {
+                                                                        displayPlan.name
+                                                                    }
                                                                 </span>
 
                                                                 <ArrowRight className="size-4 text-on-surface-variant" />
 
                                                                 <span className="font-semibold text-primary">
-                                                                    {subscription.scheduled_change.name}
+                                                                    {
+                                                                        subscription
+                                                                            .scheduled_change
+                                                                            .name
+                                                                    }
                                                                 </span>
                                                             </div>
 
                                                             <p className="mt-2 text-xs text-on-surface-variant">
-                                                                Your new plan starts on{' '}
-
+                                                                Your new plan
+                                                                starts on{' '}
                                                                 <span className="font-semibold text-primary">
                                                                     {formatDate(
-                                                                        subscription.scheduled_change.effective_at,
+                                                                        subscription
+                                                                            .scheduled_change
+                                                                            .effective_at,
                                                                     )}
                                                                 </span>
                                                             </p>
@@ -320,11 +320,20 @@ export default function Subscription({
 
                                                     <div className="sm:text-right">
                                                         <p className="text-lg font-bold text-primary">
-                                                            {subscription.scheduled_change.price}
+                                                            {
+                                                                subscription
+                                                                    .scheduled_change
+                                                                    .price
+                                                            }
                                                         </p>
 
                                                         <p className="mt-1 text-xs text-on-surface-variant">
-                                                            {subscription.scheduled_change.monthly_credits} credits / month
+                                                            {
+                                                                subscription
+                                                                    .scheduled_change
+                                                                    .monthly_credits
+                                                            }{' '}
+                                                            credits / month
                                                         </p>
                                                     </div>
                                                 </div>
@@ -334,12 +343,10 @@ export default function Subscription({
 
                                     {/* Billing / Actions */}
                                     <div className="flex flex-col gap-4 border-t border-outline-variant pt-6 md:flex-row md:items-center md:justify-between">
-
                                         <div className="text-sm text-on-surface-variant">
                                             {subscription.cancel_at_period_end ? (
                                                 <>
                                                     Access available until{' '}
-
                                                     <span className="font-semibold text-primary">
                                                         {formatDate(
                                                             subscription.current_period_end,
@@ -349,7 +356,6 @@ export default function Subscription({
                                             ) : (
                                                 <>
                                                     Renews on{' '}
-
                                                     <span className="font-semibold text-primary">
                                                         {formatDate(
                                                             subscription.current_period_end,
@@ -365,10 +371,11 @@ export default function Subscription({
                                             </span>
                                         ) : subscription.status === 'active' ? (
                                             <div className="flex items-center gap-5">
-
                                                 <button
                                                     type="button"
-                                                    onClick={() => setChangePlanOpen(true)}
+                                                    onClick={() =>
+                                                        setChangePlanOpen(true)
+                                                    }
                                                     className="font-label-sm text-label-sm font-semibold text-primary transition-colors hover:underline"
                                                 >
                                                     {subscription.scheduled_change
@@ -378,7 +385,9 @@ export default function Subscription({
 
                                                 <button
                                                     type="button"
-                                                    onClick={() => setCancelOpen(true)}
+                                                    onClick={() =>
+                                                        setCancelOpen(true)
+                                                    }
                                                     className="font-label-sm text-label-sm text-secondary transition-colors hover:text-secondary-container"
                                                 >
                                                     Cancel Subscription
@@ -389,11 +398,10 @@ export default function Subscription({
                                 </div>
                             ) : displayPlan ? (
                                 <>
-
                                     {/* No subscription */}
                                     <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                                         <div>
-                                            <p className="mb-1 font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant">
+                                            <p className="font-label-sm mb-1 text-label-sm tracking-wider text-on-surface-variant uppercase">
                                                 Available Plan
                                             </p>
 
@@ -404,7 +412,10 @@ export default function Subscription({
 
                                         <div className="sm:text-right">
                                             <p className="font-h3 text-h3 text-primary">
-                                                {displayPlan.price.replace('/month', '')}
+                                                {displayPlan.price.replace(
+                                                    '/month',
+                                                    '',
+                                                )}
                                             </p>
 
                                             <p className="text-sm text-on-surface-variant">
@@ -415,7 +426,8 @@ export default function Subscription({
 
                                     <div className="mb-8 space-y-4">
                                         <Benefit>
-                                            {displayPlan.monthly_credits} credits every month
+                                            {displayPlan.monthly_credits}{' '}
+                                            credits every month
                                         </Benefit>
 
                                         <Benefit>
@@ -426,9 +438,7 @@ export default function Subscription({
                                             Unused credits never expire
                                         </Benefit>
 
-                                        <Benefit>
-                                            Cancel anytime
-                                        </Benefit>
+                                        <Benefit>Cancel anytime</Benefit>
                                     </div>
 
                                     <div className="flex flex-wrap items-center gap-4 border-t border-outline-variant pt-6">
@@ -446,7 +456,9 @@ export default function Subscription({
                                         {availablePlans.length > 1 && (
                                             <button
                                                 type="button"
-                                                onClick={() => setChangePlanOpen(true)}
+                                                onClick={() =>
+                                                    setChangePlanOpen(true)
+                                                }
                                                 className="font-semibold text-primary hover:underline"
                                             >
                                                 View other plans
@@ -456,18 +468,19 @@ export default function Subscription({
                                 </>
                             ) : (
                                 <div className="py-12 text-center text-on-surface-variant">
-                                    No subscription plans are currently available.
+                                    No subscription plans are currently
+                                    available.
                                 </div>
                             )}
                         </section>
 
                         {/* Payment Method */}
                         <section className="relative rounded-xl border border-outline-variant bg-white p-8 shadow-[0_4px_20px_rgba(0,32,91,0.04)]">
-                            <div className="absolute left-0 top-0 h-px w-full bg-outline-variant">
+                            <div className="absolute top-0 left-0 h-px w-full bg-outline-variant">
                                 <div className="h-full w-8 bg-secondary" />
                             </div>
 
-                            <h2 className="mb-6 font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant">
+                            <h2 className="font-label-sm mb-6 text-label-sm tracking-wider text-on-surface-variant uppercase">
                                 Payment Method
                             </h2>
 
@@ -475,9 +488,9 @@ export default function Subscription({
                                 <>
                                     <div className="rounded-lg border border-outline-variant p-4">
                                         <div className="flex items-center gap-4">
-
                                             <div className="flex h-9 w-12 shrink-0 items-center justify-center rounded border border-outline-variant bg-surface-container-high">
-                                                {paymentProvider === 'paypal' ? (
+                                                {paymentProvider ===
+                                                'paypal' ? (
                                                     <Wallet className="h-5 w-5 text-primary" />
                                                 ) : (
                                                     <CreditCard className="h-5 w-5 text-primary" />
@@ -490,7 +503,8 @@ export default function Subscription({
                                                 </p>
 
                                                 <p className="text-xs text-on-surface-variant">
-                                                    Billing details are handled securely by{' '}
+                                                    Billing details are handled
+                                                    securely by{' '}
                                                     {paymentProviderLabel}.
                                                 </p>
                                             </div>
@@ -501,27 +515,28 @@ export default function Subscription({
                                         <ShieldCheck className="h-4 w-4 shrink-0" />
 
                                         <p>
-                                            Your recurring membership payment is managed securely by{' '}
+                                            Your recurring membership payment is
+                                            managed securely by{' '}
                                             {paymentProviderLabel}.
                                         </p>
                                     </div>
                                 </>
                             ) : (
                                 <div className="rounded-lg border border-outline-variant bg-surface-bright p-5 text-sm text-on-surface-variant">
-                                    Subscribe to a membership plan to manage your billing method here.
+                                    Subscribe to a membership plan to manage
+                                    your billing method here.
                                 </div>
                             )}
                         </section>
 
                         {/* Recent Invoices */}
                         <section className="relative mt-6 rounded-xl border border-outline-variant bg-white p-8 shadow-[0_4px_20px_rgba(0,32,91,0.04)] lg:col-span-3">
-
-                            <div className="absolute left-0 top-0 h-px w-full bg-outline-variant">
+                            <div className="absolute top-0 left-0 h-px w-full bg-outline-variant">
                                 <div className="h-full w-8 bg-secondary" />
                             </div>
 
                             <div className="mb-6 flex items-center justify-between">
-                                <h2 className="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant">
+                                <h2 className="font-label-sm text-label-sm tracking-wider text-on-surface-variant uppercase">
                                     Recent Invoices
                                 </h2>
 
@@ -535,7 +550,6 @@ export default function Subscription({
 
                             <div className="overflow-x-auto">
                                 <table className="w-full border-collapse text-left">
-
                                     <thead>
                                         <tr className="border-b border-outline-variant text-sm text-on-surface-variant">
                                             <th className="py-3 font-normal">
@@ -564,7 +578,9 @@ export default function Subscription({
                                                     className="border-b border-outline-variant transition-colors hover:bg-surface-bright"
                                                 >
                                                     <td className="py-4">
-                                                        {formatDate(invoice.paid_at)}
+                                                        {formatDate(
+                                                            invoice.paid_at,
+                                                        )}
                                                     </td>
 
                                                     <td className="py-4 font-semibold">
@@ -599,7 +615,8 @@ export default function Subscription({
                                                     colSpan={4}
                                                     className="py-10 text-center text-on-surface-variant"
                                                 >
-                                                    No subscription invoices yet.
+                                                    No subscription invoices
+                                                    yet.
                                                 </td>
                                             </tr>
                                         )}
@@ -616,7 +633,7 @@ export default function Subscription({
                 <div
                     className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
                     onClick={() => {
-                        if(!isCancelling) {
+                        if (!isCancelling) {
                             setCancelOpen(false);
                         }
                     }}
@@ -625,17 +642,15 @@ export default function Subscription({
                         className="w-full max-w-md rounded-xl bg-white shadow-xl"
                         onClick={(event) => event.stopPropagation()}
                     >
-
                         {/* Header */}
                         <div className="flex items-start justify-between gap-5 border-b border-outline-variant p-6">
-
                             <div className="flex items-start gap-4">
                                 <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-red-50">
                                     <TriangleAlert className="size-5 text-secondary" />
                                 </div>
 
                                 <div>
-                                    <p className="text-[10px] font-bold uppercase tracking-wider text-secondary">
+                                    <p className="text-[10px] font-bold tracking-wider text-secondary uppercase">
                                         Subscription
                                     </p>
 
@@ -658,27 +673,31 @@ export default function Subscription({
                         {/* Content */}
                         <div className="p-6">
                             <p className="text-sm leading-relaxed text-on-surface-variant">
-                                Your subscription will remain active until the end of your current billing period.
-                                You will not be charged again after that date.
+                                Your subscription will remain active until the
+                                end of your current billing period. You will not
+                                be charged again after that date.
                             </p>
 
                             {/* Current Plan */}
                             <div className="mt-6 rounded-lg border border-outline-variant bg-surface-bright p-4">
                                 <div className="flex items-center justify-between gap-4">
-
                                     <div>
-                                        <p className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">
+                                        <p className="text-[10px] font-bold tracking-wider text-on-surface-variant uppercase">
                                             Current Plan
                                         </p>
 
                                         <p className="mt-1 font-bold text-primary">
-                                            {displayPlan?.name ?? subscription.plan_name}
+                                            {displayPlan?.name ??
+                                                subscription.plan_name}
                                         </p>
                                     </div>
 
                                     <div className="text-right">
                                         <p className="font-bold text-primary">
-                                            £{Number(subscription.price).toFixed(2)}
+                                            £
+                                            {Number(subscription.price).toFixed(
+                                                2,
+                                            )}
                                         </p>
 
                                         <p className="text-xs text-on-surface-variant">
@@ -717,7 +736,9 @@ export default function Subscription({
                                     </p>
 
                                     <p className="mt-1 text-sm font-bold text-primary">
-                                        {formatDate(subscription.current_period_end)}
+                                        {formatDate(
+                                            subscription.current_period_end,
+                                        )}
                                     </p>
                                 </div>
                             </div>
@@ -727,7 +748,8 @@ export default function Subscription({
                                 <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-secondary" />
 
                                 <p className="text-xs leading-relaxed text-on-surface-variant">
-                                    Your remaining credits will stay in your account even after your membership ends.
+                                    Your remaining credits will stay in your
+                                    account even after your membership ends.
                                 </p>
                             </div>
 
@@ -738,12 +760,11 @@ export default function Subscription({
 
                                     <p className="text-xs leading-relaxed text-amber-800">
                                         Your scheduled change to{' '}
-
                                         <span className="font-bold">
                                             {subscription.scheduled_change.name}
                                         </span>{' '}
-
-                                        will not renew once this subscription is cancelled.
+                                        will not renew once this subscription is
+                                        cancelled.
                                     </p>
                                 </div>
                             )}
@@ -751,7 +772,6 @@ export default function Subscription({
 
                         {/* Actions */}
                         <div className="flex flex-col-reverse gap-3 border-t border-outline-variant p-6 sm:flex-row sm:justify-end">
-
                             <button
                                 type="button"
                                 disabled={isCancelling}
@@ -781,7 +801,7 @@ export default function Subscription({
                 <div
                     className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
                     onClick={() => {
-                        if(!changingPlan) {
+                        if (!changingPlan) {
                             setChangePlanOpen(false);
                         }
                     }}
@@ -790,12 +810,10 @@ export default function Subscription({
                         className="w-full max-w-3xl rounded-xl bg-white p-8 shadow-xl"
                         onClick={(event) => event.stopPropagation()}
                     >
-
                         {/* Header */}
                         <div className="mb-8 flex items-start justify-between gap-6">
-
                             <div>
-                                <p className="mb-1 font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant">
+                                <p className="font-label-sm mb-1 text-label-sm tracking-wider text-on-surface-variant uppercase">
                                     Membership
                                 </p>
 
@@ -830,8 +848,10 @@ export default function Subscription({
                                 <Wallet className="mt-0.5 size-4 shrink-0 text-primary" />
 
                                 <p className="text-xs leading-relaxed text-on-surface-variant">
-                                    PayPal will ask you to approve the new membership plan before the change can be scheduled.
-                                    You will be redirected securely to PayPal and then returned to UKCarDoc.
+                                    PayPal will ask you to approve the new
+                                    membership plan before the change can be
+                                    scheduled. You will be redirected securely
+                                    to PayPal and then returned to UKCarDoc.
                                 </p>
                             </div>
                         )}
@@ -840,10 +860,12 @@ export default function Subscription({
                         <div className="grid gap-4 md:grid-cols-3">
                             {availablePlans.map((availablePlan) => {
                                 const isCurrent =
-                                    subscription?.plan_name === availablePlan.slug;
+                                    subscription?.plan_name ===
+                                    availablePlan.slug;
 
                                 const isScheduled =
-                                    subscription?.scheduled_change?.slug === availablePlan.slug;
+                                    subscription?.scheduled_change?.slug ===
+                                    availablePlan.slug;
 
                                 const isChanging =
                                     changingPlan === availablePlan.slug;
@@ -859,8 +881,9 @@ export default function Subscription({
                                         type="button"
                                         disabled={disabled}
                                         onClick={() => {
-                                            if(subscription) {
+                                            if (subscription) {
                                                 changePlan(availablePlan.slug);
+
                                                 return;
                                             }
 
@@ -875,19 +898,18 @@ export default function Subscription({
                                         } disabled:cursor-not-allowed`}
                                     >
                                         <div className="flex items-start justify-between gap-3">
-
                                             <p className="font-bold text-primary">
                                                 {availablePlan.name}
                                             </p>
 
                                             {isCurrent && (
-                                                <span className="rounded-full bg-secondary px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-white">
+                                                <span className="rounded-full bg-secondary px-2 py-1 text-[9px] font-bold tracking-wider text-white uppercase">
                                                     Current
                                                 </span>
                                             )}
 
                                             {isScheduled && (
-                                                <span className="rounded-full bg-amber-100 px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-amber-700">
+                                                <span className="rounded-full bg-amber-100 px-2 py-1 text-[9px] font-bold tracking-wider text-amber-700 uppercase">
                                                     Scheduled
                                                 </span>
                                             )}
@@ -902,15 +924,16 @@ export default function Subscription({
                                         </p>
 
                                         <div className="mt-auto border-t border-outline-variant pt-4">
-
                                             <p className="text-sm font-semibold text-primary">
-                                                {availablePlan.monthly_credits} credits / month
+                                                {availablePlan.monthly_credits}{' '}
+                                                credits / month
                                             </p>
 
                                             {!isCurrent && !isScheduled && (
                                                 <p className="mt-2 text-xs font-medium text-secondary">
                                                     {isChanging
-                                                        ? paymentProvider === 'paypal'
+                                                        ? paymentProvider ===
+                                                          'paypal'
                                                             ? 'Opening PayPal...'
                                                             : 'Updating...'
                                                         : subscription
@@ -923,7 +946,10 @@ export default function Subscription({
                                                 <p className="mt-2 text-xs font-medium text-amber-700">
                                                     Starts{' '}
                                                     {formatDate(
-                                                        subscription?.scheduled_change?.effective_at ?? null,
+                                                        subscription
+                                                            ?.scheduled_change
+                                                            ?.effective_at ??
+                                                            null,
                                                     )}
                                                 </p>
                                             )}
@@ -940,9 +966,9 @@ export default function Subscription({
                                     <Clock3 className="mt-0.5 size-4 shrink-0 text-primary" />
 
                                     <p className="text-xs leading-relaxed text-on-surface-variant">
-                                        Changing your plan does not add new credits immediately.
-                                        Your selected plan will be used for your next billing cycle
-
+                                        Changing your plan does not add new
+                                        credits immediately. Your selected plan
+                                        will be used for your next billing cycle
                                         {subscription.current_period_end
                                             ? `, ${formatDate(subscription.current_period_end)}`
                                             : ''}
@@ -954,9 +980,9 @@ export default function Subscription({
 
                         {/* Footer */}
                         <div className="mt-8 flex flex-col gap-3 border-t border-outline-variant pt-6 sm:flex-row sm:items-center sm:justify-between">
-
                             <p className="text-xs text-on-surface-variant">
-                                No existing credits are removed when changing your membership.
+                                No existing credits are removed when changing
+                                your membership.
                             </p>
 
                             <button
@@ -975,39 +1001,23 @@ export default function Subscription({
     );
 }
 
-function Benefit({
-    children,
-}: {
-    children: ReactNode;
-}) {
+function Benefit({ children }: { children: ReactNode }) {
     return (
         <div className="flex items-start gap-3">
             <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-secondary" />
 
-            <span className="text-on-surface">
-                {children}
-            </span>
+            <span className="text-on-surface">{children}</span>
         </div>
     );
 }
 
-function StatusBadge({
-    status,
-}: {
-    status: SubscriptionData['status'];
-}) {
-    const styles: Record<
-        SubscriptionData['status'],
-        string
-    > = {
-        active:
-            'border-l-4 border-green-500 bg-green-100 text-green-800',
+function StatusBadge({ status }: { status: SubscriptionData['status'] }) {
+    const styles: Record<SubscriptionData['status'], string> = {
+        active: 'border-l-4 border-green-500 bg-green-100 text-green-800',
 
-        pending:
-            'border-l-4 border-amber-500 bg-amber-100 text-amber-800',
+        pending: 'border-l-4 border-amber-500 bg-amber-100 text-amber-800',
 
-        cancelled:
-            'border-l-4 border-red-500 bg-red-100 text-red-800',
+        cancelled: 'border-l-4 border-red-500 bg-red-100 text-red-800',
 
         expired:
             'border-l-4 border-outline bg-surface-container-high text-on-surface-variant',
@@ -1022,10 +1032,10 @@ function StatusBadge({
     );
 }
 
-function formatDate(
-    value: string | null | undefined,
-) {
-    if(!value) return '—';
+function formatDate(value: string | null | undefined) {
+    if (!value) {
+        return '—';
+    }
 
     return new Intl.DateTimeFormat('en-GB', {
         day: '2-digit',
@@ -1034,10 +1044,7 @@ function formatDate(
     }).format(new Date(value));
 }
 
-function formatMoney(
-    amount: string,
-    currency: string,
-) {
+function formatMoney(amount: string, currency: string) {
     return new Intl.NumberFormat('en-GB', {
         style: 'currency',
         currency: currency.toUpperCase(),

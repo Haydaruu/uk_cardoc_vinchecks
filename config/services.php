@@ -43,7 +43,7 @@ return [
     'microsoft' => [
         'client_id' => env('MICROSOFT_CLIENT_ID'),
         'client_secret' => env('MICROSOFT_CLIENT_SECRET'),
-        'redirect' => env('MICROSOFT_REDIRECT')
+        'redirect' => env('MICROSOFT_REDIRECT'),
     ],
 
     'checkcardetails' => [
@@ -73,9 +73,9 @@ return [
     ],
 
     'telegram' => [
-                'bot_token' => env('TELEGRAM_BOT_TOKEN'),
-                'chat_id' => env('TELEGRAM_CHAT_ID'),
-            ],
+        'bot_token' => env('TELEGRAM_BOT_TOKEN'),
+        'chat_id' => env('TELEGRAM_CHAT_ID'),
+    ],
 
     'vehicle_reports' => [
         'provider' => env(

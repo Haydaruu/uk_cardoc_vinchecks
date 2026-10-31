@@ -5,6 +5,14 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property int $id
+ * @property int $user_id
+ * @property string $provider
+ * @property string $provider_user_id
+ * @property string|null $provider_email
+ * @property string|null $avatar
+ */
 class SocialAccount extends Model
 {
     protected $fillable = [
@@ -15,6 +23,9 @@ class SocialAccount extends Model
         'avatar',
     ];
 
+    /**
+     * @return BelongsTo<User, $this>
+     */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

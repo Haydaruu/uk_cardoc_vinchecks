@@ -3,11 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Models\GuestReportPurchase;
-use App\Services\GuestReportInvoiceService;
 use App\Services\GuestReportAccessService;
+use App\Services\GuestReportInvoiceService;
 use Illuminate\Support\Facades\URL;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class GuestReportInvoiceController extends Controller
 {
@@ -45,7 +46,7 @@ class GuestReportInvoiceController extends Controller
     public function download(
         GuestReportPurchase $purchase,
         GuestReportInvoiceService $invoiceService,
-    ) {
+    ): BinaryFileResponse {
         $this->assertInvoiceAvailable($purchase);
 
         $invoice = $invoiceService->payload($purchase);

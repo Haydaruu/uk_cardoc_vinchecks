@@ -1,5 +1,5 @@
 import { router } from '@inertiajs/react';
-import type { FormEvent} from 'react';
+import type { FormEvent } from 'react';
 import React, { useState } from 'react';
 
 interface FilterOption {

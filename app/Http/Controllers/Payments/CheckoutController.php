@@ -3,17 +3,19 @@
 namespace App\Http\Controllers\Payments;
 
 use App\Http\Controllers\Controller;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use Inertia\Response;
 
 class CheckoutController extends Controller
 {
-    public function show(Request $request)
+    public function show(Request $request): Response|RedirectResponse
     {
         $planSlug = $request->query('plan');
         $plan = config("credit_plans.{$planSlug}");
 
-        if(!$plan ) {
+        if (! $plan) {
             return redirect()->route('page.pricing');
         }
 

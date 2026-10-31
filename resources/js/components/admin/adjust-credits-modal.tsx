@@ -70,7 +70,7 @@ export default function AdjustCreditsModal({
 
                 <div className="p-6">
                     {/* Header */}
-                    <div className="flex items-center justify-between pb-4 border-b border-outline-variant/60">
+                    <div className="flex items-center justify-between border-b border-outline-variant/60 pb-4">
                         <div className="flex items-center gap-3">
                             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
                                 <Coins className="h-5 w-5" />
@@ -238,7 +238,7 @@ export default function AdjustCreditsModal({
                         </div>
 
                         {/* Actions */}
-                        <div className="mt-6 flex items-center justify-end gap-3 pt-3 border-t border-outline-variant/60">
+                        <div className="mt-6 flex items-center justify-end gap-3 border-t border-outline-variant/60 pt-3">
                             <button
                                 type="button"
                                 onClick={onClose}
@@ -250,7 +250,7 @@ export default function AdjustCreditsModal({
                             <button
                                 type="submit"
                                 disabled={!canSubmit}
-                                className="flex items-center gap-2 rounded-lg bg-primary px-5 py-2 text-xs font-semibold text-white transition hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
+                                className="hover:bg-primary-hover flex items-center gap-2 rounded-lg bg-primary px-5 py-2 text-xs font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-50"
                             >
                                 {processing && (
                                     <Loader2 className="h-3.5 w-3.5 animate-spin" />

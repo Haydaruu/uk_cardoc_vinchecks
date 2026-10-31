@@ -19,7 +19,7 @@ return new class extends Migration
             $table->timestamp('used_at')->nullable();
             $table->timestamp('revoked_at')->nullable();
             $table->timestamp('created_at')->useCurrent();
-            $table->index(['guest_report_purchase_id', 'used_at', 'revoked_at',]);
+            $table->index(['guest_report_purchase_id', 'used_at', 'revoked_at']);
         });
     }
 

@@ -5,8 +5,9 @@ namespace App\Services\Reports;
 use App\Services\EmissionsComplianceService;
 use App\Services\VehicleDataService;
 use App\Services\VehicleProviders\OneAutoProvider;
-use RuntimeException;
 use InvalidArgumentException;
+use RuntimeException;
+
 class NormalizedReportBuilder
 {
     /**
@@ -18,21 +19,21 @@ class NormalizedReportBuilder
         private CheckCarDetailsReportNormalizer $checkCarDetailsNormalizer,
         private OneAutoReportNormalizer $oneAutoNormalizer,
         private EmissionsComplianceService $emissionsCompliance,
-    ) {
-    }
+    ) {}
 
-    public function build(string $vrm, ?string $provider = null, ): array 
+    /**
+     * @return array<string, mixed>
+     */
+    public function build(string $vrm, ?string $provider = null): array
     {
         $provider ??= config('services.vehicle_reports.provider', 'checkcardetails');
 
         $vrm = strtoupper(preg_replace('/\s+/', '', $vrm));
 
         $result = match ($provider) {
-            'checkcardetails' =>
-                $this->buildCheckCarDetails($vrm),
+            'checkcardetails' => $this->buildCheckCarDetails($vrm),
 
-            'oneauto' =>
-                $this->buildOneAuto($vrm),
+            'oneauto' => $this->buildOneAuto($vrm),
 
             default => throw new InvalidArgumentException(
                 "Unsupported vehicle data provider: {$provider}"
@@ -71,6 +72,9 @@ class NormalizedReportBuilder
         ];
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     private function buildCheckCarDetails(
         string $vrm
     ): array {
@@ -128,9 +132,8 @@ class NormalizedReportBuilder
         ];
 
         return [
-            'normalized' =>
-                $this->checkCarDetailsNormalizer
-                    ->normalize($raw),
+            'normalized' => $this->checkCarDetailsNormalizer
+                ->normalize($raw),
 
             'raw' => $raw,
 
@@ -140,7 +143,10 @@ class NormalizedReportBuilder
         ];
     }
 
-    private function buildOneAuto(string $vrm): array 
+    /**
+     * @return array<string, mixed>
+     */
+    private function buildOneAuto(string $vrm): array
     {
         $autoCheck = $this->oneAuto
             ->getAutoCheck($vrm);
@@ -159,15 +165,16 @@ class NormalizedReportBuilder
          * untuk AutoTrader valuation.
          */
         $latestMot = collect(
-            data_get(
-                $mot,
-                'result.dvsa_data.mot_tests',
-                []
+            $this->rows(
+                data_get(
+                    $mot,
+                    'result.dvsa_data.mot_tests',
+                    []
+                )
             )
         )
             ->sortByDesc(
-                fn (array $test) =>
-                    $test['mot_test_date'] ?? ''
+                fn (array $test) => $test['mot_test_date'] ?? ''
             )
             ->first();
 
@@ -254,29 +261,28 @@ class NormalizedReportBuilder
         ];
 
         return [
-            'normalized' =>
-                $this->oneAutoNormalizer
-                    ->normalize($raw),
+            'normalized' => $this->oneAutoNormalizer
+                ->normalize($raw),
 
             'raw' => $raw,
 
             'meta' => [
                 'provider' => 'oneauto',
 
-                'environment' =>
-                    config(
-                        'services.oneauto.environment'
-                    ),
+                'environment' => config(
+                    'services.oneauto.environment'
+                ),
 
-                'valuation_mileage' =>
-                    $valuationMileage,
+                'valuation_mileage' => $valuationMileage,
 
-                'effective_date' =>
-                    $effectiveDate,
+                'effective_date' => $effectiveDate,
             ],
         ];
     }
 
+    /**
+     * @param  array<string, mixed>  $normalized
+     */
     private function assertRequestedVehicle(
         string $requestedVrm,
         array $normalized,
@@ -303,7 +309,7 @@ class NormalizedReportBuilder
             throw new RuntimeException(
                 sprintf(
                     '%s did not return a vehicle registration. '
-                    . 'Vehicle identity could not be verified.',
+                    .'Vehicle identity could not be verified.',
                     $provider,
                 )
             );
@@ -319,8 +325,8 @@ class NormalizedReportBuilder
             throw new RuntimeException(
                 sprintf(
                     'Provider vehicle mismatch. '
-                    . 'Requested %s but %s returned %s. '
-                    . 'Report generation was stopped.',
+                    .'Requested %s but %s returned %s. '
+                    .'Report generation was stopped.',
                     $requestedVrm,
                     $provider,
                     $returnedVrm,
@@ -339,5 +345,25 @@ class NormalizedReportBuilder
                 trim((string) $vrm)
             )
         );
+    }
+
+    /**
+     * @return list<array<array-key, mixed>>
+     */
+    private function rows(mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        $rows = [];
+
+        foreach ($value as $item) {
+            if (is_array($item)) {
+                $rows[] = $item;
+            }
+        }
+
+        return $rows;
     }
 }

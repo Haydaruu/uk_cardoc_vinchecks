@@ -7,10 +7,11 @@ use App\Services\GuestReportAccessService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Spatie\LaravelPdf\Facades\Pdf;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class ReportPdfController extends Controller
 {
-    public function download(Report $report, Request $request, GuestReportAccessService $guestReportAccess)
+    public function download(Report $report, Request $request, GuestReportAccessService $guestReportAccess): BinaryFileResponse
     {
         $startedAt = microtime(true);
 

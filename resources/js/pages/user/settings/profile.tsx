@@ -1,4 +1,3 @@
-import SettingsLayout from "@/layouts/settings/settings-layout";
 import { Link, useForm, usePage } from '@inertiajs/react';
 import {
     BadgeCheck,
@@ -7,8 +6,9 @@ import {
     KeyRound,
     ShieldCheck,
 } from 'lucide-react';
-import type { Auth } from "@/types";
 
+import SettingsLayout from '@/layouts/settings/settings-layout';
+import type { Auth } from '@/types';
 
 type ProfileData = {
     name: string;
@@ -31,7 +31,6 @@ type SharedProps = {
     };
 };
 
-
 function getInitials(name: string) {
     return name
         .trim()
@@ -42,7 +41,7 @@ function getInitials(name: string) {
         .toUpperCase();
 }
 
-function formatMemberSince(date: string): string{
+function formatMemberSince(date: string): string {
     return new Intl.DateTimeFormat('en-GB', {
         month: 'long',
         year: 'numeric',
@@ -53,7 +52,7 @@ function formatAccountId(id: number): string {
     return `UKC-${String(id).padStart(5, '0')}`;
 }
 
-export default function Profile({ profile } : ProfileProps) {
+export default function Profile({ profile }: ProfileProps) {
     const { auth, flash } = usePage<SharedProps>().props;
     const user = auth.user;
     const form = useForm({
@@ -66,12 +65,11 @@ export default function Profile({ profile } : ProfileProps) {
         form.patch('/settings/profile', {
             preserveScroll: true,
         });
-    }
+    };
 
     return (
         <SettingsLayout>
-            <div
-                className="min-h-screen bg-surface">
+            <div className="min-h-screen bg-surface">
                 <div className="mx-auto max-w-container-max px-margin-mobile py-10 md:px-gutter lg:py-section-padding">
                     {/* Page Header */}
                     <header className="mb-10 lg:mb-12">
@@ -80,7 +78,8 @@ export default function Profile({ profile } : ProfileProps) {
                         </h1>
 
                         <p className="mt-2 max-w-2xl text-body-lg text-on-surface-variant">
-                            Manage your personal information and account details.
+                            Manage your personal information and account
+                            details.
                         </p>
 
                         <div className="sovereign-line mt-6" />
@@ -90,12 +89,7 @@ export default function Profile({ profile } : ProfileProps) {
                     {flash?.success && (
                         <div
                             role="status"
-                            className="
-                                mb-6 flex items-center gap-3
-                                border border-green-200
-                                bg-green-50 px-4 py-3
-                                text-sm text-green-800
-                            "
+                            className="mb-6 flex items-center gap-3 border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800"
                         >
                             <BadgeCheck className="h-5 w-5 shrink-0" />
 
@@ -106,23 +100,8 @@ export default function Profile({ profile } : ProfileProps) {
                     {/* Main Grid */}
                     <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
                         {/* Profile Information */}
-                        <section
-                            className="
-                                glass-card dashboard-shadow dashboard-shadow-hover
-                                lg:col-span-2
-                                rounded-xl border border-outline-variant
-                                p-6 transition-shadow duration-300
-                                lg:p-8
-                            "
-                        >
-                            <h2
-                                className="
-                                    mb-8 text-label-sm
-                                    font-semibold uppercase
-                                    tracking-wider
-                                    text-on-surface-variant
-                                "
-                            >
+                        <section className="glass-card dashboard-shadow dashboard-shadow-hover rounded-xl border border-outline-variant p-6 transition-shadow duration-300 lg:col-span-2 lg:p-8">
+                            <h2 className="mb-8 text-label-sm font-semibold tracking-wider text-on-surface-variant uppercase">
                                 Profile Information
                             </h2>
 
@@ -131,14 +110,7 @@ export default function Profile({ profile } : ProfileProps) {
                                     {/* Avatar */}
                                     <div className="shrink-0">
                                         {profile.avatar ? (
-                                            <div
-                                                className="
-                                                    h-24 w-24 overflow-hidden
-                                                    rounded-full
-                                                    border-2 border-outline-variant
-                                                    bg-surface-container-high
-                                                "
-                                            >
+                                            <div className="h-24 w-24 overflow-hidden rounded-full border-2 border-outline-variant bg-surface-container-high">
                                                 <img
                                                     src={profile.avatar}
                                                     alt={`${profile.name} avatar`}
@@ -147,13 +119,7 @@ export default function Profile({ profile } : ProfileProps) {
                                             </div>
                                         ) : (
                                             <div
-                                                className="
-                                                    flex h-24 w-24 items-center justify-center
-                                                    rounded-full
-                                                    border-2 border-outline-variant
-                                                    bg-primary
-                                                    text-xl font-bold text-on-primary
-                                                "
+                                                className="flex h-24 w-24 items-center justify-center rounded-full border-2 border-outline-variant bg-primary text-xl font-bold text-on-primary"
                                                 aria-label={`${profile.name} initials`}
                                             >
                                                 {getInitials(profile.name)}
@@ -168,11 +134,7 @@ export default function Profile({ profile } : ProfileProps) {
                                             <div className="space-y-2">
                                                 <label
                                                     htmlFor="name"
-                                                    className="
-                                                        block text-label-sm
-                                                        font-semibold
-                                                        text-on-surface-variant
-                                                    "
+                                                    className="block text-label-sm font-semibold text-on-surface-variant"
                                                 >
                                                     Full Name
                                                 </label>
@@ -188,21 +150,11 @@ export default function Profile({ profile } : ProfileProps) {
                                                             event.target.value,
                                                         )
                                                     }
-                                                    className={`
-                                                        w-full rounded-md
-                                                        border bg-surface px-3 py-3
-                                                        font-body text-body-md
-                                                        text-primary
-                                                        outline-none
-                                                        transition-colors
-                                                        focus:border-primary
-                                                        focus:ring-1 focus:ring-primary
-                                                        ${
-                                                            form.errors.name
-                                                                ? 'border-error'
-                                                                : 'border-outline-variant'
-                                                        }
-                                                    `}
+                                                    className={`w-full rounded-md border bg-surface px-3 py-3 font-body text-body-md text-primary transition-colors outline-none focus:border-primary focus:ring-1 focus:ring-primary ${
+                                                        form.errors.name
+                                                            ? 'border-error'
+                                                            : 'border-outline-variant'
+                                                    } `}
                                                 />
 
                                                 {form.errors.name && (
@@ -216,11 +168,7 @@ export default function Profile({ profile } : ProfileProps) {
                                             <div className="space-y-2">
                                                 <label
                                                     htmlFor="phone_number"
-                                                    className="
-                                                        block text-label-sm
-                                                        font-semibold
-                                                        text-on-surface-variant
-                                                    "
+                                                    className="block text-label-sm font-semibold text-on-surface-variant"
                                                 >
                                                     Phone Number
                                                 </label>
@@ -229,28 +177,20 @@ export default function Profile({ profile } : ProfileProps) {
                                                     id="phone_number"
                                                     type="tel"
                                                     autoComplete="tel"
-                                                    value={form.data.phone_number}
+                                                    value={
+                                                        form.data.phone_number
+                                                    }
                                                     onChange={(event) =>
                                                         form.setData(
                                                             'phone_number',
                                                             event.target.value,
                                                         )
                                                     }
-                                                    className={`
-                                                        w-full rounded-md
-                                                        border bg-surface px-3 py-3
-                                                        font-mono text-sm
-                                                        text-primary
-                                                        outline-none
-                                                        transition-colors
-                                                        focus:border-primary
-                                                        focus:ring-1 focus:ring-primary
-                                                        ${
-                                                            form.errors.phone_number
-                                                                ? 'border-error'
-                                                                : 'border-outline-variant'
-                                                        }
-                                                    `}
+                                                    className={`w-full rounded-md border bg-surface px-3 py-3 font-mono text-sm text-primary transition-colors outline-none focus:border-primary focus:ring-1 focus:ring-primary ${
+                                                        form.errors.phone_number
+                                                            ? 'border-error'
+                                                            : 'border-outline-variant'
+                                                    } `}
                                                 />
 
                                                 {form.errors.phone_number && (
@@ -268,42 +208,16 @@ export default function Profile({ profile } : ProfileProps) {
                                         <div className="space-y-2">
                                             <label
                                                 htmlFor="email"
-                                                className="
-                                                    flex items-center gap-2
-                                                    text-label-sm
-                                                    font-semibold
-                                                    text-on-surface-variant
-                                                "
+                                                className="flex items-center gap-2 text-label-sm font-semibold text-on-surface-variant"
                                             >
                                                 Email Address
-
                                                 {profile.email_verified_at ? (
-                                                    <span
-                                                        className="
-                                                            inline-flex items-center gap-1
-                                                            rounded-full
-                                                            border border-outline-variant
-                                                            bg-surface-container-high
-                                                            px-2 py-1
-                                                            text-[10px]
-                                                            font-bold uppercase
-                                                            text-primary
-                                                        "
-                                                    >
+                                                    <span className="inline-flex items-center gap-1 rounded-full border border-outline-variant bg-surface-container-high px-2 py-1 text-[10px] font-bold text-primary uppercase">
                                                         <BadgeCheck className="h-3.5 w-3.5 text-green-700" />
                                                         Verified
                                                     </span>
                                                 ) : (
-                                                    <span
-                                                        className="
-                                                            rounded-full
-                                                            bg-error-container
-                                                            px-2 py-1
-                                                            text-[10px]
-                                                            font-bold uppercase
-                                                            text-on-error-container
-                                                        "
-                                                    >
+                                                    <span className="rounded-full bg-error-container px-2 py-1 text-[10px] font-bold text-on-error-container uppercase">
                                                         Not Verified
                                                     </span>
                                                 )}
@@ -315,50 +229,19 @@ export default function Profile({ profile } : ProfileProps) {
                                                 value={profile.email}
                                                 readOnly
                                                 disabled
-                                                className="
-                                                    w-full cursor-not-allowed
-                                                    rounded-md
-                                                    border border-outline-variant
-                                                    bg-surface-container-low
-                                                    px-3 py-3
-                                                    font-body text-body-md
-                                                    text-on-surface-variant
-                                                    opacity-100
-                                                "
+                                                className="w-full cursor-not-allowed rounded-md border border-outline-variant bg-surface-container-low px-3 py-3 font-body text-body-md text-on-surface-variant opacity-100"
                                             />
                                         </div>
 
                                         {/* Actions */}
-                                        <div
-                                            className="
-                                                flex justify-end
-                                                border-t border-outline-variant/50
-                                                pt-4
-                                            "
-                                        >
+                                        <div className="flex justify-end border-t border-outline-variant/50 pt-4">
                                             <button
                                                 type="submit"
                                                 disabled={
                                                     form.processing ||
                                                     !form.isDirty
                                                 }
-                                                className="
-                                                    rounded-md
-                                                    bg-secondary
-                                                    px-6 py-2.5
-                                                    text-label-sm
-                                                    font-semibold uppercase
-                                                    text-on-secondary
-                                                    shadow-sm
-                                                    transition
-                                                    hover:bg-secondary-container
-                                                    focus:outline-none
-                                                    focus:ring-2
-                                                    focus:ring-secondary
-                                                    focus:ring-offset-2
-                                                    disabled:cursor-not-allowed
-                                                    disabled:opacity-50
-                                                "
+                                                className="rounded-md bg-secondary px-6 py-2.5 text-label-sm font-semibold text-on-secondary uppercase shadow-sm transition hover:bg-secondary-container focus:ring-2 focus:ring-secondary focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
                                             >
                                                 {form.processing
                                                     ? 'Saving...'
@@ -373,43 +256,18 @@ export default function Profile({ profile } : ProfileProps) {
                         {/* Right Column */}
                         <aside className="flex flex-col gap-6">
                             {/* Account Info */}
-                            <section
-                                className="
-                                    glass-card dashboard-shadow dashboard-shadow-hover
-                                    flex-1 rounded-xl
-                                    border border-outline-variant
-                                    p-6 transition-shadow duration-300
-                                "
-                            >
-                                <div
-                                    className="
-                                        mb-6 flex items-center gap-2
-                                        border-b border-outline-variant
-                                        pb-3
-                                    "
-                                >
+                            <section className="glass-card dashboard-shadow dashboard-shadow-hover flex-1 rounded-xl border border-outline-variant p-6 transition-shadow duration-300">
+                                <div className="mb-6 flex items-center gap-2 border-b border-outline-variant pb-3">
                                     <CircleUserRound className="h-5 w-5 text-primary" />
 
-                                    <h2
-                                        className="
-                                            text-label-sm font-semibold
-                                            uppercase tracking-wider
-                                            text-on-surface-variant
-                                        "
-                                    >
+                                    <h2 className="text-label-sm font-semibold tracking-wider text-on-surface-variant uppercase">
                                         Account Info
                                     </h2>
                                 </div>
 
                                 <div className="text-sm">
                                     {user && (
-                                        <div
-                                            className="
-                                                flex items-center justify-between
-                                                border-b border-outline-variant/30
-                                                py-3
-                                            "
-                                        >
+                                        <div className="flex items-center justify-between border-b border-outline-variant/30 py-3">
                                             <span className="text-on-surface-variant">
                                                 Account ID
                                             </span>
@@ -420,13 +278,7 @@ export default function Profile({ profile } : ProfileProps) {
                                         </div>
                                     )}
 
-                                    <div
-                                        className="
-                                            flex items-center justify-between
-                                            border-b border-outline-variant/30
-                                            py-3
-                                        "
-                                    >
+                                    <div className="flex items-center justify-between border-b border-outline-variant/30 py-3">
                                         <span className="text-on-surface-variant">
                                             Member Since
                                         </span>
@@ -438,13 +290,7 @@ export default function Profile({ profile } : ProfileProps) {
                                         </span>
                                     </div>
 
-                                    <div
-                                        className="
-                                            flex items-center justify-between
-                                            border-b border-outline-variant/30
-                                            py-3
-                                        "
-                                    >
+                                    <div className="flex items-center justify-between border-b border-outline-variant/30 py-3">
                                         <span className="text-on-surface-variant">
                                             Email Status
                                         </span>
@@ -476,53 +322,20 @@ export default function Profile({ profile } : ProfileProps) {
                             </section>
 
                             {/* Status */}
-                            <section
-                                className="
-                                    glass-card dashboard-shadow dashboard-shadow-hover
-                                    relative flex-1 overflow-hidden
-                                    rounded-xl
-                                    border border-outline-variant
-                                    p-6 transition-shadow duration-300
-                                "
-                            >
-                                <div
-                                    className="
-                                        pointer-events-none
-                                        absolute -right-8 -top-8
-                                        h-24 w-24 rounded-full
-                                        bg-primary/5 blur-xl
-                                    "
-                                />
+                            <section className="glass-card dashboard-shadow dashboard-shadow-hover relative flex-1 overflow-hidden rounded-xl border border-outline-variant p-6 transition-shadow duration-300">
+                                <div className="pointer-events-none absolute -top-8 -right-8 h-24 w-24 rounded-full bg-primary/5 blur-xl" />
 
-                                <div
-                                    className="
-                                        relative mb-6 flex items-center gap-2
-                                        border-b border-outline-variant
-                                        pb-3
-                                    "
-                                >
+                                <div className="relative mb-6 flex items-center gap-2 border-b border-outline-variant pb-3">
                                     <ShieldCheck className="h-5 w-5 text-primary" />
 
-                                    <h2
-                                        className="
-                                            text-label-sm font-semibold
-                                            uppercase tracking-wider
-                                            text-on-surface-variant
-                                        "
-                                    >
+                                    <h2 className="text-label-sm font-semibold tracking-wider text-on-surface-variant uppercase">
                                         Status
                                     </h2>
                                 </div>
 
                                 <div className="relative space-y-6">
                                     <div>
-                                        <span
-                                            className="
-                                                mb-2 block text-label-sm
-                                                font-semibold
-                                                text-on-surface-variant
-                                            "
-                                        >
+                                        <span className="mb-2 block text-label-sm font-semibold text-on-surface-variant">
                                             Account Status
                                         </span>
 
@@ -536,29 +349,13 @@ export default function Profile({ profile } : ProfileProps) {
                                     </div>
 
                                     <div>
-                                        <span
-                                            className="
-                                                mb-2 block text-label-sm
-                                                font-semibold
-                                                text-on-surface-variant
-                                            "
-                                        >
+                                        <span className="mb-2 block text-label-sm font-semibold text-on-surface-variant">
                                             Authentication
                                         </span>
 
                                         <Link
                                             href="/settings/connected-accounts"
-                                            className="
-                                                inline-flex items-center gap-2
-                                                rounded-md
-                                                border border-outline-variant
-                                                bg-surface-container-high
-                                                px-2.5 py-1.5
-                                                text-sm font-medium
-                                                text-primary
-                                                transition-colors
-                                                hover:bg-surface-container-highest
-                                            "
+                                            className="inline-flex items-center gap-2 rounded-md border border-outline-variant bg-surface-container-high px-2.5 py-1.5 text-sm font-medium text-primary transition-colors hover:bg-surface-container-highest"
                                         >
                                             <KeyRound className="h-4 w-4" />
                                             Manage sign-in methods
@@ -566,13 +363,7 @@ export default function Profile({ profile } : ProfileProps) {
                                     </div>
 
                                     <div>
-                                        <span
-                                            className="
-                                                mb-2 block text-label-sm
-                                                font-semibold
-                                                text-on-surface-variant
-                                            "
-                                        >
+                                        <span className="mb-2 block text-label-sm font-semibold text-on-surface-variant">
                                             Account Tier
                                         </span>
 

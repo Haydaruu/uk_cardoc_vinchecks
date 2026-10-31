@@ -103,7 +103,7 @@ export default function SiteNavbar() {
 
                             <Link
                                 href="/register"
-                                className="rounded-sm bg-secondary px-5 py-2.5 text-[11px] font-bold uppercase tracking-widest text-white transition-colors hover:bg-secondary-container"
+                                className="rounded-sm bg-secondary px-5 py-2.5 text-[11px] font-bold tracking-widest text-white uppercase transition-colors hover:bg-secondary-container"
                             >
                                 Create Account
                             </Link>
@@ -113,18 +113,18 @@ export default function SiteNavbar() {
                             <div className="flex items-center gap-2">
                                 {/* Subscription Badge */}
                                 {subscriptionTier && TierIcon ? (
-                                    <span className="inline-flex items-center gap-1.5 rounded-sm bg-secondary px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-white">
+                                    <span className="inline-flex items-center gap-1.5 rounded-sm bg-secondary px-3 py-2 text-[10px] font-bold tracking-widest text-white uppercase">
                                         <TierIcon className="size-3.5" />
                                         {subscriptionTier.label}
                                     </span>
                                 ) : (
-                                    <span className="rounded-sm bg-slate-100 px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-primary-container">
+                                    <span className="rounded-sm bg-slate-100 px-3 py-2 text-[10px] font-bold tracking-widest text-primary-container uppercase">
                                         Standard Access
                                     </span>
                                 )}
 
                                 {/* Credit Badge */}
-                                <span className="rounded-sm border border-primary-container/20 bg-primary-container/5 px-3 py-2 text-[10px] font-bold uppercase tracking-wide text-primary-container">
+                                <span className="rounded-sm border border-primary-container/20 bg-primary-container/5 px-3 py-2 text-[10px] font-bold tracking-wide text-primary-container uppercase">
                                     {auth.user.credits}{' '}
                                     {auth.user.credits === 1
                                         ? 'CREDIT'
@@ -135,7 +135,7 @@ export default function SiteNavbar() {
                             {!auth.user.is_premium && (
                                 <Link
                                     href="/pricing"
-                                    className="rounded-sm bg-secondary px-5 py-2.5 text-[11px] font-bold uppercase tracking-widest text-white transition-colors hover:bg-secondary-container"
+                                    className="rounded-sm bg-secondary px-5 py-2.5 text-[11px] font-bold tracking-widest text-white uppercase transition-colors hover:bg-secondary-container"
                                 >
                                     Top Up
                                 </Link>
@@ -196,7 +196,7 @@ export default function SiteNavbar() {
                                 <Link
                                     href="/register"
                                     onClick={() => setMobileOpen(false)}
-                                    className="rounded-sm bg-secondary px-5 py-3 text-center text-[11px] font-bold uppercase tracking-widest text-white transition-colors hover:bg-secondary-container"
+                                    className="rounded-sm bg-secondary px-5 py-3 text-center text-[11px] font-bold tracking-widest text-white uppercase transition-colors hover:bg-secondary-container"
                                 >
                                     Create Account
                                 </Link>
@@ -205,17 +205,17 @@ export default function SiteNavbar() {
                             <>
                                 <div className="flex flex-wrap items-center gap-2 px-1">
                                     {subscriptionTier && TierIcon ? (
-                                        <span className="inline-flex items-center gap-1.5 rounded-sm bg-secondary px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-white">
+                                        <span className="inline-flex items-center gap-1.5 rounded-sm bg-secondary px-3 py-2 text-[10px] font-bold tracking-widest text-white uppercase">
                                             <TierIcon className="size-3.5" />
                                             {subscriptionTier.label}
                                         </span>
                                     ) : (
-                                        <span className="rounded-sm bg-slate-100 px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-primary-container">
+                                        <span className="rounded-sm bg-slate-100 px-3 py-2 text-[10px] font-bold tracking-widest text-primary-container uppercase">
                                             Standard Access
                                         </span>
                                     )}
 
-                                    <span className="rounded-sm border border-primary-container/20 bg-primary-container/5 px-3 py-2 text-[10px] font-bold uppercase tracking-wide text-primary-container">
+                                    <span className="rounded-sm border border-primary-container/20 bg-primary-container/5 px-3 py-2 text-[10px] font-bold tracking-wide text-primary-container uppercase">
                                         {auth.user.credits}{' '}
                                         {auth.user.credits === 1
                                             ? 'CREDIT'
@@ -227,7 +227,7 @@ export default function SiteNavbar() {
                                     <Link
                                         href="/pricing"
                                         onClick={() => setMobileOpen(false)}
-                                        className="rounded-sm bg-secondary px-5 py-3 text-center text-[11px] font-bold uppercase tracking-widest text-white transition-colors hover:bg-secondary-container"
+                                        className="rounded-sm bg-secondary px-5 py-3 text-center text-[11px] font-bold tracking-widest text-white uppercase transition-colors hover:bg-secondary-container"
                                     >
                                         Top Up
                                     </Link>

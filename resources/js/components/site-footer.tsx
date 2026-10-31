@@ -1,9 +1,9 @@
-import { Globe, Mail } from 'lucide-react';
 import { Link } from '@inertiajs/react';
+import { Globe, Mail } from 'lucide-react';
 
 const footerLinks = [
     [
-        { label: 'Terms of Service', href: '/terms-and-conditions'},
+        { label: 'Terms of Service', href: '/terms-and-conditions' },
         { label: 'Contact Support', href: '/support' },
         { label: 'Refund Policy', href: '#' },
     ],
@@ -23,9 +23,9 @@ export default function SiteFooter() {
                         <p className="font-sans text-lg font-black tracking-tight text-primary-container">
                             UKCARDOC
                         </p>
-                        <p className="mt-4 max-w-sm text-[10px] font-medium uppercase leading-relaxed tracking-wider text-slate-400">
-                            © 2026 UKCARDOC. Vehicle data sourced from DVLA, HPI, and VOSA.
-                            Built with British precision.
+                        <p className="mt-4 max-w-sm text-[10px] leading-relaxed font-medium tracking-wider text-slate-400 uppercase">
+                            © 2026 UKCARDOC. Vehicle data sourced from DVLA,
+                            HPI, and VOSA. Built with British precision.
                         </p>
                     </div>
 
@@ -35,7 +35,7 @@ export default function SiteFooter() {
                                 <li key={link.label}>
                                     <Link
                                         href={link.href}
-                                        className="text-[10px] font-medium uppercase tracking-wider text-slate-400 transition-colors hover:text-primary-container"
+                                        className="text-[10px] font-medium tracking-wider text-slate-400 uppercase transition-colors hover:text-primary-container"
                                     >
                                         {link.label}
                                     </Link>

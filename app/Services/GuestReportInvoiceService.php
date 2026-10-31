@@ -9,6 +9,9 @@ use Throwable;
 
 class GuestReportInvoiceService
 {
+    /**
+     * @return array<string, mixed>
+     */
     public function payload(GuestReportPurchase $purchase): array
     {
         $report = $purchase->report;
@@ -75,8 +78,7 @@ class GuestReportInvoiceService
             'status' => $purchase->payment_status,
             'payment_method' => $purchase->payment_provider ?? 'stripe',
 
-            'payment_gateway_ref' =>
-                $purchase->provider_payment_id
+            'payment_gateway_ref' => $purchase->provider_payment_id
                 ?? $purchase->provider_order_id,
 
             'paid_at' => $purchase->paid_at,
@@ -106,6 +108,7 @@ class GuestReportInvoiceService
     /**
      * Generate a PDF using the existing invoice template.
      *
+     * @param  array<string, mixed>  $invoice
      * @return array{path: string, file_name: string}
      */
     public function generatePdf(array $invoice): array

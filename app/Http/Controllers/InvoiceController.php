@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 use Spatie\LaravelPdf\Facades\Pdf;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class InvoiceController extends Controller
 {
@@ -14,7 +15,7 @@ class InvoiceController extends Controller
     {
         $this->authorizeTransaction($transaction, $request);
 
-        return Inertia::render('user/invoice/show', 
+        return Inertia::render('user/invoice/show',
             [
                 'invoice' => $this->invoicePayload(
                     $transaction,
@@ -24,35 +25,35 @@ class InvoiceController extends Controller
         );
     }
 
-    public function download(Transaction $transaction, Request $request)
+    public function download(Transaction $transaction, Request $request): BinaryFileResponse
     {
         $this->authorizeTransaction($transaction, $request);
 
-        $invoiceNumber = $transaction->invoice_id ?? 'UKC-TXN-' . $transaction->id;
+        $invoiceNumber = $transaction->invoice_id ?? 'UKC-TXN-'.$transaction->id;
 
-        $fileName = 'invoice' . preg_replace('/[^A-Za-z0-9\-]/', '', $invoiceNumber) . '.pdf';
+        $fileName = 'invoice'.preg_replace('/[^A-Za-z0-9\-]/', '', $invoiceNumber).'.pdf';
 
         $directory = storage_path('app/pdf-temp');
 
-        if(! is_dir($directory)) {
+        if (! is_dir($directory)) {
             mkdir($directory, 0777, true);
         }
 
-        $outputPath = $directory . DIRECTORY_SEPARATOR . $fileName;
+        $outputPath = $directory.DIRECTORY_SEPARATOR.$fileName;
 
         Pdf::view('pdf.invoices.invoice',
             [
                 'invoice' => $this->invoicePayload($transaction, $request),
             ]
         )
-        ->format('A4')
-        ->margins(12,12,16,12)
-        ->save($outputPath);
+            ->format('A4')
+            ->margins(12, 12, 16, 12)
+            ->save($outputPath);
 
         return response()->file($outputPath,
             [
                 'Content-Type' => 'application/pdf',
-                'Content-Disposition' => 'attachment; filename="' . $fileName . '"',
+                'Content-Disposition' => 'attachment; filename="'.$fileName.'"',
             ]
         );
     }
@@ -63,13 +64,16 @@ class InvoiceController extends Controller
         abort_unless($transaction->type === 'payment' && $transaction->status === 'success', 404);
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     private function invoicePayload(Transaction $transaction, Request $request): array
     {
         $user = $request->user();
-        
+
         return [
             'id' => $transaction->id,
-            'invoice_id' => $transaction->invoice_id ?? 'UKC-TXN-' . $transaction->id,
+            'invoice_id' => $transaction->invoice_id ?? 'UKC-TXN-'.$transaction->id,
             'description' => $transaction->description ?? 'UKCarDoc payment',
             'amount' => (string) $transaction->amount,
             'currency' => strtoupper($transaction->currency),

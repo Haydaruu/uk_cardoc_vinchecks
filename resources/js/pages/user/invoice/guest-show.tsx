@@ -1,11 +1,7 @@
-
-import { useState } from 'react';
-import BaseLayout from '@/layouts/base-layout';
 import { Head } from '@inertiajs/react';
 import {
     CarFront,
     CheckCircle2,
-    Clock3,
     Download,
     ReceiptText,
     ShieldCheck,
@@ -13,6 +9,9 @@ import {
     ExternalLink,
     Mail,
 } from 'lucide-react';
+import { useState } from 'react';
+
+import BaseLayout from '@/layouts/base-layout';
 
 type GuestInvoice = {
     id: number;
@@ -55,13 +54,11 @@ export default function GuestInvoiceShow({
     accessEmailSent,
 }: Props) {
     const amount = formatMoney(invoice.amount, invoice.currency);
-    const paidDate = invoice.paid_at
-        ? formatDateTime(invoice.paid_at)
-        : '—';
+    const paidDate = invoice.paid_at ? formatDateTime(invoice.paid_at) : '—';
 
     const isReportReady =
-        invoice.report_status === 'completed'
-        && invoice.report_generated_at !== null;
+        invoice.report_status === 'completed' &&
+        invoice.report_generated_at !== null;
     const [copyMessage, setCopyMessage] = useState('');
     async function copyReportLink() {
         if (!reportUrl) {
@@ -78,20 +75,15 @@ export default function GuestInvoiceShow({
         }
     }
 
-    const reportStatusLabel = getReportStatusLabel(
-        invoice.report_status,
-    );
-
     return (
         <>
             <Head title={`Invoice ${invoice.invoice_id}`} />
 
             <main className="min-h-screen bg-surface px-5 py-10 md:px-8 md:py-14">
                 <div className="mx-auto max-w-[920px]">
-
                     {/* Header */}
                     <div className="mb-8">
-                        <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-secondary">
+                        <p className="mb-2 text-xs font-semibold tracking-[0.16em] text-secondary uppercase">
                             Guest purchase
                         </p>
 
@@ -106,8 +98,7 @@ export default function GuestInvoiceShow({
                         </p>
                     </div>
 
-                    <section className="overflow-hidden rounded-xl border border-outline-variant/60 border-t-4 border-t-[#c8102e] bg-white shadow-[0_14px_40px_rgba(0,13,47,0.08)]">
-
+                    <section className="overflow-hidden rounded-xl border border-t-4 border-outline-variant/60 border-t-[#c8102e] bg-white shadow-[0_14px_40px_rgba(0,13,47,0.08)]">
                         {/* Invoice header */}
                         <div className="flex flex-col gap-6 border-b border-outline-variant/50 px-6 py-7 sm:flex-row sm:items-start sm:justify-between md:px-8">
                             <div className="flex items-center gap-3">
@@ -127,15 +118,15 @@ export default function GuestInvoiceShow({
                             </div>
 
                             <div className="sm:text-right">
-                                <p className="text-xs uppercase tracking-wider text-outline">
+                                <p className="text-xs tracking-wider text-outline uppercase">
                                     Invoice reference
                                 </p>
 
-                                <p className="mt-1 break-all text-sm font-bold text-primary">
+                                <p className="mt-1 text-sm font-bold break-all text-primary">
                                     {invoice.invoice_id}
                                 </p>
 
-                                <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-green-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-green-700">
+                                <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-green-100 px-2.5 py-1 text-[10px] font-bold tracking-wider text-green-700 uppercase">
                                     <CheckCircle2 className="size-3.5" />
                                     Paid
                                 </div>
@@ -145,7 +136,7 @@ export default function GuestInvoiceShow({
                         {/* Customer and payment */}
                         <div className="grid gap-8 px-6 py-7 md:grid-cols-2 md:px-8 md:py-9">
                             <div>
-                                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-on-surface-variant">
+                                <p className="text-xs font-semibold tracking-[0.14em] text-on-surface-variant uppercase">
                                     Invoice to
                                 </p>
 
@@ -153,7 +144,7 @@ export default function GuestInvoiceShow({
                                     {invoice.customer.name}
                                 </p>
 
-                                <p className="mt-1 break-all text-sm text-on-surface-variant">
+                                <p className="mt-1 text-sm break-all text-on-surface-variant">
                                     {invoice.customer.email}
                                 </p>
 
@@ -165,12 +156,14 @@ export default function GuestInvoiceShow({
                             </div>
 
                             <div className="md:text-right">
-                                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-on-surface-variant">
+                                <p className="text-xs font-semibold tracking-[0.14em] text-on-surface-variant uppercase">
                                     Payment details
                                 </p>
 
-                                <p className="mt-2 text-sm font-semibold capitalize text-primary">
-                                    {formatPaymentMethod(invoice.payment_method)}
+                                <p className="mt-2 text-sm font-semibold text-primary capitalize">
+                                    {formatPaymentMethod(
+                                        invoice.payment_method,
+                                    )}
                                 </p>
 
                                 <p className="mt-1 text-sm text-on-surface-variant">
@@ -196,7 +189,10 @@ export default function GuestInvoiceShow({
                                     </p>
 
                                     <p className="mt-1 font-semibold text-primary">
-                                        {[invoice.vehicle.make, invoice.vehicle.model]
+                                        {[
+                                            invoice.vehicle.make,
+                                            invoice.vehicle.model,
+                                        ]
                                             .filter(Boolean)
                                             .join(' ') || 'Vehicle report'}
                                     </p>
@@ -217,11 +213,11 @@ export default function GuestInvoiceShow({
                         {/* Purchased item */}
                         <div className="mx-6 mt-7 overflow-hidden rounded-lg border border-outline-variant/60 md:mx-8">
                             <div className="grid grid-cols-[1fr_auto] border-b border-outline-variant/60 bg-surface-container-low px-5 py-4">
-                                <span className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">
+                                <span className="text-xs font-bold tracking-wider text-on-surface-variant uppercase">
                                     Description
                                 </span>
 
-                                <span className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">
+                                <span className="text-xs font-bold tracking-wider text-on-surface-variant uppercase">
                                     Amount
                                 </span>
                             </div>
@@ -280,8 +276,8 @@ export default function GuestInvoiceShow({
                                         </h2>
 
                                         <p className="mt-1 text-sm leading-6 text-on-surface-variant">
-                                            Access your report securely or copy its link to save
-                                            for later.
+                                            Access your report securely or copy
+                                            its link to save for later.
                                         </p>
                                     </div>
                                 </div>
@@ -290,7 +286,7 @@ export default function GuestInvoiceShow({
                                     <div className="mt-4 flex flex-col gap-3 sm:flex-row">
                                         <a
                                             href={reportUrl}
-                                            className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-md bg-primary px-5 py-3 text-sm font-semibold text-white transition-colors hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                                            className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-md bg-primary px-5 py-3 text-sm font-semibold text-white transition-colors hover:opacity-90 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:outline-none"
                                         >
                                             <ExternalLink className="size-4 shrink-0" />
                                             View Full Report
@@ -298,8 +294,10 @@ export default function GuestInvoiceShow({
 
                                         <button
                                             type="button"
-                                            onClick={() => void copyReportLink()}
-                                            className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-md border border-outline-variant bg-white px-4 py-3 text-sm font-semibold text-primary transition-colors hover:bg-surface-container-low focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                                            onClick={() =>
+                                                void copyReportLink()
+                                            }
+                                            className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-md border border-outline-variant bg-white px-4 py-3 text-sm font-semibold whitespace-nowrap text-primary transition-colors hover:bg-surface-container-low focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:outline-none"
                                         >
                                             <Copy className="size-4 shrink-0" />
                                             Copy Report Link
@@ -307,9 +305,10 @@ export default function GuestInvoiceShow({
                                     </div>
                                 ) : (
                                     <p className="mt-4 rounded-md bg-surface-container-low p-3 text-sm leading-6 text-on-surface-variant">
-                                        Your report is marked as ready, but its access link
-                                        is currently unavailable. Check your email or contact
-                                        support using your invoice reference.
+                                        Your report is marked as ready, but its
+                                        access link is currently unavailable.
+                                        Check your email or contact support
+                                        using your invoice reference.
                                     </p>
                                 )}
 
@@ -333,7 +332,7 @@ export default function GuestInvoiceShow({
                                                 : 'Your report email is being prepared'}
                                         </p>
 
-                                        <p className="mt-1 break-all text-sm leading-6 text-on-surface-variant">
+                                        <p className="mt-1 text-sm leading-6 break-all text-on-surface-variant">
                                             {accessEmailSent
                                                 ? `We sent the report access link and invoice to ${invoice.customer.email}. Check your inbox and spam folder.`
                                                 : `Your report access email has not yet been marked as sent. Please check back later or use the report link above.`}
@@ -351,14 +350,14 @@ export default function GuestInvoiceShow({
                                         Payment reference
                                     </p>
 
-                                    <p className="mt-1 break-all text-sm font-medium text-primary">
+                                    <p className="mt-1 text-sm font-medium break-all text-primary">
                                         {invoice.payment_gateway_ref ?? '—'}
                                     </p>
                                 </div>
 
                                 <a
                                     href={downloadUrl}
-                                    className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-md bg-[#000d2f] px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-[#142a57] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#000d2f] focus-visible:ring-offset-2"
+                                    className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-md bg-[#000d2f] px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-[#142a57] focus-visible:ring-2 focus-visible:ring-[#000d2f] focus-visible:ring-offset-2 focus-visible:outline-none"
                                 >
                                     <Download className="size-4" />
                                     Download Invoice PDF
@@ -372,29 +371,15 @@ export default function GuestInvoiceShow({
                         <ShieldCheck className="mt-0.5 size-4 shrink-0" />
 
                         <p className="max-w-xl text-center">
-                            Keep your invoice reference for support. This invoice
-                            does not contain your private report access token.
+                            Keep your invoice reference for support. This
+                            invoice does not contain your private report access
+                            token.
                         </p>
                     </div>
                 </div>
             </main>
         </>
     );
-}
-
-function getReportStatusLabel(status: string): string {
-    switch (status) {
-        case 'completed':
-            return 'Your full report is ready.';
-        case 'processing':
-            return 'Your full report is being prepared.';
-        case 'pending':
-            return 'Your full report is waiting to be processed.';
-        case 'failed':
-            return 'Report processing needs attention. Please contact support if this persists.';
-        default:
-            return 'Your report status is being checked.';
-    }
 }
 
 function formatMoney(amount: string, currency: string): string {
@@ -437,6 +422,6 @@ function formatPaymentMethod(value: string): string {
     return value;
 }
 
-GuestInvoiceShow.layout = (
-    page: React.ReactNode,
-) => <BaseLayout>{page}</BaseLayout>;
+GuestInvoiceShow.layout = (page: React.ReactNode) => (
+    <BaseLayout>{page}</BaseLayout>
+);

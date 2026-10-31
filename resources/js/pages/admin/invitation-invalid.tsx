@@ -21,7 +21,7 @@ export default function InvitationInvalid({ reason }: InvitationInvalidProps) {
                         Invitation Unavailable
                     </h1>
 
-                    <p className="mt-2 text-sm text-slate-600 leading-relaxed">
+                    <p className="mt-2 text-sm leading-relaxed text-slate-600">
                         {reason}
                     </p>
 

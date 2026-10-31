@@ -21,6 +21,9 @@ class GuestReportAccessToken extends Model
         'created_at' => 'datetime',
     ];
 
+    /**
+     * @return BelongsTo<Report, $this>
+     */
     public function report(): BelongsTo
     {
         return $this->belongsTo(Report::class, 'guest_report_id');
