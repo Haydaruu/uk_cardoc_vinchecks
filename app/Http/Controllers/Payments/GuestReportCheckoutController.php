@@ -164,9 +164,18 @@ class GuestReportCheckoutController extends Controller
             'amountDisplay' => $summary['amountDisplay'],
             'credits' => 0,
 
-            // PayPal khusus guest belum tersedia
-            'paypalClientId' => null,
-            'paypalEnvironment' => 'sandbox',
+            // Public PayPal client ID is only used by the local Sandbox diagnostic.
+            'paypalClientId' => config('services.paypal.client_id'),
+            'paypalEnvironment' => config('services.paypal.mode') === 'live' ? 'production' : 'sandbox',
+            'paypalEligibility' => [
+                'amount' => number_format($summary['amountMinor'] / 100, 2, '.', ''),
+                'currencyCode' => strtoupper($summary['currency']),
+            ],
+            'showPaypalEligibilityDiagnostics' => in_array(
+                app()->environment(),
+                ['local', 'testing'],
+                true,
+            ) && config('services.paypal.mode', 'sandbox') === 'sandbox',
 
             'guestReport' => [
                 'id' => $report->id,
