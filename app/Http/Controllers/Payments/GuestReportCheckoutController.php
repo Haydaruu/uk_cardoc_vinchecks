@@ -3,9 +3,13 @@
 namespace App\Http\Controllers\Payments;
 
 use App\Http\Controllers\Controller;
+use App\Models\GuestReportPurchase;
 use App\Models\Report;
 use App\Models\SystemSetting;
 use App\Services\GuestReportCheckoutService;
+use App\Services\GuestReportPaymentService;
+use App\Services\PayPalService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -71,6 +75,180 @@ class GuestReportCheckoutController extends Controller
         }
 
         return Inertia::location($checkout['checkout_url']);
+    }
+
+    public function createPayPalOrder(
+        Request $request,
+        Report $report,
+        GuestReportCheckoutService $checkoutService,
+        PayPalService $payPalService,
+    ): JsonResponse {
+        if (! SystemSetting::getBool('enable_guest_checkout', true)) {
+            return response()->json([
+                'message' => 'Guest checkout is currently disabled.',
+            ], 403);
+        }
+
+        $contact = $request->session()->get(
+            "guest_report_checkout.{$report->id}"
+        );
+
+        if (
+            ! is_array($contact)
+            || ! is_string($contact['name'] ?? null)
+            || ! is_string($contact['email'] ?? null)
+            || ! is_string($contact['phone'] ?? null)
+        ) {
+            return response()->json([
+                'message' => 'Your contact details are missing. Please return to checkout.',
+            ], 422);
+        }
+
+        try {
+            $prepared = $checkoutService->preparePayPalPurchase(
+                report: $report,
+                name: $contact['name'],
+                email: $contact['email'],
+                phone: $contact['phone'],
+            );
+
+            /** @var GuestReportPurchase $purchase */
+            $purchase = $prepared['purchase'];
+
+            // Reuse the existing order for a retry, rather than creating duplicates.
+            if ($purchase->provider_order_id) {
+                $existingOrder = $payPalService->getOrder(
+                    $purchase->provider_order_id,
+                );
+
+                $expectedCustomId = sprintf(
+                    'guest-report|%d|%d',
+                    $purchase->id,
+                    $purchase->report_id,
+                );
+
+                $existingCustomId = data_get(
+                    $existingOrder,
+                    'purchase_units.0.custom_id',
+                );
+
+                if (
+                    $existingCustomId !== $expectedCustomId
+                    || ! in_array(
+                        $existingOrder['status'] ?? null,
+                        ['CREATED', 'APPROVED'],
+                        true,
+                    )
+                ) {
+                    throw new RuntimeException(
+                        'The existing PayPal order cannot be resumed. Please contact support.',
+                    );
+                }
+
+                return response()->json([
+                    'id' => $purchase->provider_order_id,
+                ]);
+            }
+
+            $order = $payPalService->createGuestReportOrder($purchase);
+
+            $purchase->update([
+                'provider_order_id' => $order['id'],
+            ]);
+
+            return response()->json([
+                'id' => $order['id'],
+            ]);
+        } catch (RuntimeException $exception) {
+            Log::warning('PayPal guest report order could not be created.', [
+                'report_id' => $report->id,
+                'exception' => $exception::class,
+            ]);
+
+            return response()->json([
+                'message' => 'Unable to start PayPal checkout. Please try again.',
+            ], 422);
+        }
+    }
+
+    public function capturePayPalOrder(
+        Request $request,
+        Report $report,
+        PayPalService $payPalService,
+        GuestReportPaymentService $paymentService,
+        GuestReportCheckoutService $checkoutService,
+    ): JsonResponse {
+        $validated = $request->validate([
+            'order_id' => ['required', 'string', 'max:64'],
+        ]);
+
+        $orderId = $validated['order_id'];
+
+        $purchase = GuestReportPurchase::query()
+            ->where('report_id', $report->id)
+            ->where('payment_provider', 'paypal')
+            ->where('provider_order_id', $orderId)
+            ->firstOrFail();
+
+        $stage = 'retrieve_order';
+
+        try {
+            $stage = 'retrieve_order';
+            $order = $payPalService->getOrder($orderId);
+
+            $stage = 'validate_order';
+
+            $expectedCustomId = sprintf(
+                'guest-report|%d|%d',
+                $purchase->id,
+                $purchase->report_id,
+            );
+
+            if (
+                ($order['id'] ?? null) !== $orderId
+                || data_get($order, 'purchase_units.0.custom_id') !== $expectedCustomId
+            ) {
+                return response()->json([
+                    'message' => 'PayPal order validation failed.',
+                ], 403);
+            }
+
+            if (($order['status'] ?? null) === 'APPROVED') {
+                $stage = 'capture_order';
+                $order = $payPalService->captureOrder($orderId);
+            } elseif (($order['status'] ?? null) !== 'COMPLETED') {
+                return response()->json([
+                    'message' => 'PayPal order has not been approved.',
+                ], 422);
+            }
+
+            $stage = 'process_payment';
+            $paymentService->handlePayPalGuestOrder($order);
+
+            $purchase->refresh();
+
+            $stage = 'issue_access_token';
+            $guestToken = $checkoutService->guestAccessToken($purchase);
+
+            return response()->json([
+                'status' => 'success',
+                'redirect' => route('guest-report.checkout.success', [
+                    'order_id' => $orderId,
+                    'guest_token' => $guestToken,
+                ]),
+            ]);
+        } catch (RuntimeException $exception) {
+            Log::warning('PayPal guest report capture failed.', [
+                'purchase_id' => $purchase->id,
+                'order_id' => $orderId,
+                'exception' => $exception::class,
+                'message' => $exception->getMessage(),
+            ]);
+
+            return response()->json([
+                'message' => 'PayPal payment could not be confirmed. Please try again.',
+            ], 422);
+        }
     }
 
     public function prepare(Request $request, Report $report): RedirectResponse
@@ -165,8 +343,18 @@ class GuestReportCheckoutController extends Controller
             'credits' => 0,
 
             // PayPal khusus guest belum tersedia
-            'paypalClientId' => null,
+            'paypalClientId' => config('services.paypal.client_id'),
             'paypalEnvironment' => 'sandbox',
+
+            'paypalEligibility' => [
+                'amount' => number_format(
+                    $summary['amountMinor'] / 100,
+                    2,
+                    '.',
+                    ''
+                ),
+                'currencyCode' => strtoupper($summary['currency']),
+            ],
 
             'guestReport' => [
                 'id' => $report->id,

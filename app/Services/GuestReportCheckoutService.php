@@ -334,6 +334,67 @@ class GuestReportCheckoutService
     }
 
     /**
+     * Prepare a PayPal guest-report purchase.
+     *
+     * The Stripe Price remains the temporary source of the current report price.
+     * PayPal itself processes the order independently.
+     *
+     * @return array{
+     *     purchase: GuestReportPurchase,
+     *     guest_token: string
+     * }
+     */
+    public function preparePayPalPurchase(
+        Report $report,
+        string $name,
+        string $email,
+        string $phone,
+    ): array {
+        $this->assertReportCanBePurchased($report);
+
+        $stripeSecret = config('services.stripe.secret');
+        $priceId = config('services.stripe.guest_report_price_id');
+
+        if (
+            ! is_string($stripeSecret) || $stripeSecret === ''
+            || ! is_string($priceId) || $priceId === ''
+        ) {
+            throw new RuntimeException(
+                'Guest report pricing is not configured.',
+            );
+        }
+
+        $price = $this->retrieveValidPrice(
+            new StripeClient($stripeSecret),
+            $priceId,
+            $report->id,
+        );
+
+        $purchase = $this->findOrCreatePendingPurchase(
+            reportId: $report->id,
+            name: trim($name),
+            email: mb_strtolower(trim($email)),
+            phone: trim($phone),
+            price: $price,
+            paymentProvider: 'paypal',
+        );
+
+        return [
+            'purchase' => $purchase->fresh(),
+            'guest_token' => $this->ensureAccessToken($purchase),
+        ];
+    }
+
+    /**
+     * Recreate the same valid guest access token for this purchase.
+     */
+    public function guestAccessToken(
+        GuestReportPurchase $purchase,
+    ): string {
+        return $this->ensureAccessToken($purchase);
+    }
+
+    /**
      * @return array{
      *     amountMinor: int,
      *     currency: string,
@@ -382,6 +443,7 @@ class GuestReportCheckoutService
         string $email,
         string $phone,
         Price $price,
+        string $paymentProvider = 'stripe',
     ): GuestReportPurchase {
         return DB::transaction(function () use (
             $reportId,
@@ -389,6 +451,7 @@ class GuestReportCheckoutService
             $email,
             $phone,
             $price,
+            $paymentProvider,
         ) {
             $report = Report::query()
                 ->lockForUpdate()
@@ -406,9 +469,16 @@ class GuestReportCheckoutService
                 ->first();
 
             if ($pendingPurchase) {
+                // Jangan izinkan dua gateway memakai purchase yang sama.
+                if ($pendingPurchase->payment_provider !== $paymentProvider) {
+                    throw new RuntimeException(
+                        'A checkout is already in progress with another payment provider.',
+                    );
+                }
+
                 if ($pendingPurchase->email !== $email) {
                     throw new RuntimeException(
-                        'A checkout is already in progress for this report.'
+                        'A checkout is already in progress for this report.',
                     );
                 }
 
@@ -424,11 +494,16 @@ class GuestReportCheckoutService
                 'name' => $name,
                 'email' => $email,
                 'phone' => $phone,
-                'payment_provider' => 'stripe',
+                'payment_provider' => $paymentProvider,
                 'payment_status' => GuestReportPurchase::STATUS_PENDING,
                 'amount_minor' => $price->unit_amount,
                 'currency' => strtolower($price->currency),
-                'stripe_price_id' => $price->id,
+
+                // Stripe Price dipakai sebagai sumber harga saat ini.
+                // ID harga tidak dipakai untuk memproses PayPal.
+                'stripe_price_id' => $paymentProvider === 'stripe'
+                    ? $price->id
+                    : null,
             ]);
         });
     }

@@ -16,6 +16,10 @@ class GuestReportCheckoutSuccessController extends Controller
 {
     public function __invoke(Request $request): Response
     {
+        if ($request->query->has('order_id')) {
+            return $this->paypalSuccess($request);
+        }
+
         $sessionId = $request->query('session_id');
         $guestToken = $request->query('guest_token');
 
@@ -135,5 +139,63 @@ class GuestReportCheckoutSuccessController extends Controller
             now()->addDays(30),
             ['purchase' => $purchase->id],
         );
+    }
+
+    private function paypalSuccess(Request $request): Response
+    {
+        $orderId = $request->query('order_id');
+        $guestToken = $request->query('guest_token');
+
+        abort_unless(
+            is_string($orderId)
+            && preg_match('/\A[A-Z0-9]+\z/i', $orderId) === 1,
+            404,
+        );
+
+        abort_unless(
+            is_string($guestToken)
+            && preg_match('/\A[a-f0-9]{64}\z/', $guestToken) === 1,
+            403,
+        );
+
+        $purchase = GuestReportPurchase::query()
+            ->with('report')
+            ->where('payment_provider', 'paypal')
+            ->where('provider_order_id', $orderId)
+            ->firstOrFail();
+
+        abort_unless(
+            $purchase->report !== null
+            && $purchase->report->user_id === null,
+            404,
+        );
+
+        $activeTokenExists = GuestReportAccessToken::query()
+            ->where('guest_report_id', $purchase->report_id)
+            ->where('token_hash', hash('sha256', $guestToken))
+            ->whereNull('revoked_at')
+            ->exists();
+
+        abort_unless($activeTokenExists, 403);
+
+        // Only a server-verified, locally recorded capture can reach this page.
+        abort_unless(
+            $purchase->payment_status === GuestReportPurchase::STATUS_PAID,
+            403,
+        );
+
+        if ($this->isReadyForInvoice($purchase)) {
+            return redirect()->to($this->invoiceUrl($purchase));
+        }
+
+        $statusUrl = URL::temporarySignedRoute(
+            'guest-report.checkout.status',
+            now()->addHours(2),
+            ['purchase' => $purchase->id],
+        );
+
+        return response()->view('guest-checkout-pending', [
+            'statusUrl' => $statusUrl,
+        ]);
     }
 }

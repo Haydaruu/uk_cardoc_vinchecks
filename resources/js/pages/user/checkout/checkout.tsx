@@ -1,5 +1,6 @@
 import { Head, router } from '@inertiajs/react';
 import {
+    PayPalGuestPaymentButton,
     PayPalOneTimePaymentButton,
     PayPalProvider,
     PayPalSubscriptionButton,
@@ -70,8 +71,8 @@ export default function Checkout({
     const [clientSecret, setClientSecret] = useState<string | null>(null);
     const [subscriptionId, setSubscriptionId] = useState<string | null>(null);
     const [initError, setInitError] = useState<string | null>(null);
-    const isGuestReport = checkoutMode === 'guest_report';
 
+    const isGuestReport = checkoutMode === 'guest_report';
     const isSubscription = planType === 'subscription';
 
     const stripeIntentUrl = isSubscription
@@ -217,12 +218,7 @@ export default function Checkout({
 
                                     <button
                                         type="button"
-                                        disabled={isGuestReport}
                                         onClick={() => {
-                                            if (isGuestReport) {
-                                                return;
-                                            }
-
                                             setInitError(null);
                                             setPaymentMethod('paypal');
                                         }}
@@ -230,16 +226,10 @@ export default function Checkout({
                                             paymentMethod === 'paypal'
                                                 ? 'bg-white text-primary shadow-sm ring-1 ring-outline-variant/40'
                                                 : 'text-on-surface-variant hover:text-primary'
-                                        } disabled:cursor-not-allowed disabled:opacity-60`}
+                                        }`}
                                     >
                                         <Wallet className="size-4" />
-                                        <span>PayPal</span>
-
-                                        {isGuestReport && (
-                                            <span className="rounded bg-surface-container px-2 py-1 text-[10px] font-bold tracking-wide text-on-surface-variant uppercase">
-                                                Coming soon
-                                            </span>
-                                        )}
+                                        PayPal
                                     </button>
                                 </div>
                             </div>
@@ -269,7 +259,6 @@ export default function Checkout({
                                                     stripe={stripePromise}
                                                     options={{
                                                         clientSecret,
-
                                                         appearance: {
                                                             variables: {
                                                                 colorPrimary:
@@ -285,7 +274,6 @@ export default function Checkout({
                                                                 spacingUnit:
                                                                     '4px',
                                                             },
-
                                                             rules: {
                                                                 '.Input': {
                                                                     borderColor:
@@ -295,7 +283,6 @@ export default function Checkout({
                                                                     padding:
                                                                         '13px 14px',
                                                                 },
-
                                                                 '.Input:focus':
                                                                     {
                                                                         borderColor:
@@ -321,14 +308,26 @@ export default function Checkout({
                                         </>
                                     ))}
 
-                                {paymentMethod === 'paypal' && (
-                                    <PayPalSection
-                                        plan={plan}
-                                        planType={planType}
-                                        paypalClientId={paypalClientId}
-                                        paypalEnvironment={paypalEnvironment}
-                                    />
-                                )}
+                                {paymentMethod === 'paypal' &&
+                                    (isGuestReport ? (
+                                        <GuestReportPayPalCheckout
+                                            reportId={guestReport?.id ?? null}
+                                            paypalClientId={paypalClientId}
+                                            paypalEnvironment={
+                                                paypalEnvironment
+                                            }
+                                            amountDisplay={amountDisplay}
+                                        />
+                                    ) : (
+                                        <PayPalSection
+                                            plan={plan}
+                                            planType={planType}
+                                            paypalClientId={paypalClientId}
+                                            paypalEnvironment={
+                                                paypalEnvironment
+                                            }
+                                        />
+                                    ))}
                             </div>
 
                             {/* Secure footer */}
@@ -471,7 +470,7 @@ function OrderSummary({
 
                             <p className="mt-1 text-xs leading-5 text-white/65">
                                 {isGuestReport
-                                    ? 'Your payment is processed securely by Stripe.'
+                                    ? 'Your payment is processed securely by our payment partner.'
                                     : 'Your card or PayPal credentials are handled directly by the payment provider.'}
                             </p>
                         </div>
@@ -502,7 +501,6 @@ function GuestReportStripeCheckout({
         }
 
         setErrorMessage(null);
-
         setIsProcessing(true);
 
         router.post(
@@ -523,7 +521,7 @@ function GuestReportStripeCheckout({
     }
 
     return (
-        <div className="mx-auto max-w-lg py-2">
+        <div className="w-full min-w-0 py-2">
             <div className="mb-6 flex items-center gap-3">
                 <div className="flex size-11 items-center justify-center rounded-lg bg-surface-container">
                     <Lock className="size-5 text-primary" />
@@ -576,6 +574,178 @@ function GuestReportStripeCheckout({
     );
 }
 
+function GuestReportPayPalCheckout({
+    reportId,
+    paypalClientId,
+    paypalEnvironment,
+    amountDisplay,
+}: {
+    reportId: number | null;
+    paypalClientId: string | null;
+    paypalEnvironment: 'sandbox' | 'production';
+    amountDisplay: string;
+}) {
+    const [isProcessing, setIsProcessing] = useState(false);
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+    if (!paypalClientId) {
+        return <PaymentError message="PayPal is not configured correctly." />;
+    }
+
+    if (!reportId) {
+        return <PaymentError message="The report could not be identified." />;
+    }
+
+    async function createPayPalOrder(): Promise<{ orderId: string }> {
+        setErrorMessage(null);
+
+        const data = await postJson<{ id?: string }>(
+            `/reports/${reportId}/guest-checkout/paypal/order`,
+            {},
+        );
+
+        if (!data.id) {
+            throw new Error('PayPal order ID was not returned.');
+        }
+
+        return {
+            orderId: data.id,
+        };
+    }
+
+    async function handleApprove(data: OnApproveDataOneTimePayments) {
+        setIsProcessing(true);
+        setErrorMessage(null);
+
+        try {
+            const result = await postJson<{
+                status?: string;
+                redirect?: string;
+            }>(`/reports/${reportId}/guest-checkout/paypal/capture`, {
+                order_id: data.orderId,
+            });
+
+            if (result.status !== 'success' || !result.redirect) {
+                throw new Error('PayPal payment could not be confirmed.');
+            }
+
+            window.location.assign(result.redirect);
+        } catch (error) {
+            setIsProcessing(false);
+
+            setErrorMessage(
+                error instanceof Error
+                    ? error.message
+                    : 'PayPal payment failed.',
+            );
+
+            throw error;
+        }
+    }
+
+    function handleCancel() {
+        setIsProcessing(false);
+        setErrorMessage('Checkout was cancelled. No payment was completed.');
+    }
+
+    function handleError(error: OnErrorData) {
+        setIsProcessing(false);
+        setErrorMessage(error.message ?? 'Something went wrong with PayPal.');
+    }
+
+    return (
+        <div className="w-full min-w-0 py-2">
+            <div className="mb-7 text-center">
+                <div className="mx-auto mb-4 flex size-11 items-center justify-center rounded-full bg-surface-container">
+                    <Wallet className="size-5 text-primary" />
+                </div>
+
+                <h2 className="text-lg font-semibold text-primary">
+                    Pay securely with PayPal
+                </h2>
+
+                <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-on-surface-variant">
+                    Choose PayPal or pay directly using your debit or credit
+                    card without creating a PayPal account.
+                </p>
+
+                <p className="mt-3 text-sm font-semibold text-primary">
+                    Full Vehicle Report · {amountDisplay}
+                </p>
+            </div>
+
+            <PayPalProvider
+                clientId={paypalClientId}
+                environment={paypalEnvironment}
+                components={['paypal-payments', 'paypal-guest-payments']}
+                pageType="checkout"
+            >
+                <div className="w-full min-w-0 space-y-5">
+                    <div>
+                        <p className="mb-3 text-xs font-semibold tracking-wide text-on-surface-variant uppercase">
+                            PayPal account
+                        </p>
+
+                        <div className="paypal-one-time-payment w-full">
+                            <PayPalOneTimePaymentButton
+                                createOrder={createPayPalOrder}
+                                onApprove={handleApprove}
+                                onCancel={handleCancel}
+                                onError={handleError}
+                                presentationMode="auto"
+                                disabled={isProcessing}
+                            />
+                        </div>
+                    </div>
+
+                    <div className="relative py-2">
+                        <div className="absolute inset-0 flex items-center">
+                            <div className="w-full border-t border-outline-variant/60" />
+                        </div>
+
+                        <div className="relative flex justify-center">
+                            <span className="bg-white px-3 text-xs text-on-surface-variant">
+                                OR
+                            </span>
+                        </div>
+                    </div>
+
+                    <div>
+                        <p className="mb-3 text-xs font-semibold tracking-wide text-on-surface-variant uppercase">
+                            Debit or credit card
+                        </p>
+
+                        <div className="paypal-guest-payment w-full">
+                            <PayPalGuestPaymentButton
+                                createOrder={createPayPalOrder}
+                                onApprove={handleApprove}
+                                onCancel={handleCancel}
+                                onError={handleError}
+                                disabled={isProcessing}
+                            />
+                        </div>
+
+                        <p className="mt-3 text-center text-xs leading-5 text-outline">
+                            No PayPal account required. Card details are handled
+                            securely by PayPal.
+                        </p>
+                    </div>
+                </div>
+            </PayPalProvider>
+
+            {isProcessing && (
+                <PaymentProcessing text="Confirming PayPal payment..." />
+            )}
+
+            {errorMessage && (
+                <div className="mt-5">
+                    <PaymentError message={errorMessage} />
+                </div>
+            )}
+        </div>
+    );
+}
+
 function SummaryBenefit({ text }: { text: string }) {
     return (
         <div className="flex items-start gap-3 text-sm text-on-surface-variant">
@@ -602,7 +772,7 @@ function PayPalSection({
     const isSubscription = planType === 'subscription';
 
     return (
-        <div className="mx-auto max-w-lg py-2">
+        <div className="w-full min-w-0 py-2">
             <div className="mb-7 text-center">
                 <div className="mx-auto mb-4 flex size-11 items-center justify-center rounded-full bg-surface-container">
                     <Wallet className="size-5 text-primary" />
@@ -617,7 +787,7 @@ function PayPalSection({
                 <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-on-surface-variant">
                     {isSubscription
                         ? 'Approve your monthly membership securely using your PayPal account.'
-                        : 'Continue with your PayPal account to complete this payment securely.'}
+                        : 'Pay with your PayPal account or choose debit/credit card checkout.'}
                 </p>
             </div>
 
@@ -630,7 +800,7 @@ function PayPalSection({
                     components={
                         isSubscription
                             ? ['paypal-subscriptions']
-                            : ['paypal-payments']
+                            : ['paypal-payments', 'paypal-guest-payments']
                     }
                     pageType="checkout"
                 >
@@ -705,8 +875,13 @@ function PayPalOneTimeCheckout({ plan }: { plan: string }) {
         setErrorMessage(error.message ?? 'Something went wrong with PayPal.');
     }
 
+    function handleCancel() {
+        setIsProcessing(false);
+        setErrorMessage('Checkout was cancelled. No payment was taken.');
+    }
+
     return (
-        <div>
+        <div className="w-full min-w-0">
             {errorMessage && (
                 <div className="mb-4">
                     <PaymentError message={errorMessage} />
@@ -718,23 +893,63 @@ function PayPalOneTimeCheckout({ plan }: { plan: string }) {
             <div
                 className={isProcessing ? 'pointer-events-none opacity-50' : ''}
             >
-                <PayPalOneTimePaymentButton
-                    createOrder={createPayPalOrder}
-                    onApprove={handleApprove}
-                    onCancel={() => {
-                        setIsProcessing(false);
-                        setErrorMessage(
-                            'PayPal checkout was cancelled. No payment was taken.',
-                        );
-                    }}
-                    onError={handleError}
-                    presentationMode="auto"
-                    disabled={isProcessing}
-                />
+                <div className="w-full min-w-0 space-y-5">
+                    {/* PayPal account checkout */}
+                    <div>
+                        <p className="mb-3 text-xs font-semibold tracking-wide text-on-surface-variant uppercase">
+                            PayPal account
+                        </p>
+
+                        <div className="paypal-one-time-payment w-full">
+                            <PayPalOneTimePaymentButton
+                                createOrder={createPayPalOrder}
+                                onApprove={handleApprove}
+                                onCancel={handleCancel}
+                                onError={handleError}
+                                presentationMode="auto"
+                                disabled={isProcessing}
+                            />
+                        </div>
+                    </div>
+
+                    <div className="relative py-2">
+                        <div className="absolute inset-0 flex items-center">
+                            <div className="w-full border-t border-outline-variant/60" />
+                        </div>
+
+                        <div className="relative flex justify-center">
+                            <span className="bg-white px-3 text-xs text-on-surface-variant">
+                                OR
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* Guest debit / credit card checkout */}
+                    <div>
+                        <p className="mb-3 text-xs font-semibold tracking-wide text-on-surface-variant uppercase">
+                            Debit or credit card
+                        </p>
+
+                        <div className="paypal-guest-payment w-full">
+                            <PayPalGuestPaymentButton
+                                createOrder={createPayPalOrder}
+                                onApprove={handleApprove}
+                                onCancel={handleCancel}
+                                onError={handleError}
+                                disabled={isProcessing}
+                            />
+                        </div>
+
+                        <p className="mt-3 text-center text-xs leading-5 text-outline">
+                            No PayPal account required. Card checkout
+                            availability may depend on PayPal eligibility.
+                        </p>
+                    </div>
+                </div>
             </div>
 
             <p className="mt-4 text-center text-xs text-outline">
-                You'll return to UKCarDoc after PayPal confirms your payment.
+                Your payment is processed securely by PayPal.
             </p>
         </div>
     );
@@ -801,7 +1016,7 @@ function PayPalSubscriptionCheckout({ plan }: { plan: string }) {
     }
 
     return (
-        <div>
+        <div className="w-full min-w-0">
             {errorMessage && (
                 <div className="mb-4">
                     <PaymentError message={errorMessage} />
@@ -883,10 +1098,8 @@ function StripeCheckoutForm({
 
         const { error } = await stripe.confirmPayment({
             elements,
-
             confirmParams: {
                 return_url: returnUrl,
-
                 payment_method_data: {
                     billing_details: {
                         address: {
@@ -1072,13 +1285,11 @@ async function postJson<T extends object>(
 ): Promise<T> {
     const response = await fetch(url, {
         method: 'POST',
-
         headers: {
             'Content-Type': 'application/json',
             Accept: 'application/json',
             'X-CSRF-TOKEN': getCsrfToken(),
         },
-
         body: JSON.stringify(body),
     });
 

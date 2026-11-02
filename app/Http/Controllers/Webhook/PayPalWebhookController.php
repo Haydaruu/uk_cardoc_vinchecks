@@ -9,6 +9,7 @@ use App\Models\Transaction;
 use App\Models\User;
 use App\Services\Admin\AdminRefundReconciliationService;
 use App\Services\CreditService;
+use App\Services\GuestReportPaymentService;
 use App\Services\PayPalService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -22,6 +23,7 @@ class PayPalWebhookController extends Controller
         PayPalService $payPalService,
         CreditService $creditService,
         AdminRefundReconciliationService $reconciliationService,
+        GuestReportPaymentService $guestReportPaymentService,
     ): JsonResponse {
         if (! $payPalService->verifyWebhook($request)) {
             Log::warning('Invalid PayPal webhook signature.');
@@ -40,8 +42,22 @@ class PayPalWebhookController extends Controller
                 provider: 'paypal',
                 eventId: $eventId,
                 eventType: $eventType,
-                callback: function () use ($event, $eventType, $payPalService, $creditService, $reconciliationService) {
-                    $this->processEvent($event, $eventType, $payPalService, $creditService, $reconciliationService);
+                callback: function () use (
+                    $event,
+                    $eventType,
+                    $payPalService,
+                    $creditService,
+                    $reconciliationService,
+                    $guestReportPaymentService,
+                ) {
+                    $this->processEvent(
+                        $event,
+                        $eventType,
+                        $payPalService,
+                        $creditService,
+                        $reconciliationService,
+                        $guestReportPaymentService,
+                    );
                 },
                 payloadSummary: [
                     'event_type' => $eventType,
@@ -53,7 +69,14 @@ class PayPalWebhookController extends Controller
                 return response()->json(['received' => true]);
             }
         } else {
-            $this->processEvent($event, $eventType, $payPalService, $creditService, $reconciliationService);
+            $this->processEvent(
+                $event,
+                $eventType,
+                $payPalService,
+                $creditService,
+                $reconciliationService,
+                $guestReportPaymentService,
+            );
         }
 
         return response()->json([
@@ -70,12 +93,14 @@ class PayPalWebhookController extends Controller
         PayPalService $payPalService,
         CreditService $creditService,
         AdminRefundReconciliationService $reconciliationService,
+        GuestReportPaymentService $guestReportPaymentService,
     ): void {
         match ($eventType) {
             'PAYMENT.CAPTURE.COMPLETED' => $this->handleOneTimePayment(
                 $event,
                 $payPalService,
-                $creditService
+                $creditService,
+                $guestReportPaymentService,
             ),
 
             'PAYMENT.SALE.COMPLETED' => $this->handleSubscriptionPayment(
@@ -98,7 +123,7 @@ class PayPalWebhookController extends Controller
     /**
      * @param  array<string, mixed>  $event
      */
-    private function handleOneTimePayment(array $event, PayPalService $payPalService, CreditService $creditService): void
+    private function handleOneTimePayment(array $event, PayPalService $payPalService, CreditService $creditService, GuestReportPaymentService $guestReportPaymentService): void
     {
         $capture = $event['resource'] ?? null;
 
@@ -122,6 +147,36 @@ class PayPalWebhookController extends Controller
 
         if (! $purchaseUnit) {
             throw new \RuntimeException('Invalid PayPal order.');
+        }
+
+        // Route guest report purchases to the dedicated fulfillment service.
+        $customId = (string) ($purchaseUnit['custom_id'] ?? '');
+
+        if (str_starts_with($customId, 'guest-report|')) {
+            $orderCaptureId = data_get(
+                $order,
+                'purchase_units.0.payments.captures.0.id'
+            );
+
+            if (
+                ! is_string($orderCaptureId)
+                || ! hash_equals($captureId, $orderCaptureId)
+            ) {
+                Log::critical('PayPal guest report webhook capture ID mismatch.', [
+                    'event_id' => $event['id'] ?? null,
+                    'order_id' => $orderId,
+                    'event_capture_id' => $captureId,
+                    'order_capture_id' => $orderCaptureId,
+                ]);
+
+                throw new \RuntimeException(
+                    'PayPal webhook capture does not match the order capture.'
+                );
+            }
+
+            $guestReportPaymentService->handlePayPalGuestOrder($order);
+
+            return;
         }
 
         $planSlug = $purchaseUnit['reference_id'] ?? null;

@@ -34,6 +34,10 @@ Route::get('/guest-purchases/{purchase}/invoice/pdf', [GuestReportInvoiceControl
 Route::get('/guest-checkout/success', GuestReportCheckoutSuccessController::class)->name('guest-report.checkout.success');
 Route::get('/guest-purchases/{purchase}/checkout-status', [GuestReportCheckoutSuccessController::class, 'status'])->middleware('signed')->name('guest-report.checkout.status');
 
+// PayPal guest report checkout
+Route::post('/reports/{report}/guest-checkout/paypal/order', [GuestReportCheckoutController::class, 'createPayPalOrder'])->name('guest-report.paypal.create-order');
+Route::post('/reports/{report}/guest-checkout/paypal/capture', [GuestReportCheckoutController::class, 'capturePayPalOrder'])->name('guest-report.paypal.capture');
+
 // iki Auth Report
 Route::get('/report/{report}', [ReportController::class, 'show'])->name('page.my-report.show');
 Route::get('/report/{report}/pdf', [ReportPdfController::class, 'download'])->name('report.pdf.download');

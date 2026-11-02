@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\GuestReportPurchase;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -96,6 +97,80 @@ class PayPalService
         }
 
         return $response->json();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function createGuestReportOrder(
+        GuestReportPurchase $purchase,
+    ): array {
+        if (
+            $purchase->payment_provider !== 'paypal'
+            || $purchase->payment_status !== GuestReportPurchase::STATUS_PENDING
+        ) {
+            throw new RuntimeException(
+                'Invalid PayPal guest report purchase.',
+            );
+        }
+
+        $amount = number_format(
+            $purchase->amount_minor / 100,
+            2,
+            '.',
+            '',
+        );
+
+        $currency = strtoupper($purchase->currency);
+
+        $customId = sprintf(
+            'guest-report|%d|%d',
+            $purchase->id,
+            $purchase->report_id,
+        );
+
+        // Stable ID makes retries idempotent for this purchase.
+        $requestId = 'guest-report-'.$purchase->id;
+
+        $response = Http::withToken($this->accessToken())
+            ->acceptJson()
+            ->withHeaders([
+                'PayPal-Request-Id' => $requestId,
+                'Prefer' => 'return=representation',
+            ])
+            ->post($this->baseUrl().'/v2/checkout/orders', [
+                'intent' => 'CAPTURE',
+
+                'purchase_units' => [
+                    [
+                        'reference_id' => (string) $purchase->id,
+                        'custom_id' => $customId,
+                        'invoice_id' => 'UKC-GR-'.$purchase->id,
+                        'description' => 'UKCarDoc Full Vehicle Report',
+
+                        'amount' => [
+                            'currency_code' => $currency,
+                            'value' => $amount,
+                        ],
+                    ],
+                ],
+            ]);
+
+        if ($response->failed()) {
+            throw new RuntimeException(
+                'Unable to create PayPal guest report order.',
+            );
+        }
+
+        $order = $response->json();
+
+        if (! is_string($order['id'] ?? null)) {
+            throw new RuntimeException(
+                'PayPal did not return a guest report order ID.',
+            );
+        }
+
+        return $order;
     }
 
     /** @return array<string, mixed> */

@@ -10,6 +10,7 @@ use App\Models\Subscription;
 use App\Models\Transaction;
 use App\Models\User;
 use App\Models\Vehicle;
+use App\Services\GuestReportPaymentService;
 use App\Services\PayPalService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
@@ -36,6 +37,56 @@ beforeEach(function () {
     $this->secret = 'whsec_test_secret_123';
     config(['services.stripe.webhook_secret' => $this->secret]);
 });
+
+function guestReportPayPalCaptureFixture(
+    string $eventId,
+    string $orderId = 'ORDER-GUEST-001',
+    string $captureId = 'CAPTURE-GUEST-001',
+): array {
+    $order = [
+        'id' => $orderId,
+        'intent' => 'CAPTURE',
+        'status' => 'COMPLETED',
+        'purchase_units' => [
+            [
+                'reference_id' => '1',
+                'custom_id' => 'guest-report|1|2',
+                'payments' => [
+                    'captures' => [
+                        [
+                            'id' => $captureId,
+                            'status' => 'COMPLETED',
+                            'amount' => [
+                                'value' => '21.99',
+                                'currency_code' => 'GBP',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ],
+    ];
+
+    $event = [
+        'id' => $eventId,
+        'event_type' => 'PAYMENT.CAPTURE.COMPLETED',
+        'resource' => [
+            'id' => $captureId,
+            'status' => 'COMPLETED',
+            'amount' => [
+                'value' => '21.99',
+                'currency_code' => 'GBP',
+            ],
+            'supplementary_data' => [
+                'related_ids' => [
+                    'order_id' => $orderId,
+                ],
+            ],
+        ],
+    ];
+
+    return [$event, $order];
+}
 
 function createSignedStripeRequest($test, array $eventPayload, string $secret)
 {
@@ -863,4 +914,139 @@ test('unmatched refund webhook returns success and does not mutate any records',
 
     // No refund records created or mutated
     expect(RefundRecord::count())->toBe(0);
+});
+
+test('paypal guest report capture webhook routes to guest payment service', function () {
+    [$payload, $order] = guestReportPayPalCaptureFixture(
+        'WH-PPL-GUEST-001'
+    );
+
+    $mockPayPal = Mockery::mock(PayPalService::class);
+
+    $mockPayPal->shouldReceive('verifyWebhook')
+        ->once()
+        ->andReturn(true);
+
+    $mockPayPal->shouldReceive('getOrder')
+        ->once()
+        ->with($order['id'])
+        ->andReturn($order);
+
+    $this->app->instance(PayPalService::class, $mockPayPal);
+
+    $paymentService = Mockery::mock(GuestReportPaymentService::class);
+
+    $paymentService->shouldReceive('handlePayPalGuestOrder')
+        ->once()
+        ->with($order)
+        ->andReturn(true);
+
+    $this->app->instance(
+        GuestReportPaymentService::class,
+        $paymentService
+    );
+
+    $response = $this->postJson(
+        route('paypal.webhook'),
+        $payload
+    );
+
+    $response
+        ->assertOk()
+        ->assertExactJson(['received' => true]);
+});
+
+test('paypal guest report capture webhook rejects mismatched capture ID', function () {
+    [$payload, $order] = guestReportPayPalCaptureFixture(
+        'WH-PPL-GUEST-MISMATCH-001'
+    );
+
+    // Simulate an order whose capture ID differs from the webhook event.
+    $order['purchase_units'][0]['payments']['captures'][0]['id']
+        = 'CAPTURE-WRONG-001';
+
+    $mockPayPal = Mockery::mock(PayPalService::class);
+
+    $mockPayPal->shouldReceive('verifyWebhook')
+        ->once()
+        ->andReturn(true);
+
+    $mockPayPal->shouldReceive('getOrder')
+        ->once()
+        ->with($order['id'])
+        ->andReturn($order);
+
+    $this->app->instance(PayPalService::class, $mockPayPal);
+
+    $paymentService = Mockery::mock(GuestReportPaymentService::class);
+
+    $paymentService->shouldNotReceive('handlePayPalGuestOrder');
+
+    $this->app->instance(
+        GuestReportPaymentService::class,
+        $paymentService
+    );
+
+    $this->withoutExceptionHandling();
+
+    expect(fn () => $this->postJson(
+        route('paypal.webhook'),
+        $payload
+    ))->toThrow(
+        RuntimeException::class,
+        'PayPal webhook capture does not match the order capture.'
+    );
+});
+
+test('paypal guest report capture webhook deduplicates repeated event delivery', function () {
+    [$payload, $order] = guestReportPayPalCaptureFixture(
+        'WH-PPL-GUEST-DUPLICATE-001'
+    );
+
+    $mockPayPal = Mockery::mock(PayPalService::class);
+
+    // Signature verification happens on every delivery.
+    $mockPayPal->shouldReceive('verifyWebhook')
+        ->twice()
+        ->andReturn(true);
+
+    // The second delivery must be stopped by webhook deduplication.
+    $mockPayPal->shouldReceive('getOrder')
+        ->once()
+        ->with($order['id'])
+        ->andReturn($order);
+
+    $this->app->instance(PayPalService::class, $mockPayPal);
+
+    $paymentService = Mockery::mock(GuestReportPaymentService::class);
+
+    $paymentService->shouldReceive('handlePayPalGuestOrder')
+        ->once()
+        ->with($order)
+        ->andReturn(true);
+
+    $this->app->instance(
+        GuestReportPaymentService::class,
+        $paymentService
+    );
+
+    // First delivery.
+    $response1 = $this->postJson(
+        route('paypal.webhook'),
+        $payload
+    );
+
+    $response1
+        ->assertOk()
+        ->assertExactJson(['received' => true]);
+
+    // Retry with exactly the same event ID.
+    $response2 = $this->postJson(
+        route('paypal.webhook'),
+        $payload
+    );
+
+    $response2
+        ->assertOk()
+        ->assertExactJson(['received' => true]);
 });

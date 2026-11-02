@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Jobs\ProcessVehicleCheck;
+use App\Jobs\SendTelegramSaleNotification;
 use App\Models\GuestReportPurchase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -234,5 +235,220 @@ class GuestReportPaymentService
         }
 
         return $paymentChanged;
+    }
+
+    /**
+     * @param  array<string, mixed>  $order
+     */
+    public function handlePayPalGuestOrder(array $order): bool
+    {
+        $orderId = $order['id'] ?? null;
+        $customId = data_get($order, 'purchase_units.0.custom_id');
+
+        if (
+            ! is_string($orderId)
+            || $orderId === ''
+            || ! is_string($customId)
+            || ($order['status'] ?? null) !== 'COMPLETED'
+        ) {
+            throw new RuntimeException('Invalid completed PayPal guest order.');
+        }
+
+        $parts = explode('|', $customId);
+
+        if (
+            count($parts) !== 3
+            || $parts[0] !== 'guest-report'
+            || ! ctype_digit($parts[1])
+            || ! ctype_digit($parts[2])
+        ) {
+            throw new RuntimeException('Invalid PayPal guest order metadata.');
+        }
+
+        $purchaseId = (int) $parts[1];
+        $reportId = (int) $parts[2];
+
+        $purchaseUnit = $order['purchase_units'][0] ?? null;
+        $capture = $purchaseUnit['payments']['captures'][0] ?? null;
+
+        if (
+            ! $capture
+            || ($capture['status'] ?? null) !== 'COMPLETED'
+            || ! is_string($capture['id'] ?? null)
+        ) {
+            throw new RuntimeException('PayPal capture is not completed.');
+        }
+
+        $captureId = $capture['id'];
+        $amount = $capture['amount']['value'] ?? null;
+        $currency = strtoupper(
+            is_string($capture['amount']['currency_code'] ?? null)
+                ? $capture['amount']['currency_code']
+                : ''
+        );
+
+        $purchase = GuestReportPurchase::query()
+            ->with('report')
+            ->findOrFail($purchaseId);
+
+        if (
+            $purchase->payment_provider !== 'paypal'
+            || (int) $purchase->report_id !== $reportId
+            || $purchase->provider_order_id !== $orderId
+        ) {
+            throw new RuntimeException('PayPal purchase reference mismatch.');
+        }
+
+        $expectedAmount = number_format(
+            $purchase->amount_minor / 100,
+            2,
+            '.',
+            '',
+        );
+
+        if (
+            ! is_string($amount)
+            || $amount !== $expectedAmount
+            || $currency !== strtoupper($purchase->currency)
+        ) {
+            throw new RuntimeException('PayPal amount or currency mismatch.');
+        }
+
+        $report = $purchase->report;
+
+        if (
+            ! $report
+            || $report->user_id !== null
+            || ! $report->vin_check_id
+            || ! in_array($report->report_type, ['basic', 'premium'], true)
+        ) {
+            throw new RuntimeException('Guest report is not eligible for fulfillment.');
+        }
+
+        $result = DB::transaction(function () use (
+            $purchaseId,
+            $orderId,
+            $captureId,
+            $report,
+        ): array {
+            $lockedPurchase = GuestReportPurchase::query()
+                ->lockForUpdate()
+                ->findOrFail($purchaseId);
+
+            if (
+                $lockedPurchase->payment_provider !== 'paypal'
+                || $lockedPurchase->provider_order_id !== $orderId
+                || (int) $lockedPurchase->report_id !== (int) $report->id
+            ) {
+                throw new RuntimeException('PayPal purchase changed during capture.');
+            }
+
+            if ($lockedPurchase->payment_status === GuestReportPurchase::STATUS_REFUNDED) {
+                return [
+                    'payment_changed' => false,
+                    'dispatch' => false,
+                ];
+            }
+
+            // Duplicate payment callback: validate the capture reference.
+            if ($lockedPurchase->payment_status === GuestReportPurchase::STATUS_PAID) {
+                if ($lockedPurchase->provider_payment_id !== $captureId) {
+                    throw new RuntimeException('PayPal capture reference mismatch.');
+                }
+
+                // A completed Premium report must never be processed again.
+                if (
+                    $lockedPurchase->fulfillment_status
+                    === GuestReportPurchase::FULFILLMENT_COMPLETED
+                ) {
+                    if ($report->report_type !== 'premium') {
+                        throw new RuntimeException('Completed guest report is not Premium.');
+                    }
+
+                    return [
+                        'payment_changed' => false,
+                        'dispatch' => false,
+                    ];
+                }
+
+                $recoverableStatuses = [
+                    GuestReportPurchase::FULFILLMENT_LOCKED,
+                    GuestReportPurchase::FULFILLMENT_PENDING,
+                    GuestReportPurchase::FULFILLMENT_PROCESSING,
+                    GuestReportPurchase::FULFILLMENT_FAILED,
+                ];
+
+                if (! in_array(
+                    $lockedPurchase->fulfillment_status,
+                    $recoverableStatuses,
+                    true
+                )) {
+                    throw new RuntimeException('Guest fulfillment status is not recoverable.');
+                }
+
+                // A paid purchase must not remain locked.
+                if (
+                    $lockedPurchase->fulfillment_status
+                    === GuestReportPurchase::FULFILLMENT_LOCKED
+                ) {
+                    $lockedPurchase->update([
+                        'fulfillment_status' => GuestReportPurchase::FULFILLMENT_PENDING,
+                    ]);
+                }
+
+                return [
+                    'payment_changed' => false,
+                    'dispatch' => true,
+                ];
+            }
+
+            if ($lockedPurchase->payment_status !== GuestReportPurchase::STATUS_PENDING) {
+                throw new RuntimeException('Guest purchase is not pending.');
+            }
+
+            // A new guest purchase must still reference a Basic report.
+            if ($report->report_type !== 'basic') {
+                throw new RuntimeException('New guest purchase does not reference a Basic report.');
+            }
+
+            $lockedPurchase->update([
+                'provider_payment_id' => $captureId,
+                'payment_status' => GuestReportPurchase::STATUS_PAID,
+                'paid_at' => $lockedPurchase->paid_at ?? now(),
+                'fulfillment_status' => GuestReportPurchase::FULFILLMENT_PENDING,
+            ]);
+
+            return [
+                'payment_changed' => true,
+                'dispatch' => true,
+            ];
+        });
+
+        if ($result['dispatch']) {
+            ProcessVehicleCheck::dispatch(
+                (int) $report->vin_check_id,
+                (int) $report->id,
+                (int) $purchase->id,
+            );
+        }
+
+        // Notify Telegram only when the payment is first confirmed.
+        if ($result['payment_changed']) {
+            $amount = number_format(
+                $purchase->amount_minor / 100,
+                2,
+                '.',
+                ','
+            );
+
+            SendTelegramSaleNotification::dispatch(
+                'Guest vehicle report',
+                'PayPal',
+                (string) $captureId,
+                strtoupper((string) $purchase->currency).' '.$amount,
+            )->afterCommit();
+        }
+
+        return $result['payment_changed'];
     }
 }
