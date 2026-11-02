@@ -191,6 +191,7 @@ class GuestReportCheckoutController extends Controller
             ->firstOrFail();
 
         $stage = 'retrieve_order';
+        $order = [];
 
         try {
             $stage = 'retrieve_order';
@@ -215,11 +216,24 @@ class GuestReportCheckoutController extends Controller
 
             if (($order['status'] ?? null) === 'APPROVED') {
                 $stage = 'capture_order';
-                $order = $payPalService->captureOrder($orderId);
+
+                // Execute the capture on PayPal.
+                $payPalService->captureOrder($orderId);
+
+                // Retrieve the canonical order after capture.
+                $stage = 'verify_capture';
+                $order = $payPalService->getOrder($orderId);
             } elseif (($order['status'] ?? null) !== 'COMPLETED') {
                 return response()->json([
                     'message' => 'PayPal order has not been approved.',
                 ], 422);
+            }
+
+            // Never process a payment unless PayPal confirms completion.
+            if (($order['status'] ?? null) !== 'COMPLETED') {
+                throw new RuntimeException(
+                    'PayPal order capture has not completed.',
+                );
             }
 
             $stage = 'process_payment';
@@ -241,6 +255,12 @@ class GuestReportCheckoutController extends Controller
             Log::warning('PayPal guest report capture failed.', [
                 'purchase_id' => $purchase->id,
                 'order_id' => $orderId,
+                'stage' => $stage,
+                'order_status' => $order['status'] ?? null,
+                'capture_status' => data_get(
+                    $order,
+                    'purchase_units.0.payments.captures.0.status'
+                ),
                 'exception' => $exception::class,
                 'message' => $exception->getMessage(),
             ]);
