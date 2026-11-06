@@ -1,5 +1,6 @@
 <?php
 
+use App\Exceptions\PayPalGuestOrderMismatchException;
 use App\Models\GuestReportPurchase;
 use App\Models\Report;
 use App\Models\Vehicle;
@@ -60,11 +61,15 @@ function createPayPalOrderForCaptureControllerTest(
         'status' => $status,
         'purchase_units' => [
             [
-                'reference_id' => (string) $purchase->id,
                 'custom_id' => sprintf(
-                    'guest-report|%d|%d',
-                    $purchase->id,
+                    'guest-report|%s|%d',
+                    $purchase->checkout_reference,
                     $purchase->report_id,
+                ),
+                'invoice_id' => 'UKC-GR-'.str_replace(
+                    '-',
+                    '',
+                    strtoupper((string) $purchase->checkout_reference),
                 ),
                 'payments' => [
                     'captures' => [
@@ -102,6 +107,28 @@ test('paypal capture endpoint captures approved order and verifies completed ord
         ->twice()
         ->with($purchase->provider_order_id)
         ->andReturn($approvedOrder, $completedOrder);
+
+    $payPalService->shouldReceive('prepareGuestReportOrderForCapture')
+        ->once()
+        ->with(
+            Mockery::on(
+                fn ($actualPurchase) => $actualPurchase instanceof GuestReportPurchase
+                    && $actualPurchase->id === $purchase->id
+            ),
+            $approvedOrder,
+        )
+        ->andReturn($approvedOrder);
+
+    $payPalService->shouldReceive('prepareGuestReportOrderForCapture')
+        ->once()
+        ->with(
+            Mockery::on(
+                fn ($actualPurchase) => $actualPurchase instanceof GuestReportPurchase
+                    && $actualPurchase->id === $purchase->id
+            ),
+            $completedOrder,
+        )
+        ->andReturn($completedOrder);
 
     $payPalService->shouldReceive('captureOrder')
         ->once()
@@ -163,6 +190,17 @@ test('paypal capture endpoint does not capture an already completed order again'
         ->with($purchase->provider_order_id)
         ->andReturn($completedOrder);
 
+    $payPalService->shouldReceive('prepareGuestReportOrderForCapture')
+        ->once()
+        ->with(
+            Mockery::on(
+                fn ($actualPurchase) => $actualPurchase instanceof GuestReportPurchase
+                    && $actualPurchase->id === $purchase->id
+            ),
+            $completedOrder,
+        )
+        ->andReturn($completedOrder);
+
     $payPalService->shouldNotReceive('captureOrder');
 
     $paymentService = Mockery::mock(GuestReportPaymentService::class);
@@ -208,6 +246,17 @@ test('paypal capture endpoint rejects an order that is not completed after captu
         ->twice()
         ->andReturn($approvedOrder, $incompleteOrder);
 
+    $payPalService->shouldReceive('prepareGuestReportOrderForCapture')
+        ->once()
+        ->with(
+            Mockery::on(
+                fn ($actualPurchase) => $actualPurchase instanceof GuestReportPurchase
+                    && $actualPurchase->id === $purchase->id
+            ),
+            $approvedOrder,
+        )
+        ->andReturn($approvedOrder);
+
     $payPalService->shouldReceive('captureOrder')
         ->once()
         ->with($purchase->provider_order_id)
@@ -251,6 +300,21 @@ test('paypal capture endpoint rejects an order with mismatched custom ID', funct
 
     $payPalService->shouldNotReceive('captureOrder');
 
+    $payPalService->shouldReceive('prepareGuestReportOrderForCapture')
+        ->once()
+        ->with(
+            Mockery::on(
+                fn ($actualPurchase) => $actualPurchase instanceof GuestReportPurchase
+                    && $actualPurchase->id === $purchase->id
+            ),
+            $order,
+        )
+        ->andThrow(
+            new PayPalGuestOrderMismatchException(
+                'PayPal order identifiers do not match the purchase.',
+            ),
+        );
+
     $paymentService = Mockery::mock(GuestReportPaymentService::class);
     $paymentService->shouldNotReceive('handlePayPalGuestOrder');
 
@@ -285,7 +349,16 @@ test('paypal capture endpoint rejects an order that has not been approved', func
         ->with($purchase->provider_order_id)
         ->andReturn($createdOrder);
 
-    $payPalService->shouldNotReceive('captureOrder');
+    $payPalService->shouldReceive('prepareGuestReportOrderForCapture')
+        ->once()
+        ->with(
+            Mockery::on(
+                fn ($actualPurchase) => $actualPurchase instanceof GuestReportPurchase
+                    && $actualPurchase->id === $purchase->id
+            ),
+            $createdOrder,
+        )
+        ->andReturn($createdOrder);
 
     $paymentService = Mockery::mock(GuestReportPaymentService::class);
     $paymentService->shouldNotReceive('handlePayPalGuestOrder');

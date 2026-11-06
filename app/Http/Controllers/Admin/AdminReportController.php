@@ -31,10 +31,13 @@ class AdminReportController extends Controller
 
         if ($search !== '') {
             $query->where(function ($q) use ($search) {
-                $q->where('vin', 'like', "%{$search}%")
-                    ->orWhereHas('vehicle', function ($vq) use ($search) {
-                        $vq->where('registration_number', 'like', "%{$search}%");
-                    })
+                $q->where('vin', 'like', "%{$search}%");
+                if (ctype_digit($search)) {
+                    $q->orWhere('id', (int) $search);
+                }
+                $q->orWhereHas('vehicle', function ($vq) use ($search) {
+                    $vq->where('registration_number', 'like', "%{$search}%");
+                })
                     ->orWhereHas('vinCheck', function ($vcq) use ($search) {
                         $vcq->where('registration_number', 'like', "%{$search}%")
                             ->orWhere('vin', 'like', "%{$search}%");

@@ -242,6 +242,13 @@ test('guest checkout reuses an open session with its existing valid access token
         'object' => 'checkout.session',
         'url' => 'https://checkout.stripe.com/c/pay/cs_test_guest_existing',
         'status' => 'open',
+        'client_reference_id' => (string) $purchase->checkout_reference,
+        'metadata' => [
+            'purpose' => 'guest_report_purchase',
+            'guest_report_reference' => (string) $purchase->checkout_reference,
+            'guest_report_purchase_id' => (string) $purchase->id,
+            'report_id' => (string) $report->id,
+        ],
         'success_url' => "https://example.com/reports/{$report->id}?checkout=return&guest_token={$token}",
     ];
 
@@ -512,7 +519,10 @@ test('guest checkout creates a new purchase and rotates the access token when th
 
     // Sesi pengganti harus menunjuk purchase dan token baru.
     expect($capturedRequests[2]['params']['client_reference_id'])
-        ->toBe((string) $newPurchase->id);
+        ->toBe((string) $newPurchase->checkout_reference);
+
+    expect($capturedRequests[2]['params']['metadata']['guest_report_reference'])
+        ->toBe((string) $newPurchase->checkout_reference);
 
     expect($capturedRequests[2]['params']['metadata']['guest_report_purchase_id'])
         ->toBe((string) $newPurchase->id);
@@ -718,7 +728,10 @@ test('guest checkout replaces an open session when its access token is invalid',
         ->toContain('/v1/checkout/sessions');
 
     expect($capturedRequests[3]['params']['client_reference_id'])
-        ->toBe((string) $newPurchase->id);
+        ->toBe((string) $newPurchase->checkout_reference);
+
+    expect($capturedRequests[3]['params']['metadata']['guest_report_reference'])
+        ->toBe((string) $newPurchase->checkout_reference);
 
     expect($capturedRequests[3]['params']['metadata']['guest_report_purchase_id'])
         ->toBe((string) $newPurchase->id);
@@ -890,12 +903,13 @@ test('guest checkout retry preserves the same token when saving the Stripe sessi
     // Idempotency key harus identik pada kedua request create.
     $firstHeaders = implode("\n", $firstCreateRequest['headers']);
     $secondHeaders = implode("\n", $secondCreateRequest['headers']);
+    $expectedIdempotencyKey = 'guest-report-checkout-'.$purchase->checkout_reference;
 
     expect($firstHeaders)
-        ->toContain('Idempotency-Key: guest-report-checkout-'.$purchase->id);
+        ->toContain('Idempotency-Key: '.$expectedIdempotencyKey);
 
     expect($secondHeaders)
-        ->toContain('Idempotency-Key: guest-report-checkout-'.$purchase->id);
+        ->toContain('Idempotency-Key: '.$expectedIdempotencyKey);
 
     // Tidak membuat purchase atau access token duplikat.
     $this->assertDatabaseCount('guest_report_purchases', 1);

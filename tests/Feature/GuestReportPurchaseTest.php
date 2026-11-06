@@ -22,6 +22,7 @@ test('guest report purchases table has the expected columns', function () {
         'amount_minor',
         'currency',
         'stripe_price_id',
+        'checkout_reference',
         'provider_order_id',
         'provider_payment_id',
         'paid_at',
@@ -193,6 +194,7 @@ test('guest purchase becomes paid only when the Stripe amount and currency match
 
     $session = (object) [
         'id' => 'cs_test_guest_001',
+        'client_reference_id' => (string) $purchase->checkout_reference,
         'mode' => 'payment',
         'payment_status' => 'paid',
         'amount_total' => 2000,
@@ -200,6 +202,7 @@ test('guest purchase becomes paid only when the Stripe amount and currency match
         'payment_intent' => 'pi_test_guest_001',
         'metadata' => (object) [
             'purpose' => 'guest_report_purchase',
+            'guest_report_reference' => (string) $purchase->checkout_reference,
             'guest_report_purchase_id' => (string) $purchase->id,
             'report_id' => (string) $report->id,
         ],
@@ -254,13 +257,15 @@ test('duplicate successful guest payment webhook does not reset paid time', func
 
     $session = (object) [
         'id' => 'cs_test_guest_002',
+        'client_reference_id' => (string) $purchase->checkout_reference,
         'mode' => 'payment',
         'payment_status' => 'paid',
         'amount_total' => 2000,
         'currency' => 'gbp',
-        'payment_intent' => 'pi_test_guest_002',
+        'payment_intent' => 'pi_test_guest_001',
         'metadata' => (object) [
             'purpose' => 'guest_report_purchase',
+            'guest_report_reference' => (string) $purchase->checkout_reference,
             'guest_report_purchase_id' => (string) $purchase->id,
             'report_id' => (string) $report->id,
         ],
@@ -308,14 +313,16 @@ test('guest purchase rejects a successful Stripe event with a mismatched amount'
     ]);
 
     $session = (object) [
-        'id' => 'cs_test_guest_003',
+        'id' => 'cs_test_guest_001',
+        'client_reference_id' => (string) $purchase->checkout_reference,
         'mode' => 'payment',
         'payment_status' => 'paid',
-        'amount_total' => 500,
+        'amount_total' => 1999,
         'currency' => 'gbp',
-        'payment_intent' => 'pi_test_guest_003',
+        'payment_intent' => 'pi_test_guest_001',
         'metadata' => (object) [
             'purpose' => 'guest_report_purchase',
+            'guest_report_reference' => (string) $purchase->checkout_reference,
             'guest_report_purchase_id' => (string) $purchase->id,
             'report_id' => (string) $report->id,
         ],
@@ -332,4 +339,316 @@ test('guest purchase rejects a successful Stripe event with a mismatched amount'
         );
 
     expect($purchase->fresh()->payment_status)->toBe(GuestReportPurchase::STATUS_PENDING);
+});
+
+test('legacy Stripe guest checkout resolves purchase by numeric ID and becomes paid', function () {
+    Queue::fake();
+
+    $vehicle = Vehicle::create([
+        'registration_number' => 'LEGACY-PAYMENT-001',
+    ]);
+
+    $vinCheck = VinCheck::create([
+        'registration_number' => 'LEGACY-PAYMENT-001',
+        'check_type' => 'free',
+        'status' => 'success',
+        'stage' => 'completed',
+    ]);
+
+    $report = Report::create([
+        'vehicle_id' => $vehicle->id,
+        'vin_check_id' => $vinCheck->id,
+        'report_type' => 'basic',
+    ]);
+
+    $purchase = GuestReportPurchase::create([
+        'report_id' => $report->id,
+        'email' => 'legacy@example.com',
+        'payment_provider' => 'stripe',
+        'payment_status' => GuestReportPurchase::STATUS_PENDING,
+        'amount_minor' => 2000,
+        'currency' => 'gbp',
+    ]);
+
+    $canonicalReference = $purchase->checkout_reference;
+
+    $legacySession = (object) [
+        'id' => 'cs_test_legacy_guest_001',
+        'client_reference_id' => (string) $purchase->id,
+        'mode' => 'payment',
+        'payment_status' => 'paid',
+        'amount_total' => 2000,
+        'currency' => 'gbp',
+        'payment_intent' => 'pi_test_legacy_guest_001',
+        'metadata' => (object) [
+            'purpose' => 'guest_report_purchase',
+            'guest_report_purchase_id' => (string) $purchase->id,
+            'report_id' => (string) $report->id,
+        ],
+    ];
+
+    $becamePaid = app(GuestReportPaymentService::class)
+        ->handleCheckoutSession(
+            $legacySession,
+            'checkout.session.completed',
+        );
+
+    expect($becamePaid)->toBeTrue();
+
+    $purchase->refresh();
+
+    expect($purchase->payment_status)
+        ->toBe(GuestReportPurchase::STATUS_PAID);
+
+    expect($purchase->checkout_reference)
+        ->toBe($canonicalReference);
+
+    expect($purchase->provider_order_id)
+        ->toBe('cs_test_legacy_guest_001');
+
+    expect($purchase->provider_payment_id)
+        ->toBe('pi_test_legacy_guest_001');
+
+    expect($purchase->paid_at)->not->toBeNull();
+
+    expect($purchase->fulfillment_status)
+        ->toBe(GuestReportPurchase::FULFILLMENT_PENDING);
+
+    Queue::assertPushedTimes(ProcessVehicleCheck::class, 1);
+});
+
+test('legacy Stripe guest checkout rejects mismatched numeric client reference', function () {
+    Queue::fake();
+
+    $vehicle = Vehicle::create([
+        'registration_number' => 'LEGACY-PAYMENT-002',
+    ]);
+
+    $report = Report::create([
+        'vehicle_id' => $vehicle->id,
+        'report_type' => 'basic',
+    ]);
+
+    $purchase = GuestReportPurchase::create([
+        'report_id' => $report->id,
+        'email' => 'legacy@example.com',
+        'payment_provider' => 'stripe',
+        'payment_status' => GuestReportPurchase::STATUS_PENDING,
+        'amount_minor' => 2000,
+        'currency' => 'gbp',
+    ]);
+
+    $legacySession = (object) [
+        'id' => 'cs_test_legacy_guest_002',
+        'client_reference_id' => (string) ($purchase->id + 999),
+        'mode' => 'payment',
+        'payment_status' => 'paid',
+        'amount_total' => 2000,
+        'currency' => 'gbp',
+        'payment_intent' => 'pi_test_legacy_guest_002',
+        'metadata' => (object) [
+            'purpose' => 'guest_report_purchase',
+            'guest_report_purchase_id' => (string) $purchase->id,
+            'report_id' => (string) $report->id,
+        ],
+    ];
+
+    expect(fn () => app(GuestReportPaymentService::class)
+        ->handleCheckoutSession(
+            $legacySession,
+            'checkout.session.completed',
+        ))
+        ->toThrow(
+            RuntimeException::class,
+            'Invalid legacy Stripe guest checkout reference.',
+        );
+
+    expect($purchase->fresh()->payment_status)
+        ->toBe(GuestReportPurchase::STATUS_PENDING);
+
+    expect($purchase->fresh()->provider_order_id)->toBeNull();
+
+    Queue::assertNothingPushed();
+});
+
+test('duplicate legacy Stripe checkout webhook does not queue fulfillment twice', function () {
+    Queue::fake();
+
+    $vehicle = Vehicle::create([
+        'registration_number' => 'LEGACY-PAYMENT-003',
+    ]);
+
+    $vinCheck = VinCheck::create([
+        'registration_number' => 'LEGACY-PAYMENT-003',
+        'check_type' => 'free',
+        'status' => 'success',
+        'stage' => 'completed',
+    ]);
+
+    $report = Report::create([
+        'vehicle_id' => $vehicle->id,
+        'vin_check_id' => $vinCheck->id,
+        'report_type' => 'basic',
+    ]);
+
+    $purchase = GuestReportPurchase::create([
+        'report_id' => $report->id,
+        'email' => 'legacy@example.com',
+        'payment_provider' => 'stripe',
+        'payment_status' => GuestReportPurchase::STATUS_PENDING,
+        'amount_minor' => 2000,
+        'currency' => 'gbp',
+    ]);
+
+    $session = (object) [
+        'id' => 'cs_test_legacy_guest_003',
+        'client_reference_id' => (string) $purchase->id,
+        'mode' => 'payment',
+        'payment_status' => 'paid',
+        'amount_total' => 2000,
+        'currency' => 'gbp',
+        'payment_intent' => 'pi_test_legacy_guest_003',
+        'metadata' => (object) [
+            'purpose' => 'guest_report_purchase',
+            'guest_report_purchase_id' => (string) $purchase->id,
+            'report_id' => (string) $report->id,
+        ],
+    ];
+
+    $service = app(GuestReportPaymentService::class);
+
+    expect($service->handleCheckoutSession(
+        $session,
+        'checkout.session.completed',
+    ))->toBeTrue();
+
+    $originalPaidAt = $purchase->fresh()->paid_at;
+
+    expect($service->handleCheckoutSession(
+        $session,
+        'checkout.session.completed',
+    ))->toBeFalse();
+
+    expect($purchase->fresh()->payment_status)
+        ->toBe(GuestReportPurchase::STATUS_PAID);
+
+    expect($purchase->fresh()->paid_at->equalTo($originalPaidAt))
+        ->toBeTrue();
+
+    expect($purchase->fresh()->checkout_reference)
+        ->not->toBeEmpty();
+
+    Queue::assertPushedTimes(ProcessVehicleCheck::class, 1);
+});
+
+test('legacy Stripe checkout rejects malformed UUID instead of falling back to numeric ID', function () {
+    Queue::fake();
+
+    $vehicle = Vehicle::create([
+        'registration_number' => 'LEGACY-PAYMENT-004',
+    ]);
+
+    $report = Report::create([
+        'vehicle_id' => $vehicle->id,
+        'report_type' => 'basic',
+    ]);
+
+    $purchase = GuestReportPurchase::create([
+        'report_id' => $report->id,
+        'email' => 'legacy@example.com',
+        'payment_provider' => 'stripe',
+        'payment_status' => GuestReportPurchase::STATUS_PENDING,
+        'amount_minor' => 2000,
+        'currency' => 'gbp',
+    ]);
+
+    $session = (object) [
+        'id' => 'cs_test_legacy_guest_004',
+        'client_reference_id' => (string) $purchase->id,
+        'mode' => 'payment',
+        'payment_status' => 'paid',
+        'amount_total' => 2000,
+        'currency' => 'gbp',
+        'metadata' => (object) [
+            'purpose' => 'guest_report_purchase',
+            'guest_report_reference' => 'not-a-valid-uuid',
+            'guest_report_purchase_id' => (string) $purchase->id,
+            'report_id' => (string) $report->id,
+        ],
+    ];
+
+    expect(fn () => app(GuestReportPaymentService::class)
+        ->handleCheckoutSession(
+            $session,
+            'checkout.session.completed',
+        ))
+        ->toThrow(
+            RuntimeException::class,
+            'Invalid guest report checkout reference.',
+        );
+
+    expect($purchase->fresh()->payment_status)
+        ->toBe(GuestReportPurchase::STATUS_PENDING);
+
+    Queue::assertNothingPushed();
+});
+
+test('legacy Stripe checkout rejects mismatched report metadata', function () {
+    Queue::fake();
+
+    $vehicle = Vehicle::create([
+        'registration_number' => 'LEGACY-PAYMENT-005',
+    ]);
+
+    $report = Report::create([
+        'vehicle_id' => $vehicle->id,
+        'report_type' => 'basic',
+    ]);
+
+    $otherVehicle = Vehicle::create([
+        'registration_number' => 'LEGACY-PAYMENT-006',
+    ]);
+
+    $otherReport = Report::create([
+        'vehicle_id' => $otherVehicle->id,
+        'report_type' => 'basic',
+    ]);
+
+    $purchase = GuestReportPurchase::create([
+        'report_id' => $report->id,
+        'email' => 'legacy@example.com',
+        'payment_provider' => 'stripe',
+        'payment_status' => GuestReportPurchase::STATUS_PENDING,
+        'amount_minor' => 2000,
+        'currency' => 'gbp',
+    ]);
+
+    $session = (object) [
+        'id' => 'cs_test_legacy_guest_005',
+        'client_reference_id' => (string) $purchase->id,
+        'mode' => 'payment',
+        'payment_status' => 'paid',
+        'amount_total' => 2000,
+        'currency' => 'gbp',
+        'metadata' => (object) [
+            'purpose' => 'guest_report_purchase',
+            'guest_report_purchase_id' => (string) $purchase->id,
+            'report_id' => (string) $otherReport->id,
+        ],
+    ];
+
+    expect(fn () => app(GuestReportPaymentService::class)
+        ->handleCheckoutSession(
+            $session,
+            'checkout.session.completed',
+        ))
+        ->toThrow(
+            RuntimeException::class,
+            'Guest checkout report metadata does not match the purchase.',
+        );
+
+    expect($purchase->fresh()->payment_status)
+        ->toBe(GuestReportPurchase::STATUS_PENDING);
+
+    Queue::assertNothingPushed();
 });

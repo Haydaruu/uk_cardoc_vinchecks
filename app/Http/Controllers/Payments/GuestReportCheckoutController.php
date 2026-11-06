@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Payments;
 
+use App\Exceptions\PayPalGuestOrderMismatchException;
 use App\Http\Controllers\Controller;
 use App\Models\GuestReportPurchase;
 use App\Models\Report;
@@ -116,30 +117,23 @@ class GuestReportCheckoutController extends Controller
             $purchase = $prepared['purchase'];
 
             // Reuse the existing order for a retry, rather than creating duplicates.
+
+            // Reuse and safely migrate an existing order for checkout retries.
             if ($purchase->provider_order_id) {
                 $existingOrder = $payPalService->getOrder(
                     $purchase->provider_order_id,
                 );
 
-                $expectedCustomId = sprintf(
-                    'guest-report|%d|%d',
-                    $purchase->id,
-                    $purchase->report_id,
-                );
-
-                $existingCustomId = data_get(
+                $existingOrder = $payPalService->prepareGuestReportOrderForCapture(
+                    $purchase,
                     $existingOrder,
-                    'purchase_units.0.custom_id',
                 );
 
-                if (
-                    $existingCustomId !== $expectedCustomId
-                    || ! in_array(
-                        $existingOrder['status'] ?? null,
-                        ['CREATED', 'APPROVED'],
-                        true,
-                    )
-                ) {
+                if (! in_array(
+                    $existingOrder['status'] ?? null,
+                    ['CREATED', 'APPROVED'],
+                    true,
+                )) {
                     throw new RuntimeException(
                         'The existing PayPal order cannot be resumed. Please contact support.',
                     );
@@ -199,20 +193,10 @@ class GuestReportCheckoutController extends Controller
 
             $stage = 'validate_order';
 
-            $expectedCustomId = sprintf(
-                'guest-report|%d|%d',
-                $purchase->id,
-                $purchase->report_id,
+            $order = $payPalService->prepareGuestReportOrderForCapture(
+                $purchase,
+                $order,
             );
-
-            if (
-                ($order['id'] ?? null) !== $orderId
-                || data_get($order, 'purchase_units.0.custom_id') !== $expectedCustomId
-            ) {
-                return response()->json([
-                    'message' => 'PayPal order validation failed.',
-                ], 403);
-            }
 
             if (($order['status'] ?? null) === 'APPROVED') {
                 $stage = 'capture_order';
@@ -220,9 +204,16 @@ class GuestReportCheckoutController extends Controller
                 // Execute the capture on PayPal.
                 $payPalService->captureOrder($orderId);
 
-                // Retrieve the canonical order after capture.
                 $stage = 'verify_capture';
+
                 $order = $payPalService->getOrder($orderId);
+
+                if (($order['status'] ?? null) === 'COMPLETED') {
+                    $order = $payPalService->prepareGuestReportOrderForCapture(
+                        $purchase,
+                        $order,
+                    );
+                }
             } elseif (($order['status'] ?? null) !== 'COMPLETED') {
                 return response()->json([
                     'message' => 'PayPal order has not been approved.',
@@ -251,6 +242,18 @@ class GuestReportCheckoutController extends Controller
                     'guest_token' => $guestToken,
                 ]),
             ]);
+        } catch (PayPalGuestOrderMismatchException $exception) {
+            Log::warning('PayPal guest report order validation failed.', [
+                'purchase_id' => $purchase->id,
+                'order_id' => $orderId,
+                'stage' => $stage,
+                'exception' => $exception::class,
+            ]);
+
+            return response()->json([
+                'message' => 'PayPal order validation failed.',
+            ], 403);
+
         } catch (RuntimeException $exception) {
             Log::warning('PayPal guest report capture failed.', [
                 'purchase_id' => $purchase->id,

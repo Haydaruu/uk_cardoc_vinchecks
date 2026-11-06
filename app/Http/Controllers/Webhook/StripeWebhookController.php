@@ -88,30 +88,14 @@ class StripeWebhookController extends Controller
 
             if ($purpose === 'guest_report_purchase') {
                 try {
-                    $paymentChanged = $guestReportPaymentService->handleCheckoutSession(
+                    $guestReportPaymentService->handleCheckoutSession(
                         $session,
                         $event->type,
                     );
-
-                    if ($paymentChanged && ($session->payment_status ?? null) === 'paid') {
-                        $amount = number_format(
-                            ((int) ($session->amount_total ?? 0)) / 100,
-                            2,
-                            '.',
-                            ','
-                        );
-
-                        SendTelegramSaleNotification::dispatch(
-                            'Guest vehicle report',
-                            'Stripe',
-                            (string) $session->id,
-                            strtoupper((string) ($session->currency ?? 'GBP')).' '.$amount,
-                        )->afterCommit();
-                    }
                 } catch (\Throwable $exception) {
                     Log::error('Failed to process guest report Stripe webhook.', [
                         'event_id' => $event->id ?? null,
-                        'purchase_id' => $session->metadata->guest_report_purchase_id ?? null,
+                        'checkout_reference' => $session->metadata->guest_report_reference ?? null,
                         'exception' => $exception::class,
                         'message' => $exception->getMessage(),
                         'file' => $exception->getFile(),

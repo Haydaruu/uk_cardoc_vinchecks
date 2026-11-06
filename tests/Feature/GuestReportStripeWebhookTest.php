@@ -93,12 +93,7 @@ it('routes guest report checkout events to the guest payment service', function 
         $secret
     );
 
-    Queue::assertPushed(
-        SendTelegramSaleNotification::class,
-        fn (SendTelegramSaleNotification $job): bool => $job->saleType === 'Guest vehicle report'
-            && $job->paymentProvider === 'Stripe'
-            && $job->reference === 'cs_test_guest_report'
-    );
+    Queue::assertNotPushed(SendTelegramSaleNotification::class);
 
     $response
         ->assertOk()

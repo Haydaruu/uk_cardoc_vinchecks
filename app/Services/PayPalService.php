@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Exceptions\PayPalGuestOrderMismatchException;
 use App\Models\GuestReportPurchase;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -123,14 +124,28 @@ class PayPalService
 
         $currency = strtoupper($purchase->currency);
 
+        $checkoutReference = (string) $purchase->checkout_reference;
+
+        if (! Str::isUuid($checkoutReference)) {
+            throw new RuntimeException(
+                'Invalid guest report checkout reference.',
+            );
+        }
+
         $customId = sprintf(
-            'guest-report|%d|%d',
-            $purchase->id,
+            'guest-report|%s|%d',
+            $checkoutReference,
             $purchase->report_id,
         );
 
-        // Stable ID makes retries idempotent for this purchase.
-        $requestId = 'guest-report-'.$purchase->id;
+        $invoiceId = 'UKC-GR-'.str_replace(
+            '-',
+            '',
+            strtoupper($checkoutReference),
+        );
+
+        // Stable idempotency key: retries for this purchase reuse the same key.
+        $requestId = 'guest-report-order-'.$checkoutReference;
 
         $response = Http::withToken($this->accessToken())
             ->acceptJson()
@@ -143,9 +158,10 @@ class PayPalService
 
                 'purchase_units' => [
                     [
+                        // Retained as the purchase-unit reference, not the payment identity.
                         'reference_id' => (string) $purchase->id,
                         'custom_id' => $customId,
-                        'invoice_id' => 'UKC-GR-'.$purchase->id,
+                        'invoice_id' => $invoiceId,
                         'description' => 'UKCarDoc Full Vehicle Report',
 
                         'amount' => [
@@ -173,6 +189,209 @@ class PayPalService
         return $order;
     }
 
+    /**
+     * Update legacy guest report identifiers before capturing an order.
+     *
+     * Only call this after the controller has verified that the order belongs
+     * to the expected local purchase and is still CREATED or APPROVED.
+     */
+    public function updateGuestReportOrderIdentifiers(
+        string $orderId,
+        string $referenceId,
+        string $customId,
+        string $invoiceId,
+    ): void {
+        if (! ctype_digit($referenceId)) {
+            throw new RuntimeException(
+                'Invalid PayPal purchase unit reference.',
+            );
+        }
+
+        $purchaseUnitPath = "/purchase_units/@reference_id=='{$referenceId}'";
+
+        $response = Http::withToken($this->accessToken())
+            ->acceptJson()
+            ->patch(
+                $this->baseUrl()."/v2/checkout/orders/{$orderId}",
+                [
+                    [
+                        'op' => 'replace',
+                        'path' => $purchaseUnitPath.'/custom_id',
+                        'value' => $customId,
+                    ],
+                    [
+                        'op' => 'replace',
+                        'path' => $purchaseUnitPath.'/invoice_id',
+                        'value' => $invoiceId,
+                    ],
+                ],
+            );
+
+        if ($response->failed()) {
+            throw new RuntimeException(
+                'Unable to update PayPal guest report order identifiers.',
+            );
+        }
+    }
+
+    /**
+     * Validate a guest report order and migrate legacy identifiers when possible.
+     *
+     * A completed legacy order is not modified. It remains eligible for the
+     * backward-compatible payment processing path.
+     *
+     * @param  array<string, mixed>  $order
+     * @return array<string, mixed>
+     */
+    public function prepareGuestReportOrderForCapture(
+        GuestReportPurchase $purchase,
+        array $order,
+    ): array {
+        $checkoutReference = (string) $purchase->checkout_reference;
+
+        if (
+            $purchase->payment_provider !== 'paypal'
+            || ! Str::isUuid($checkoutReference)
+            || ! is_string($purchase->provider_order_id)
+            || $purchase->provider_order_id === ''
+        ) {
+            throw new RuntimeException('Invalid local PayPal guest purchase.');
+        }
+
+        $expectedCustomId = sprintf(
+            'guest-report|%s|%d',
+            $checkoutReference,
+            $purchase->report_id,
+        );
+
+        $legacyCustomId = sprintf(
+            'guest-report|%d|%d',
+            $purchase->id,
+            $purchase->report_id,
+        );
+
+        $expectedInvoiceId = 'UKC-GR-'.str_replace(
+            '-',
+            '',
+            strtoupper($checkoutReference),
+        );
+
+        $legacyInvoiceId = 'UKC-GR-'.$purchase->id;
+
+        $expectedAmount = number_format(
+            $purchase->amount_minor / 100,
+            2,
+            '.',
+            '',
+        );
+
+        $expectedCurrency = strtoupper($purchase->currency);
+
+        $validateOrder = function (array $candidate) use (
+            $purchase,
+            $expectedCustomId,
+            $legacyCustomId,
+            $expectedInvoiceId,
+            $legacyInvoiceId,
+            $expectedAmount,
+            $expectedCurrency,
+        ): void {
+            $orderId = $candidate['id'] ?? null;
+            $status = $candidate['status'] ?? null;
+            $unit = $candidate['purchase_units'][0] ?? null;
+
+            if (
+                ! is_string($orderId)
+                || $orderId !== $purchase->provider_order_id
+                || ! is_array($unit)
+                || (string) ($unit['reference_id'] ?? '') !== (string) $purchase->id
+            ) {
+                throw new PayPalGuestOrderMismatchException(
+                    'PayPal order does not belong to this guest purchase.',
+                );
+            }
+
+            if (! in_array($status, ['CREATED', 'APPROVED', 'COMPLETED'], true)) {
+                throw new RuntimeException(
+                    'PayPal guest order has an unsupported status.',
+                );
+            }
+
+            $customId = $unit['custom_id'] ?? null;
+            $invoiceId = $unit['invoice_id'] ?? null;
+
+            if (
+                ! in_array($customId, [$expectedCustomId, $legacyCustomId], true)
+                || ! in_array($invoiceId, [$expectedInvoiceId, $legacyInvoiceId], true)
+            ) {
+                throw new PayPalGuestOrderMismatchException(
+                    'PayPal guest order identifiers do not match the purchase.',
+                );
+            }
+
+            $amount = $unit['amount']['value'] ?? null;
+            $currency = strtoupper(
+                is_string($unit['amount']['currency_code'] ?? null)
+                    ? $unit['amount']['currency_code']
+                    : '',
+            );
+
+            if (
+                ! is_string($amount)
+                || $amount !== $expectedAmount
+                || $currency !== $expectedCurrency
+            ) {
+                throw new RuntimeException(
+                    'PayPal order amount or currency does not match the purchase.',
+                );
+            }
+        };
+
+        // Validate ownership, identifiers, amount and currency before any PATCH.
+        $validateOrder($order);
+
+        $unit = $order['purchase_units'][0];
+        $isAlreadyMigrated = (
+            ($unit['custom_id'] ?? null) === $expectedCustomId
+            && ($unit['invoice_id'] ?? null) === $expectedInvoiceId
+        );
+
+        if ($isAlreadyMigrated) {
+            return $order;
+        }
+
+        // Completed orders cannot be modified. Preserve them for legacy processing.
+        if (($order['status'] ?? null) === 'COMPLETED') {
+            return $order;
+        }
+
+        // Only CREATED and APPROVED orders may reach the migration PATCH.
+        $this->updateGuestReportOrderIdentifiers(
+            orderId: $purchase->provider_order_id,
+            referenceId: (string) $purchase->id,
+            customId: $expectedCustomId,
+            invoiceId: $expectedInvoiceId,
+        );
+
+        // Never assume PATCH succeeded. Retrieve and validate the canonical order.
+        $updatedOrder = $this->getOrder($purchase->provider_order_id);
+
+        $validateOrder($updatedOrder);
+
+        $updatedUnit = $updatedOrder['purchase_units'][0] ?? [];
+
+        if (
+            ($updatedUnit['custom_id'] ?? null) !== $expectedCustomId
+            || ($updatedUnit['invoice_id'] ?? null) !== $expectedInvoiceId
+        ) {
+            throw new PayPalGuestOrderMismatchException(
+                'PayPal guest order identifier migration could not be verified.',
+            );
+        }
+
+        return $updatedOrder;
+    }
+
     /** @return array<string, mixed> */
     public function getOrder(string $orderId): array
     {
@@ -181,7 +400,18 @@ class PayPalService
             ->get($this->baseUrl()."/v2/checkout/orders/{$orderId}");
 
         if ($response->failed()) {
-            throw new RuntimeException('Unable to retrieve PayPal order. ');
+            $errorName = $response->json('name') ?? 'UNKNOWN';
+            $errorMessage = $response->json('message') ?? 'No error message returned';
+
+            $debugId = $response->header('PayPal-Debug-Id');
+
+            throw new RuntimeException(sprintf(
+                'Unable to retrieve PayPal order. HTTP %d | %s | %s | Debug ID: %s',
+                $response->status(),
+                $errorName,
+                $errorMessage,
+                $debugId !== '' ? $debugId : 'Unavailable',
+            ));
         }
 
         return $response->json();

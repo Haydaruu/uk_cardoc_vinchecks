@@ -37,6 +37,7 @@ class GuestReportCheckoutSuccessController extends Controller
 
         $purchase = GuestReportPurchase::query()
             ->with('report')
+            ->where('payment_provider', 'stripe')
             ->where('provider_order_id', $sessionId)
             ->firstOrFail();
 
@@ -74,16 +75,62 @@ class GuestReportCheckoutSuccessController extends Controller
             );
         }
 
+        $metadataReference = data_get(
+            $session,
+            'metadata.guest_report_reference',
+        );
+
+        $metadataPurchaseId = data_get(
+            $session,
+            'metadata.guest_report_purchase_id',
+        );
+
+        $clientReferenceId = $session->client_reference_id ?? null;
+
+        // Current UUID-based checkout.
+        $currentReferenceMatches =
+            is_string($metadataReference)
+            && preg_match(
+                '/\A[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\z/i',
+                $metadataReference,
+            ) === 1
+            && is_string($clientReferenceId)
+            && hash_equals(
+                (string) $purchase->checkout_reference,
+                $metadataReference,
+            )
+            && hash_equals(
+                (string) $purchase->checkout_reference,
+                $clientReferenceId,
+            );
+
+        // Legacy numeric purchase ID checkout.
+        // Only accept when the UUID metadata is genuinely absent.
+        $legacyReferenceMatches =
+            $metadataReference === null
+            && is_string($metadataPurchaseId)
+            && ctype_digit($metadataPurchaseId)
+            && is_string($clientReferenceId)
+            && ctype_digit($clientReferenceId)
+            && hash_equals(
+                (string) $purchase->id,
+                $metadataPurchaseId,
+            )
+            && hash_equals(
+                (string) $purchase->id,
+                $clientReferenceId,
+            );
+
         $sessionMatchesPurchase =
             $session->id === $sessionId
             && $session->status === 'complete'
             && $session->mode === 'payment'
-            && (string) ($session->client_reference_id ?? '')
-                === (string) $purchase->id
             && (string) data_get($session, 'metadata.purpose')
                 === 'guest_report_purchase'
-            && (string) data_get($session, 'metadata.guest_report_purchase_id')
-                === (string) $purchase->id
+            && (
+                $currentReferenceMatches
+                || $legacyReferenceMatches
+            )
             && (string) data_get($session, 'metadata.report_id')
                 === (string) $purchase->report_id;
 

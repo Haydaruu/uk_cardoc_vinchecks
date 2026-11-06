@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Str;
 
 class GuestReportPurchase extends Model
 {
@@ -37,6 +38,7 @@ class GuestReportPurchase extends Model
         'payment_status',
         'amount_minor',
         'currency',
+        'checkout_reference',
         'stripe_price_id',
         'payment_provider',
         'provider_order_id',
@@ -62,6 +64,15 @@ class GuestReportPurchase extends Model
         'fulfillment_started_at' => 'datetime',
         'fulfilled_at' => 'datetime',
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function (GuestReportPurchase $purchase): void {
+            if (! $purchase->checkout_reference) {
+                $purchase->checkout_reference = (string) Str::uuid();
+            }
+        });
+    }
 
     /**
      * @return BelongsTo<Report, $this>

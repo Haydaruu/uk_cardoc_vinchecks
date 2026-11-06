@@ -27,6 +27,9 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
+        // Trust Ngrok proxy headers so Laravel recognizes HTTPS requests.
+        $middleware->trustProxies(at: '*');
+
         $middleware->validateCsrfTokens(except: [
             'stripe/webhook',
             'paypal/webhook',

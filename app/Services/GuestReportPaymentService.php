@@ -7,6 +7,7 @@ use App\Jobs\SendTelegramSaleNotification;
 use App\Models\GuestReportPurchase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use RuntimeException;
 
 class GuestReportPaymentService
@@ -22,15 +23,24 @@ class GuestReportPaymentService
             throw new RuntimeException('This is not a guest report purchase session.');
         }
 
-        $purchaseId = filter_var($metadata->guest_report_purchase_id ?? null, FILTER_VALIDATE_INT);
+        $metadata = $session->metadata ?? null;
 
-        if (! $purchaseId || ($session->mode ?? null) !== 'payment') {
-            throw new RuntimeException('Invalid guest report checkout metadata.');
+        if (($metadata->purpose ?? null) !== 'guest_report_purchase') {
+            throw new RuntimeException('This is not a guest report purchase session.');
         }
 
-        $reportId = filter_var($metadata->report_id ?? null, FILTER_VALIDATE_INT);
+        if (($session->mode ?? null) !== 'payment') {
+            throw new RuntimeException('Invalid guest report checkout mode.');
+        }
 
-        if (! $reportId) {
+        $checkoutReference = $metadata->guest_report_reference ?? null;
+
+        $reportId = filter_var(
+            $metadata->report_id ?? null,
+            FILTER_VALIDATE_INT,
+        );
+
+        if (! $reportId || $reportId < 1) {
             throw new RuntimeException('Missing report ID in guest checkout metadata.');
         }
 
@@ -39,6 +49,62 @@ class GuestReportPaymentService
         if (! is_string($sessionId) || $sessionId === '') {
             throw new RuntimeException('Missing Stripe Checkout Session ID.');
         }
+
+        $clientReferenceId = $session->client_reference_id ?? null;
+
+        if (! is_string($clientReferenceId) || $clientReferenceId === '') {
+            throw new RuntimeException('Missing Stripe Checkout client reference.');
+        }
+
+        if (
+            is_string($checkoutReference)
+            && preg_match(
+                '/\A[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\z/i',
+                $checkoutReference,
+            ) === 1
+        ) {
+            // Current checkout: UUID is the primary payment identity.
+            if (! hash_equals($checkoutReference, $clientReferenceId)) {
+                throw new RuntimeException(
+                    'Stripe Checkout Session reference does not match metadata.',
+                );
+            }
+
+            $purchase = GuestReportPurchase::query()
+                ->where('checkout_reference', $checkoutReference)
+                ->firstOrFail();
+        } elseif ($checkoutReference === null) {
+            // Legacy checkout: resolve using the original numeric purchase ID.
+            $legacyPurchaseId = filter_var(
+                $metadata->guest_report_purchase_id ?? null,
+                FILTER_VALIDATE_INT,
+            );
+
+            if (
+                ! is_int($legacyPurchaseId)
+                || $legacyPurchaseId < 1
+                || ! hash_equals(
+                    (string) $legacyPurchaseId,
+                    $clientReferenceId,
+                )
+            ) {
+                throw new RuntimeException(
+                    'Invalid legacy Stripe guest checkout reference.',
+                );
+            }
+
+            $purchase = GuestReportPurchase::query()
+                ->findOrFail($legacyPurchaseId);
+        } else {
+            // A malformed UUID must never fall back to the legacy identity.
+            throw new RuntimeException('Invalid guest report checkout reference.');
+        }
+
+        // Keep the current UUID as the canonical local identity,
+        // including when processing a legacy Stripe session.
+        $canonicalCheckoutReference = (string) $purchase->checkout_reference;
+
+        $purchaseId = (int) $purchase->id;
 
         $paymentIntent = $session->payment_intent ?? null;
 
@@ -59,6 +125,7 @@ class GuestReportPaymentService
             $purchaseId,
             $reportId,
             $sessionId,
+            $canonicalCheckoutReference,
             $paymentIntentId,
             $successfulEvents,
             $failedEvents,
@@ -66,6 +133,21 @@ class GuestReportPaymentService
             $purchase = GuestReportPurchase::query()
                 ->lockForUpdate()
                 ->findOrFail($purchaseId);
+
+            if (
+                ! hash_equals(
+                    (string) $purchase->checkout_reference,
+                    $canonicalCheckoutReference,
+                )
+            ) {
+                Log::critical('Stripe guest checkout reference mismatch.', [
+                    'purchase_id' => $purchase->id,
+                ]);
+
+                throw new RuntimeException(
+                    'Stripe checkout reference does not match the purchase.',
+                );
+            }
 
             // Memastikan event Stripe tidak memperbarui pembelian dari provider lain (misal: PayPal)
             if ($purchase->payment_provider !== 'stripe') {
@@ -234,6 +316,21 @@ class GuestReportPaymentService
             }
         }
 
+        // Notify Telegram only when the guest payment is first confirmed.
+        if (
+            $paymentChanged
+            && ($session->payment_status ?? null) === 'paid'
+        ) {
+            $purchase = GuestReportPurchase::query()
+                ->with('report')
+                ->findOrFail($purchaseId);
+
+            $this->dispatchGuestReportSaleNotification(
+                $purchase,
+                'Stripe',
+            );
+        }
+
         return $paymentChanged;
     }
 
@@ -259,14 +356,20 @@ class GuestReportPaymentService
         if (
             count($parts) !== 3
             || $parts[0] !== 'guest-report'
-            || ! ctype_digit($parts[1])
             || ! ctype_digit($parts[2])
         ) {
             throw new RuntimeException('Invalid PayPal guest order metadata.');
         }
 
-        $purchaseId = (int) $parts[1];
+        $purchaseReference = $parts[1];
         $reportId = (int) $parts[2];
+
+        $isUuidReference = Str::isUuid($purchaseReference);
+        $isLegacyNumericReference = ctype_digit($purchaseReference);
+
+        if (! $isUuidReference && ! $isLegacyNumericReference) {
+            throw new RuntimeException('Invalid PayPal guest purchase reference.');
+        }
 
         $purchaseUnit = $order['purchase_units'][0] ?? null;
         $capture = $purchaseUnit['payments']['captures'][0] ?? null;
@@ -287,9 +390,23 @@ class GuestReportPaymentService
                 : ''
         );
 
-        $purchase = GuestReportPurchase::query()
-            ->with('report')
-            ->findOrFail($purchaseId);
+        $purchaseQuery = GuestReportPurchase::query()
+            ->with('report');
+
+        if ($isUuidReference) {
+            $purchaseQuery->where(
+                'checkout_reference',
+                $purchaseReference,
+            );
+        } else {
+            // Backward compatibility for existing PayPal orders.
+            $purchaseQuery->whereKey((int) $purchaseReference);
+        }
+
+        $purchase = $purchaseQuery->firstOrFail();
+
+        // Continue using the local database ID for fulfillment and locking.
+        $purchaseId = (int) $purchase->id;
 
         if (
             $purchase->payment_provider !== 'paypal'
@@ -432,8 +549,51 @@ class GuestReportPaymentService
             );
         }
 
-        // Notify Telegram only when the payment is first confirmed.
+        // Notify Telegram only when the guest payment is first confirmed.
         if ($result['payment_changed']) {
+            $purchase = GuestReportPurchase::query()
+                ->with('report')
+                ->findOrFail($purchaseId);
+
+            $this->dispatchGuestReportSaleNotification(
+                $purchase,
+                'PayPal',
+            );
+        }
+
+        return $result['payment_changed'];
+    }
+
+    private function dispatchGuestReportSaleNotification(
+        GuestReportPurchase $purchase,
+        string $provider,
+    ): void {
+        try {
+            $purchase->loadMissing('report');
+
+            if (! $purchase->report) {
+                throw new RuntimeException(
+                    'Guest report is missing for Telegram notification.'
+                );
+            }
+
+            $reference = $purchase->provider_payment_id
+                ?: $purchase->provider_order_id;
+
+            if (! is_string($reference) || $reference === '') {
+                throw new RuntimeException(
+                    'Guest report payment reference is missing.'
+                );
+            }
+
+            // Ensure the report access token exists before building its URL.
+            $guestToken = app(GuestReportCheckoutService::class)
+                ->guestAccessToken($purchase);
+
+            $reportUrl = route('admin.reports.index', [
+                'search' => (string) $purchase->report_id,
+            ]);
+
             $amount = number_format(
                 $purchase->amount_minor / 100,
                 2,
@@ -442,13 +602,23 @@ class GuestReportPaymentService
             );
 
             SendTelegramSaleNotification::dispatch(
-                'Guest vehicle report',
-                'PayPal',
-                (string) $captureId,
+                'Guest Report',
+                $provider,
+                $reference,
                 strtoupper((string) $purchase->currency).' '.$amount,
+                (int) $purchase->id,
+                (string) $purchase->name,
+                (string) $purchase->phone,
+                $reportUrl,
             )->afterCommit();
+        } catch (\Throwable $exception) {
+            // Do not turn a confirmed payment into a failed webhook response.
+            Log::error('Failed to queue guest report Telegram notification.', [
+                'purchase_id' => $purchase->id,
+                'provider' => $provider,
+                'exception' => $exception::class,
+                'message' => $exception->getMessage(),
+            ]);
         }
-
-        return $result['payment_changed'];
     }
 }

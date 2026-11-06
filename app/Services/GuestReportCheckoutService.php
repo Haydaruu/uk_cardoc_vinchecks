@@ -145,12 +145,31 @@ class GuestReportCheckoutService
                             )
                             ->whereNull('revoked_at')
                             ->exists();
+                    $sessionCheckoutReference = (string) (
+                        $existingSession->client_reference_id ?? ''
+                    );
+
+                    $sessionMetadataReference = (string) data_get(
+                        $existingSession,
+                        'metadata.guest_report_reference',
+                    );
+
+                    $existingSessionMatchesPurchase =
+                        hash_equals(
+                            (string) $purchase->checkout_reference,
+                            $sessionCheckoutReference,
+                        )
+                        && hash_equals(
+                            (string) $purchase->checkout_reference,
+                            $sessionMetadataReference,
+                        );
 
                     if (
                         is_string($existingSession->url)
                         && $existingSession->url !== ''
                         && $sessionAccessTokenIsValid
                         && $sessionUsesCurrentSuccessPath
+                        && $existingSessionMatchesPurchase
                     ) {
                         return [
                             'purchase' => $purchase,
@@ -254,6 +273,8 @@ class GuestReportCheckoutService
 
             $metadata = [
                 'purpose' => 'guest_report_purchase',
+                'guest_report_reference' => (string) $purchase->checkout_reference,
+                // Informational only. Never use this as the payment identity.
                 'guest_report_purchase_id' => (string) $purchase->id,
                 'report_id' => (string) $report->id,
             ];
@@ -262,7 +283,7 @@ class GuestReportCheckoutService
                 $session = $stripe->checkout->sessions->create([
                     'mode' => 'payment',
                     'customer_email' => $purchase->email,
-                    'client_reference_id' => (string) $purchase->id,
+                    'client_reference_id' => (string) $purchase->checkout_reference,
                     'line_items' => [
                         [
                             'price' => $price->id,
@@ -279,7 +300,7 @@ class GuestReportCheckoutService
                     ),
                     'cancel_url' => $cancelUrl,
                 ], [
-                    'idempotency_key' => 'guest-report-checkout-'.$purchase->id,
+                    'idempotency_key' => 'guest-report-checkout-'.$purchase->checkout_reference,
                 ]);
             } catch (Throwable $exception) {
                 Log::error('Could not create guest Checkout Session.', [

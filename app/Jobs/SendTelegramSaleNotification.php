@@ -27,6 +27,10 @@ class SendTelegramSaleNotification implements ShouldBeUnique, ShouldQueue
         public string $paymentProvider,
         public string $reference,
         public string $amount,
+        public ?int $purchaseId = null,
+        public ?string $customerName = null,
+        public ?string $customerPhone = null,
+        public ?string $reportUrl = null,
     ) {}
 
     public function uniqueId(): string
@@ -36,15 +40,35 @@ class SendTelegramSaleNotification implements ShouldBeUnique, ShouldQueue
 
     public function handle(TelegramNotificationService $telegram): void
     {
-        $message = implode("\n", [
-            'NEW VINCheck SALE',
-            '',
-            'Type: '.$this->saleType,
-            'Payment: '.$this->paymentProvider,
-            'Reference: '.$this->reference,
-            'Amount: '.$this->amount,
-            'Status: Paid',
-        ]);
+        if ($this->purchaseId !== null) {
+            $message = implode("\n", [
+                'NEW VINCheck SALE',
+                '',
+                'Type: '.$this->saleType,
+                'Payment: '.$this->paymentProvider,
+                'Reference: '.$this->reference,
+                'Amount: '.$this->amount,
+                'Payment Status: Success',
+                '',
+                'Customer Details',
+                'ID: '.$this->purchaseId,
+                'Name: '.($this->customerName ?? '-'),
+                'Phone: '.($this->customerPhone ?? '-'),
+                '',
+                'View Report: '.($this->reportUrl ?? '-'),
+            ]);
+        } else {
+            // Keep the existing format for credit purchases and subscriptions.
+            $message = implode("\n", [
+                'NEW VINCheck SALE',
+                '',
+                'Type: '.$this->saleType,
+                'Payment: '.$this->paymentProvider,
+                'Reference: '.$this->reference,
+                'Amount: '.$this->amount,
+                'Status: Paid',
+            ]);
+        }
 
         if (! $telegram->sendMessage($message)) {
             throw new RuntimeException(

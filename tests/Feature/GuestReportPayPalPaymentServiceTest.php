@@ -64,9 +64,15 @@ function createPayPalGuestOrderForServiceTest(
             [
                 'reference_id' => (string) $purchase->id,
                 'custom_id' => sprintf(
-                    'guest-report|%d|%d',
-                    $purchase->id,
+                    'guest-report|%s|%d',
+                    $purchase->checkout_reference,
                     $purchase->report_id,
+                ),
+
+                'invoice_id' => 'UKC-GR-'.str_replace(
+                    '-',
+                    '',
+                    strtoupper((string) $purchase->checkout_reference),
                 ),
                 'payments' => [
                     'captures' => [
@@ -109,10 +115,16 @@ test('paypal guest payment marks purchase paid and dispatches fulfillment', func
 
     Queue::assertPushed(
         SendTelegramSaleNotification::class,
-        fn (SendTelegramSaleNotification $job): bool => $job->saleType === 'Guest vehicle report'
+        fn (SendTelegramSaleNotification $job): bool => $job->saleType === 'Guest Report'
             && $job->paymentProvider === 'PayPal'
             && $job->reference === 'CAPTURE-GUEST-001'
             && $job->amount === 'GBP 21.99'
+            && $job->purchaseId === $purchase->id
+            && $job->customerName === $purchase->name
+            && $job->customerPhone === $purchase->phone
+            && $job->reportUrl === route('admin.reports.index', [
+                'search' => (string) $purchase->report_id,
+            ])
     );
 });
 
