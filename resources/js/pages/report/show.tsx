@@ -45,6 +45,10 @@ type PageProps = {
     flash?: {
         modal?: 'login_required' | 'credits_exhausted';
     };
+    guestContact?: {
+        email: string;
+        phone: string;
+    } | null;
 };
 
 function isUlezCompliant(fuelType: string, year: number): boolean {
@@ -65,6 +69,7 @@ export default function ShowReport({ report }: ReportProps) {
     const { data } = report;
     const isPremium = report.report_type === 'premium';
     const { props } = usePage<PageProps>();
+    const guestContact = props.guestContact ?? null;
 
     const [modal, setModal] = useState<
         'login_required' | 'credits_exhausted' | null
@@ -269,6 +274,8 @@ export default function ShowReport({ report }: ReportProps) {
             {showGuestCheckout && (
                 <GuestCheckoutModal
                     reportId={report.id}
+                    initialEmail={guestContact?.email ?? ''}
+                    initialPhone={guestContact?.phone ?? ''}
                     onClose={() => setShowGuestCheckout(false)}
                 />
             )}

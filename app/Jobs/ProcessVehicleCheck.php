@@ -329,6 +329,42 @@ class ProcessVehicleCheck implements ShouldBeUnique, ShouldQueue
 
             $isPermanentFailure = $e instanceof VehicleNotFoundException;
 
+            $isTerminalFailure = $isPermanentFailure
+                || $this->attempts() >= $this->tries;
+
+            // Notify only for failed initial guest vehicle checks.
+            if (
+                $vinCheck->user_id === null
+                && $vinCheck->check_type === 'free'
+                && $isTerminalFailure
+            ) {
+                $provider = (string) config(
+                    'services.vehicle_reports.provider',
+                    'unknown'
+                );
+
+                $failureReason = $isPermanentFailure
+                    ? 'Vehicle not found'
+                    : 'Vehicle check failed after retries';
+
+                $message = implode("\n", [
+                    'UKCARDOC - GUEST VEHICLE CHECK FAILED',
+                    '',
+                    'VinCheck ID: '.$vinCheck->id,
+                    'Registration: '.$regNumber,
+                    'Check Type: '.$vinCheck->check_type,
+                    'Provider: '.$provider,
+                    'Failure: '.$failureReason,
+                    'Time: '.now()->format('d M Y H:i:s'),
+                ]);
+
+                SendTelegramGuestActivityNotification::dispatch(
+                    'guest.vehicle_check.failed',
+                    (string) $vinCheck->id,
+                    $message
+                );
+            }
+
             if (
                 $this->guestReportPurchaseId !== null
                 && ($isPermanentFailure || $this->attempts() >= $this->tries)

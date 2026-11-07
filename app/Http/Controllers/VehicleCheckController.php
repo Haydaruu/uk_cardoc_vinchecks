@@ -42,18 +42,48 @@ class VehicleCheckController extends Controller
             'stage' => 'queued',
         ]);
 
+        if ($user === null) {
+            $request->session()->put(
+                "guest_vehicle_check_access.{$vinCheck->id}",
+                true,
+            );
+        }
+
         ProcessVehicleCheck::dispatch($vinCheck->id);
 
         return redirect()->route('vehicle-check.loading', $vinCheck->id);
 
     }
 
-    public function loading(VinCheck $vinCheck): InertiaResponse|RedirectResponse
-    {
+    public function loading(
+        VinCheck $vinCheck,
+        Request $request,
+    ): InertiaResponse|RedirectResponse {
+        if (
+            $vinCheck->user_id === null
+            && $request->session()->get(
+                "guest_vehicle_check_access.{$vinCheck->id}"
+            ) !== true
+        ) {
+            abort(404);
+        }
+
         if ($vinCheck->status === 'success') {
             $report = $vinCheck->reports()->latest()->first();
 
-            return redirect()->route('page.my-report.show', $report->id);
+            abort_if($report === null, 404, 'Vehicle report not found.');
+
+            // Capture contact details before showing a guest basic preview.
+            if (
+                $vinCheck->user_id === null
+                && $report->user_id === null
+                && $report->report_type === 'basic'
+                && ! $report->guestLead()->exists()
+            ) {
+                return redirect()->route('guest-lead.show', $report);
+            }
+
+            return redirect()->route('page.my-report.show', $report);
         }
 
         return Inertia::render('user/vehicle-check/loading', [

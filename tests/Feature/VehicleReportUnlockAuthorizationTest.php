@@ -248,3 +248,39 @@ test('guest checkout prepare endpoint remains accessible and stores session cont
         'phone' => '+447911123456',
     ]);
 });
+
+test('guest checkout prepare accepts an omitted optional phone number', function () {
+    $this->withoutVite();
+
+    $vehicle = Vehicle::create([
+        'registration_number' => 'GUEST-NO-PHONE-1',
+    ]);
+
+    $guestReport = Report::create([
+        'user_id' => null,
+        'vehicle_id' => $vehicle->id,
+        'report_type' => 'basic',
+        'report_data' => ['make' => 'Ford', 'model' => 'Fiesta'],
+    ]);
+
+    $response = $this->post(
+        route('guest-report.checkout.prepare', $guestReport->id),
+        [
+            'name' => 'Jane Guest',
+            'email' => 'jane@example.com',
+        ],
+    );
+
+    $response->assertRedirect(
+        route('guest-report.checkout.show', $guestReport->id)
+    );
+
+    $response->assertSessionHas(
+        "guest_report_checkout.{$guestReport->id}",
+        [
+            'name' => 'Jane Guest',
+            'email' => 'jane@example.com',
+            'phone' => '',
+        ],
+    );
+});

@@ -39,4 +39,12 @@ class VinCheck extends Model
     {
         return $this->hasMany(Report::class, 'vin_check_id');
     }
+
+    /**
+     * @return HasMany<GuestLead, $this>
+     */
+    public function guestLeads(): HasMany
+    {
+        return $this->hasMany(GuestLead::class, 'vin_check_id');
+    }
 }

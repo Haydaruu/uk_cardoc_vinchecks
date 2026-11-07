@@ -288,7 +288,7 @@ class GuestReportCheckoutController extends Controller
             'name' => ['required', 'string', 'max:150'],
             'email' => ['required', 'string', 'email:rfc', 'max:254'],
             'phone' => [
-                'required',
+                'nullable',
                 'string',
                 'max:32',
                 'regex:/^[0-9+().\s-]{7,32}$/',
@@ -300,7 +300,7 @@ class GuestReportCheckoutController extends Controller
             [
                 'name' => trim($validated['name']),
                 'email' => mb_strtolower(trim($validated['email'])),
-                'phone' => trim($validated['phone']),
+                'phone' => trim((string) ($validated['phone'] ?? '')),
             ],
         );
 

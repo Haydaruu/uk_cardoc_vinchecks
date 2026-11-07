@@ -77,6 +77,11 @@ return [
         'chat_id' => env('TELEGRAM_CHAT_ID'),
     ],
 
+    'telegram_activity' => [
+        'bot_token' => env('TELEGRAM_ACTIVITY_BOT_TOKEN'),
+        'chat_id' => env('TELEGRAM_ACTIVITY_CHAT_ID'),
+    ],
+
     'vehicle_reports' => [
         'provider' => env(
             'VEHICLE_REPORT_PROVIDER',

@@ -4,17 +4,21 @@ import { useEffect } from 'react';
 
 type GuestCheckoutModalProps = {
     reportId: number;
+    initialEmail?: string;
+    initialPhone?: string;
     onClose: () => void;
 };
 
 export default function GuestCheckoutModal({
     reportId,
+    initialEmail = '',
+    initialPhone = '',
     onClose,
 }: GuestCheckoutModalProps) {
     const { data, setData, post, processing, errors } = useForm({
         name: '',
-        email: '',
-        phone: '',
+        email: initialEmail,
+        phone: initialPhone,
     });
 
     useEffect(() => {
@@ -161,20 +165,16 @@ export default function GuestCheckoutModal({
                         </div>
 
                         <div>
-                            <label
-                                htmlFor="guest-phone"
-                                className="mb-2 block text-sm font-semibold text-primary"
-                            >
-                                Phone number
-                            </label>
-
+                            Phone number
+                            <span className="ml-2 text-xs font-normal text-outline">
+                                (Optional)
+                            </span>
                             <input
                                 id="guest-phone"
                                 type="tel"
                                 inputMode="tel"
                                 autoComplete="tel"
                                 maxLength={32}
-                                required
                                 value={data.phone}
                                 onChange={(event) =>
                                     setData('phone', event.target.value)
@@ -183,7 +183,6 @@ export default function GuestCheckoutModal({
                                 aria-invalid={Boolean(errors.phone)}
                                 className="w-full rounded-md border border-outline-variant bg-white px-4 py-3 text-sm text-primary transition outline-none placeholder:text-outline/70 focus:border-surface-tint focus:ring-1 focus:ring-surface-tint"
                             />
-
                             {errors.phone && (
                                 <p className="mt-2 text-sm text-error">
                                     {errors.phone}

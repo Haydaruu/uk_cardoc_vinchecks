@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Report extends Model
 {
@@ -65,5 +66,13 @@ class Report extends Model
     public function guestReportAccessTokens(): HasMany
     {
         return $this->hasMany(GuestReportAccessToken::class, 'guest_report_id');
+    }
+
+    /**
+     * @return HasOne<GuestLead, $this>
+     */
+    public function guestLead(): HasOne
+    {
+        return $this->hasOne(GuestLead::class, 'report_id');
     }
 }
