@@ -3,6 +3,7 @@
 use App\Contracts\VehicleDataProviderInterface;
 use App\Exceptions\VehicleNotFoundException;
 use App\Jobs\ProcessVehicleCheck;
+use App\Jobs\SendTelegramGuestActivityNotification;
 use App\Models\Report;
 use App\Models\Vehicle;
 use App\Models\VinCheck;
@@ -10,6 +11,7 @@ use App\Services\CreditService;
 use App\Services\Reports\CompositeReportBuilder;
 use App\Services\Reports\NormalizedReportBuilder;
 use App\Services\VehicleProviders\OneAutoProvider;
+use Illuminate\Support\Facades\Queue;
 
 test('premium vehicle check uses composite builder in hybrid mode', function () {
     config([
@@ -302,6 +304,61 @@ test('basic OneAuto check rejects a mismatched vehicle without saving a report',
                 ->exists()
         )
         ->toBeFalse();
+});
+
+test('guest vehicle not found queues Telegram activity notification', function () {
+    Queue::fake();
+
+    config([
+        'services.vehicle_reports.provider' => 'oneauto',
+        'services.vehicle_reports.strategy' => 'single',
+    ]);
+
+    $vrm = 'ZZ99ZZZ';
+
+    $vinCheck = VinCheck::create([
+        'registration_number' => $vrm,
+        'check_type' => 'free',
+        'status' => 'pending',
+        'stage' => 'queued',
+    ]);
+
+    $provider = Mockery::mock(VehicleDataProviderInterface::class);
+    $provider->shouldNotReceive('getRegistrationDetails');
+
+    $reportBuilder = Mockery::mock(NormalizedReportBuilder::class);
+    $reportBuilder->shouldNotReceive('build');
+
+    $oneAuto = Mockery::mock(OneAutoProvider::class);
+
+    $oneAuto->shouldReceive('getVehicleDetails')
+        ->once()
+        ->with($vrm)
+        ->andThrow(new VehicleNotFoundException('Vehicle not found.'));
+
+    $oneAuto->shouldNotReceive('getMotHistory');
+
+    $creditService = Mockery::mock(CreditService::class);
+    $creditService->shouldNotReceive('consume');
+
+    $job = new ProcessVehicleCheck($vinCheck->id);
+
+    expect(fn () => $job->handle(
+        $provider,
+        $reportBuilder,
+        $creditService,
+        null,
+        $oneAuto,
+    ))->toThrow(VehicleNotFoundException::class);
+
+    Queue::assertPushed(
+        SendTelegramGuestActivityNotification::class,
+        fn (SendTelegramGuestActivityNotification $notification) => $notification->eventType === 'guest.vehicle_check.failed'
+            && $notification->dedupeKey === (string) $vinCheck->id
+    );
+
+    expect($vinCheck->fresh()->status)->toBe('failed')
+        ->and($vinCheck->fresh()->stage)->toBe('failed');
 });
 
 test('vehicle not found exception fails the queue job without retrying', function () {

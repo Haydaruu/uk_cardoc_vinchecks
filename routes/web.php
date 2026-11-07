@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Auth\GoogleAuthController;
 use App\Http\Controllers\Auth\MicrosoftAuthController;
+use App\Http\Controllers\GuestLeadController;
 use App\Http\Controllers\GuestReportInvoiceController;
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\Payments\GuestReportCheckoutController;
@@ -45,6 +46,11 @@ Route::post('/reports/{report}/unlock', [VehicleCheckController::class, 'unlock'
 Route::post('/reports/{report}/guest-checkout', [GuestReportCheckoutController::class, 'store'])->name('guest-report.checkout');
 Route::get('/reports/{report}/guest-checkout', [GuestReportCheckoutController::class, 'show'])->name('guest-report.checkout.show');
 Route::post('/reports/{report}/guest-checkout/prepare', [GuestReportCheckoutController::class, 'prepare'])->name('guest-report.checkout.prepare');
+
+// Guest lead capture before accessing the basic report preview
+Route::get('/reports/{report}/guest-lead', [GuestLeadController::class, 'show'])->name('guest-lead.show');
+
+Route::post('/reports/{report}/guest-lead', [GuestLeadController::class, 'store'])->middleware('throttle:5,1')->name('guest-lead.store');
 
 // Iki auth Google
 Route::middleware('guest')->group(function () {

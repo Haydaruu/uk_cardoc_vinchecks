@@ -926,3 +926,49 @@ test('Stripe services configuration exposes a dedicated guest report price ID', 
     expect(config('services.stripe'))
         ->toHaveKey('guest_report_price_id');
 });
+
+test('Stripe guest checkout accepts an empty optional phone number from session', function () {
+    $vehicle = Vehicle::create([
+        'registration_number' => 'STRIPE-OPTIONAL-PHONE',
+    ]);
+
+    $report = Report::create([
+        'vehicle_id' => $vehicle->id,
+        'report_type' => 'basic',
+    ]);
+
+    $checkoutUrl = 'https://checkout.stripe.com/c/pay/cs_optional_phone';
+
+    $checkoutService = Mockery::mock(GuestReportCheckoutService::class);
+
+    $checkoutService->shouldReceive('startCheckout')
+        ->once()
+        ->with(
+            Mockery::on(
+                fn ($actualReport) => $actualReport instanceof Report
+                    && $actualReport->id === $report->id
+            ),
+            'Jane Guest',
+            'jane@example.com',
+            '',
+            Mockery::type('string'),
+            Mockery::type('string'),
+        )
+        ->andReturn([
+            'checkout_url' => $checkoutUrl,
+            'purchase' => new GuestReportPurchase,
+        ]);
+
+    $this->instance(GuestReportCheckoutService::class, $checkoutService);
+
+    $this->withSession([
+        "guest_report_checkout.{$report->id}" => [
+            'name' => 'Jane Guest',
+            'email' => 'jane@example.com',
+            'phone' => '',
+        ],
+    ]);
+
+    $this->post(route('guest-report.checkout', $report->id))
+        ->assertRedirect($checkoutUrl);
+});
