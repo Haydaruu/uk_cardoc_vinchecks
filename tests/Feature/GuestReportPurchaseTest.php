@@ -652,3 +652,8 @@ test('legacy Stripe checkout rejects mismatched report metadata', function () {
 
     Queue::assertNothingPushed();
 });
+
+test('failed status constants retain explicit semantic names and intended values', function () {
+    expect(GuestReportPurchase::PAYMENT_STATUS_FAILED)->toBe('failed')
+        ->and(GuestReportPurchase::CAPTURE_STATUS_FAILED)->toBe('failed');
+});

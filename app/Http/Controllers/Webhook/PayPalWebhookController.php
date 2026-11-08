@@ -2,12 +2,12 @@
 
 namespace App\Http\Controllers\Webhook;
 
-use App\Exceptions\PayPalCaptureDeniedException;
-use App\Exceptions\PayPalCapturePendingException;
 use App\Http\Controllers\Controller;
+use App\Jobs\ProcessPayPalGuestCapture;
 use App\Jobs\ProcessPayPalOrderCapture;
 use App\Jobs\SendTelegramSaleNotification;
 use App\Models\CreditCheckoutAttempt;
+use App\Models\GuestReportPurchase;
 use App\Models\Subscription;
 use App\Models\Transaction;
 use App\Models\User;
@@ -44,7 +44,7 @@ class PayPalWebhookController extends Controller
         $eventType = (string) ($event['event_type'] ?? '');
 
         if ($eventId !== '') {
-        $dedupResult = $reconciliationService->executeWithDeduplication(
+            $dedupResult = $reconciliationService->executeWithDeduplication(
                 provider: 'paypal',
                 eventId: $eventId,
                 eventType: $eventType,
@@ -194,10 +194,20 @@ class PayPalWebhookController extends Controller
         $customId = (string) ($purchaseUnit['custom_id'] ?? '');
 
         if (str_starts_with($customId, 'guest-report|')) {
-            $orderCaptureId = data_get($order, 'purchase_units.0.payments.captures.0.id');
+            $captures = is_array($purchaseUnit['payments']['captures'] ?? null)
+                ? $purchaseUnit['payments']['captures']
+                : [];
+
+            $completedCapture = collect($captures)->first(
+                fn ($item) => is_array($item) && ($item['status'] ?? null) === 'COMPLETED'
+            );
+
+            $orderCaptureId = (is_array($completedCapture) && is_string($completedCapture['id'] ?? null) && trim($completedCapture['id']) !== '')
+                ? $completedCapture['id']
+                : null;
 
             if (
-                ! is_string($orderCaptureId)
+                $orderCaptureId === null
                 || ! hash_equals($captureId, $orderCaptureId)
             ) {
                 Log::critical('PayPal guest report webhook capture ID mismatch.', [
@@ -228,7 +238,9 @@ class PayPalWebhookController extends Controller
 
     /**
      * Handle CHECKOUT.ORDER.APPROVED: buyer approved payment at provider.
-     * Dispatches durable background capture job through unified CreditCaptureService.
+     * Routes to the appropriate durable background job based on order type.
+     * Guest report orders → ProcessPayPalGuestCapture.
+     * Credit orders → ProcessPayPalOrderCapture.
      * This recovers payments asynchronously when the buyer approves but closes the browser before frontend capture.
      *
      * @param  array<string, mixed>  $event
@@ -247,21 +259,95 @@ class PayPalWebhookController extends Controller
             return;
         }
 
-        // Persist intermediate approved status if attempt is still in active pre-capture state
-        CreditCheckoutAttempt::query()
+        // 1. Verified Guest Report Order
+        $isGuestOrder = GuestReportPurchase::query()
+            ->where('payment_provider', 'paypal')
             ->where('provider_order_id', $orderId)
-            ->whereNotIn('status', [
-                CreditCheckoutAttempt::STATUS_CAPTURE_COMPLETED,
-                CreditCheckoutAttempt::STATUS_CAPTURING,
-                CreditCheckoutAttempt::STATUS_UNRECONCILED_STALE,
-            ])
-            ->update(['status' => CreditCheckoutAttempt::STATUS_PROVIDER_APPROVED]);
+            ->exists();
 
-        // Dispatch background job to perform the capture asynchronously.
-        // If the queue dispatch fails (e.g. database/redis failure), an exception is thrown,
-        // causing executeWithDeduplication to mark the event FAILED rather than COMPLETED,
-        // ensuring PayPal will safely retry the webhook delivery.
-        ProcessPayPalOrderCapture::dispatch($orderId, $event['id'] ?? null);
+        if ($isGuestOrder) {
+            // Guest report order: route to GuestReportCaptureService via dedicated job.
+            // If the queue dispatch fails (e.g. database/redis failure), an exception is thrown,
+            // causing executeWithDeduplication to mark the event FAILED rather than COMPLETED,
+            // ensuring PayPal will safely retry the webhook delivery.
+            ProcessPayPalGuestCapture::dispatch($orderId, $event['id'] ?? null);
+
+            return;
+        }
+
+        // 2. Verified Current Credit Order (by provider_order_id or validated attempt_uuid)
+        $isCurrentCreditOrder = CreditCheckoutAttempt::query()
+            ->where('provider_order_id', $orderId)
+            ->exists();
+
+        $purchaseUnit = data_get($event, 'resource.purchase_units.0');
+        $customId = (string) ($purchaseUnit['custom_id'] ?? '');
+        $parts = $customId !== '' ? explode('|', $customId) : [];
+
+        if (! $isCurrentCreditOrder && count($parts) === 3 && ! empty($parts[2]) && ! empty($parts[0])) {
+            $matchedAttempt = CreditCheckoutAttempt::query()
+                ->where('attempt_uuid', $parts[2])
+                ->where('user_id', $parts[0])
+                ->first();
+
+            if ($matchedAttempt) {
+                $isCurrentCreditOrder = true;
+                if (! $matchedAttempt->provider_order_id) {
+                    $matchedAttempt->update(['provider_order_id' => $orderId]);
+                }
+            }
+        }
+
+        if ($isCurrentCreditOrder) {
+            CreditCheckoutAttempt::query()
+                ->where('provider_order_id', $orderId)
+                ->whereNotIn('status', [
+                    CreditCheckoutAttempt::STATUS_CAPTURE_COMPLETED,
+                    CreditCheckoutAttempt::STATUS_CAPTURING,
+                    CreditCheckoutAttempt::STATUS_UNRECONCILED_STALE,
+                ])
+                ->update(['status' => CreditCheckoutAttempt::STATUS_PROVIDER_APPROVED]);
+
+            ProcessPayPalOrderCapture::dispatch($orderId, $event['id'] ?? null);
+
+            return;
+        }
+
+        // 3. Legitimate Legacy Credit Order
+        // Validated correlation: exactly 2 parts (user_id|plan_slug), reference_id matches plan_slug,
+        // valid existing user, and valid one_time plan configured.
+        $referenceId = (string) ($purchaseUnit['reference_id'] ?? '');
+        $isLegacyCreditOrder = false;
+
+        if (count($parts) === 2 && ! empty($parts[0]) && ! empty($parts[1]) && $referenceId === $parts[1]) {
+            $userId = $parts[0];
+            $planSlug = $parts[1];
+
+            $userExists = is_numeric($userId) && User::query()->whereKey($userId)->exists();
+            $plan = config("credit_plans.{$planSlug}");
+            $isOneTimePlan = is_array($plan) && ($plan['type'] ?? null) === 'one_time';
+
+            if ($userExists && $isOneTimePlan) {
+                $isLegacyCreditOrder = true;
+            }
+        }
+
+        if ($isLegacyCreditOrder) {
+            Log::info('PayPal CHECKOUT.ORDER.APPROVED: legacy credit order correlated. Scheduling capture.', [
+                'event_id' => $event['id'] ?? null,
+                'order_id' => $orderId,
+            ]);
+
+            ProcessPayPalOrderCapture::dispatch($orderId, $event['id'] ?? null);
+
+            return;
+        }
+
+        // 4. Unknown / Unmatched Order
+        Log::warning('PayPal CHECKOUT.ORDER.APPROVED received for unrecognized order ID.', [
+            'event_id' => $event['id'] ?? null,
+            'order_id' => $orderId,
+        ]);
     }
 
     /**

@@ -25,7 +25,7 @@ import {
     ShieldCheck,
     Wallet,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 
 import BaseLayout from '@/layouts/base-layout';
@@ -574,6 +574,19 @@ function GuestReportStripeCheckout({
     );
 }
 
+type GuestCaptureResponse = {
+    status?:
+        | 'success'
+        | 'payer_action_required'
+        | 'processing'
+        | 'funding_declined'
+        | 'failed'
+        | string;
+    redirect?: string;
+    payerActionUrl?: string | null;
+    message?: string;
+};
+
 function GuestReportPayPalCheckout({
     reportId,
     paypalClientId,
@@ -585,8 +598,13 @@ function GuestReportPayPalCheckout({
     paypalEnvironment: 'sandbox' | 'production';
     amountDisplay: string;
 }) {
+    const isSubmittingRef = useRef(false);
     const [isProcessing, setIsProcessing] = useState(false);
+    const [processingText, setProcessingText] = useState(
+        'Confirming PayPal payment...',
+    );
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
+    const [pendingNotice, setPendingNotice] = useState<string | null>(null);
 
     if (!paypalClientId) {
         return <PaymentError message="PayPal is not configured correctly." />;
@@ -598,6 +616,7 @@ function GuestReportPayPalCheckout({
 
     async function createPayPalOrder(): Promise<{ orderId: string }> {
         setErrorMessage(null);
+        setPendingNotice(null);
 
         const data = await postJson<{ id?: string }>(
             `/reports/${reportId}/guest-checkout/paypal/order`,
@@ -614,41 +633,126 @@ function GuestReportPayPalCheckout({
     }
 
     async function handleApprove(data: OnApproveDataOneTimePayments) {
+        if (isSubmittingRef.current || isProcessing) {
+            return;
+        }
+
+        isSubmittingRef.current = true;
         setIsProcessing(true);
         setErrorMessage(null);
+        setPendingNotice(null);
+        setProcessingText('Confirming PayPal payment...');
 
         try {
-            const result = await postJson<{
-                status?: string;
-                redirect?: string;
-            }>(`/reports/${reportId}/guest-checkout/paypal/capture`, {
-                order_id: data.orderId,
-            });
+            const result = await postJson<GuestCaptureResponse>(
+                `/reports/${reportId}/guest-checkout/paypal/capture`,
+                {
+                    order_id: data.orderId,
+                },
+            );
 
-            if (result.status !== 'success' || !result.redirect) {
-                throw new Error('PayPal payment could not be confirmed.');
+            // A. Success
+            if (result.status === 'success') {
+                if (result.redirect && typeof result.redirect === 'string') {
+                    setProcessingText('Payment confirmed! Redirecting...');
+                    window.location.assign(result.redirect);
+
+                    return;
+                }
+
+                throw new Error('Checkout redirect destination was missing.');
             }
 
-            window.location.assign(result.redirect);
+            // B. Payer Action Required (3DS / SCA challenge redirect)
+            if (result.status === 'payer_action_required') {
+                const payerActionUrl = result.payerActionUrl;
+
+                if (
+                    !payerActionUrl ||
+                    typeof payerActionUrl !== 'string' ||
+                    (!payerActionUrl.startsWith('https://') &&
+                        !payerActionUrl.startsWith('/'))
+                ) {
+                    isSubmittingRef.current = false;
+                    setIsProcessing(false);
+                    setErrorMessage(
+                        result.message ??
+                            'Additional authentication required, but the redirect link was missing or invalid. Please try again.',
+                    );
+
+                    return;
+                }
+
+                setProcessingText(
+                    'Additional authentication required. Redirecting to PayPal...',
+                );
+                // Keep isSubmittingRef.current = true and isProcessing = true to prevent duplicate submissions during navigation
+                window.location.assign(payerActionUrl);
+
+                return;
+            }
+
+            // C. Processing (HTTP 202)
+            if (result.status === 'processing') {
+                isSubmittingRef.current = false;
+                setIsProcessing(false);
+                setPendingNotice(
+                    result.message ??
+                        'Your payment is currently being processed by your bank. Please check back shortly.',
+                );
+
+                return;
+            }
+
+            throw new Error(
+                result.message ?? 'PayPal payment could not be confirmed.',
+            );
         } catch (error) {
+            isSubmittingRef.current = false;
             setIsProcessing(false);
+
+            if (error instanceof ApiError) {
+                const status = String(error.data.status ?? '');
+                const message =
+                    typeof error.data.message === 'string' && error.data.message
+                        ? error.data.message
+                        : error.message;
+
+                // D. Funding Declined (HTTP 422)
+                if (status === 'funding_declined') {
+                    setErrorMessage(
+                        message ||
+                            'Payment method declined. Please choose a different card or payment method.',
+                    );
+
+                    return;
+                }
+
+                // E. Failed (HTTP 422 or other status)
+                setErrorMessage(
+                    message ||
+                        'PayPal payment could not be confirmed. Please try again.',
+                );
+
+                return;
+            }
 
             setErrorMessage(
                 error instanceof Error
                     ? error.message
-                    : 'PayPal payment failed.',
+                    : 'PayPal payment failed. Please try again.',
             );
-
-            throw error;
         }
     }
 
     function handleCancel() {
+        isSubmittingRef.current = false;
         setIsProcessing(false);
         setErrorMessage('Checkout was cancelled. No payment was completed.');
     }
 
     function handleError(error: OnErrorData) {
+        isSubmittingRef.current = false;
         setIsProcessing(false);
         setErrorMessage(error.message ?? 'Something went wrong with PayPal.');
     }
@@ -733,8 +837,13 @@ function GuestReportPayPalCheckout({
                 </div>
             </PayPalProvider>
 
-            {isProcessing && (
-                <PaymentProcessing text="Confirming PayPal payment..." />
+            {isProcessing && <PaymentProcessing text={processingText} />}
+
+            {pendingNotice && (
+                <div className="mt-5 flex items-start gap-3 rounded-lg border border-primary/20 bg-surface-container-low px-4 py-3.5 text-primary">
+                    <ShieldCheck className="mt-0.5 size-4 shrink-0 text-primary" />
+                    <p className="text-sm leading-5">{pendingNotice}</p>
+                </div>
             )}
 
             {errorMessage && (
@@ -1279,6 +1388,22 @@ function PaymentError({ message }: { message: string }) {
     );
 }
 
+class ApiError extends Error {
+    status: number;
+    data: Record<string, unknown>;
+
+    constructor(
+        message: string,
+        status: number,
+        data: Record<string, unknown> = {},
+    ) {
+        super(message);
+        this.name = 'ApiError';
+        this.status = status;
+        this.data = data;
+    }
+}
+
 async function postJson<T extends object>(
     url: string,
     body: Record<string, unknown>,
@@ -1295,10 +1420,15 @@ async function postJson<T extends object>(
 
     const data = (await response.json().catch(() => ({}))) as T & {
         message?: string;
+        status?: string;
     };
 
     if (!response.ok) {
-        throw new Error(data.message ?? 'Request failed. Please try again.');
+        throw new ApiError(
+            data.message ?? 'Request failed. Please try again.',
+            response.status,
+            data as Record<string, unknown>,
+        );
     }
 
     return data;

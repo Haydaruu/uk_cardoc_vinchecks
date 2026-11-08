@@ -2,7 +2,9 @@
 
 namespace App\Services;
 
+use App\Exceptions\PayPalApiException;
 use App\Exceptions\PayPalGuestOrderMismatchException;
+use App\Models\CreditCheckoutAttempt;
 use App\Models\GuestReportPurchase;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -61,7 +63,7 @@ class PayPalService
     }
 
     /** @return array<string, mixed> */
-    public function createOrder(User $user, string $planSlug, ?\App\Models\CreditCheckoutAttempt $attempt = null): array
+    public function createOrder(User $user, string $planSlug, ?CreditCheckoutAttempt $attempt = null): array
     {
         $plan = config("credit_plans.{$planSlug}");
 
@@ -441,17 +443,19 @@ class PayPalService
     }
 
     /** @return array<string, mixed> */
-    public function captureOrder(string $orderId): array
+    public function captureOrder(string $orderId, ?string $idempotencyKey = null): array
     {
+        $requestId = $idempotencyKey ?: 'capture-'.$orderId;
+
         $response = Http::withToken($this->accessToken())
             ->timeout(20)
             ->acceptJson()
-            ->withHeaders(['PayPal-Request-Id' => 'capture-'.$orderId])
+            ->withHeaders(['PayPal-Request-Id' => $requestId])
             ->withBody('{}', 'application/json')
             ->send('POST', $this->baseUrl()."/v2/checkout/orders/{$orderId}/capture", []);
 
         if ($response->failed()) {
-            throw new RuntimeException('Unable to capture PayPal order: '.$response->body());
+            throw PayPalApiException::fromResponse($response);
         }
 
         return $response->json();

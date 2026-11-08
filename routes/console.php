@@ -10,3 +10,4 @@ Artisan::command('inspire', function () {
 
 Schedule::command('refunds:reconcile')->hourly();
 Schedule::command('paypal:reconcile-credit-captures')->everyFifteenMinutes();
+Schedule::command('paypal:reconcile-guest-captures')->everyFifteenMinutes();

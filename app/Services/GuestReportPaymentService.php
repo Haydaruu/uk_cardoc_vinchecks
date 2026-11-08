@@ -249,7 +249,7 @@ class GuestReportPaymentService
                 if ($purchase->payment_status === GuestReportPurchase::STATUS_PENDING) {
                     $purchase->update([
                         ...$references,
-                        'payment_status' => GuestReportPurchase::STATUS_FAILED,
+                        'payment_status' => GuestReportPurchase::PAYMENT_STATUS_FAILED,
                         'failed_at' => now(),
                     ]);
                 } else {
@@ -372,12 +372,19 @@ class GuestReportPaymentService
         }
 
         $purchaseUnit = $order['purchase_units'][0] ?? null;
-        $capture = $purchaseUnit['payments']['captures'][0] ?? null;
+        $captures = is_array($purchaseUnit['payments']['captures'] ?? null)
+            ? $purchaseUnit['payments']['captures']
+            : [];
+
+        $capture = collect($captures)->first(
+            fn ($item) => is_array($item) && ($item['status'] ?? null) === 'COMPLETED'
+        );
 
         if (
-            ! $capture
+            ! is_array($capture)
             || ($capture['status'] ?? null) !== 'COMPLETED'
             || ! is_string($capture['id'] ?? null)
+            || trim($capture['id']) === ''
         ) {
             throw new RuntimeException('PayPal capture is not completed.');
         }
@@ -482,6 +489,12 @@ class GuestReportPaymentService
                         throw new RuntimeException('Completed guest report is not Premium.');
                     }
 
+                    if ($lockedPurchase->capture_status !== GuestReportPurchase::CAPTURE_COMPLETED) {
+                        $lockedPurchase->update([
+                            'capture_status' => GuestReportPurchase::CAPTURE_COMPLETED,
+                        ]);
+                    }
+
                     return [
                         'payment_changed' => false,
                         'dispatch' => false,
@@ -503,14 +516,22 @@ class GuestReportPaymentService
                     throw new RuntimeException('Guest fulfillment status is not recoverable.');
                 }
 
+                $updates = [];
+
+                if ($lockedPurchase->capture_status !== GuestReportPurchase::CAPTURE_COMPLETED) {
+                    $updates['capture_status'] = GuestReportPurchase::CAPTURE_COMPLETED;
+                }
+
                 // A paid purchase must not remain locked.
                 if (
                     $lockedPurchase->fulfillment_status
                     === GuestReportPurchase::FULFILLMENT_LOCKED
                 ) {
-                    $lockedPurchase->update([
-                        'fulfillment_status' => GuestReportPurchase::FULFILLMENT_PENDING,
-                    ]);
+                    $updates['fulfillment_status'] = GuestReportPurchase::FULFILLMENT_PENDING;
+                }
+
+                if (! empty($updates)) {
+                    $lockedPurchase->update($updates);
                 }
 
                 return [
@@ -533,6 +554,7 @@ class GuestReportPaymentService
                 'payment_status' => GuestReportPurchase::STATUS_PAID,
                 'paid_at' => $lockedPurchase->paid_at ?? now(),
                 'fulfillment_status' => GuestReportPurchase::FULFILLMENT_PENDING,
+                'capture_status' => GuestReportPurchase::CAPTURE_COMPLETED,
             ]);
 
             return [

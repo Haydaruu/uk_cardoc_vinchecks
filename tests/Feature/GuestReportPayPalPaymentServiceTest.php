@@ -108,6 +108,8 @@ test('paypal guest payment marks purchase paid and dispatches fulfillment', func
         ->toBe(GuestReportPurchase::STATUS_PAID)
         ->and($purchase->provider_payment_id)
         ->toBe('CAPTURE-GUEST-001')
+        ->and($purchase->capture_status)
+        ->toBe(GuestReportPurchase::CAPTURE_COMPLETED)
         ->and($purchase->fulfillment_status)
         ->toBe(GuestReportPurchase::FULFILLMENT_PENDING)
         ->and($purchase->paid_at)
@@ -211,6 +213,11 @@ test('paypal duplicate callback does not reprocess a completed premium report', 
 
     expect($result)->toBeFalse();
 
+    $purchase->refresh();
+
+    expect($purchase->capture_status)
+        ->toBe(GuestReportPurchase::CAPTURE_COMPLETED);
+
     Queue::assertNothingPushed();
 });
 
@@ -234,4 +241,143 @@ test('paypal guest payment can redispatch a failed fulfillment', function () {
     expect($result)->toBeFalse();
 
     Queue::assertPushed(ProcessVehicleCheck::class, 1);
+});
+
+test('repeated settlement with the same capture ID repairs missing capture_status safely without updating last_reconciled_at', function () {
+    Queue::fake();
+
+    [$purchase] = createPayPalGuestPurchaseForServiceTest();
+
+    $purchase->update([
+        'payment_status' => GuestReportPurchase::STATUS_PAID,
+        'provider_payment_id' => 'CAPTURE-GUEST-001',
+        'fulfillment_status' => GuestReportPurchase::FULFILLMENT_PENDING,
+        'capture_status' => GuestReportPurchase::CAPTURE_CAPTURING,
+        'last_reconciled_at' => null,
+        'paid_at' => now(),
+    ]);
+
+    $order = createPayPalGuestOrderForServiceTest($purchase, 'CAPTURE-GUEST-001');
+
+    $result = app(GuestReportPaymentService::class)
+        ->handlePayPalGuestOrder($order);
+
+    expect($result)->toBeFalse();
+
+    $purchase->refresh();
+
+    expect($purchase->payment_status)->toBe(GuestReportPurchase::STATUS_PAID)
+        ->and($purchase->provider_payment_id)->toBe('CAPTURE-GUEST-001')
+        ->and($purchase->capture_status)->toBe(GuestReportPurchase::CAPTURE_COMPLETED)
+        ->and($purchase->last_reconciled_at)->toBeNull();
+});
+
+test('repeated settlement with conflicting capture ID is rejected and does not overwrite existing data', function () {
+    Queue::fake();
+
+    [$purchase] = createPayPalGuestPurchaseForServiceTest();
+
+    $purchase->update([
+        'payment_status' => GuestReportPurchase::STATUS_PAID,
+        'provider_payment_id' => 'CAPTURE-ORIGINAL-001',
+        'fulfillment_status' => GuestReportPurchase::FULFILLMENT_PENDING,
+        'capture_status' => GuestReportPurchase::CAPTURE_CAPTURING,
+        'paid_at' => now(),
+    ]);
+
+    $order = createPayPalGuestOrderForServiceTest($purchase, 'CAPTURE-CONFLICTING-999');
+
+    expect(
+        fn () => app(GuestReportPaymentService::class)
+            ->handlePayPalGuestOrder($order)
+    )->toThrow(
+        RuntimeException::class,
+        'PayPal capture reference mismatch.'
+    );
+
+    $purchase->refresh();
+
+    expect($purchase->provider_payment_id)->toBe('CAPTURE-ORIGINAL-001')
+        ->and($purchase->capture_status)->toBe(GuestReportPurchase::CAPTURE_CAPTURING)
+        ->and($purchase->payment_status)->toBe(GuestReportPurchase::STATUS_PAID);
+
+    Queue::assertNothingPushed();
+});
+
+test('order containing pending and completed captures selects the completed capture resource', function () {
+    Queue::fake();
+
+    [$purchase] = createPayPalGuestPurchaseForServiceTest();
+
+    $order = createPayPalGuestOrderForServiceTest($purchase, 'CAPTURE-VALID-COMPLETED');
+
+    // Prepend a PENDING capture at index 0 so COMPLETED is at index 1
+    $order['purchase_units'][0]['payments']['captures'] = [
+        [
+            'id' => 'CAPTURE-EARLIER-PENDING',
+            'status' => 'PENDING',
+            'amount' => [
+                'value' => '21.99',
+                'currency_code' => 'GBP',
+            ],
+        ],
+        [
+            'id' => 'CAPTURE-VALID-COMPLETED',
+            'status' => 'COMPLETED',
+            'amount' => [
+                'value' => '21.99',
+                'currency_code' => 'GBP',
+            ],
+        ],
+    ];
+
+    $result = app(GuestReportPaymentService::class)
+        ->handlePayPalGuestOrder($order);
+
+    expect($result)->toBeTrue();
+
+    $purchase->refresh();
+
+    expect($purchase->payment_status)->toBe(GuestReportPurchase::STATUS_PAID)
+        ->and($purchase->provider_payment_id)->toBe('CAPTURE-VALID-COMPLETED')
+        ->and($purchase->capture_status)->toBe(GuestReportPurchase::CAPTURE_COMPLETED)
+        ->and($purchase->fulfillment_status)->toBe(GuestReportPurchase::FULFILLMENT_PENDING);
+
+    Queue::assertPushed(ProcessVehicleCheck::class, 1);
+});
+
+test('order without a completed capture is rejected', function () {
+    Queue::fake();
+
+    [$purchase] = createPayPalGuestPurchaseForServiceTest();
+
+    $order = createPayPalGuestOrderForServiceTest($purchase);
+
+    // Only PENDING capture
+    $order['purchase_units'][0]['payments']['captures'] = [
+        [
+            'id' => 'CAPTURE-ONLY-PENDING',
+            'status' => 'PENDING',
+            'amount' => [
+                'value' => '21.99',
+                'currency_code' => 'GBP',
+            ],
+        ],
+    ];
+
+    expect(
+        fn () => app(GuestReportPaymentService::class)
+            ->handlePayPalGuestOrder($order)
+    )->toThrow(
+        RuntimeException::class,
+        'PayPal capture is not completed.'
+    );
+
+    $purchase->refresh();
+
+    expect($purchase->payment_status)->toBe(GuestReportPurchase::STATUS_PENDING)
+        ->and($purchase->capture_status)->toBeNull()
+        ->and($purchase->provider_payment_id)->toBeNull();
+
+    Queue::assertNothingPushed();
 });
