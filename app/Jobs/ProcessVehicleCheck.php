@@ -365,6 +365,41 @@ class ProcessVehicleCheck implements ShouldBeUnique, ShouldQueue
                 );
             }
 
+            // Notify for failed authenticated vehicle checks.
+            if (
+                $vinCheck->user_id !== null
+                && $isTerminalFailure
+            ) {
+                $user = $vinCheck->user;
+                $provider = (string) config(
+                    'services.vehicle_reports.provider',
+                    'unknown'
+                );
+
+                $failureReason = $isPermanentFailure
+                    ? 'Vehicle not found'
+                    : 'Vehicle check failed after retries';
+
+                $message = implode("\n", [
+                    'UKCARDOC - AUTH VEHICLE CHECK FAILED',
+                    '',
+                    'User ID: '.$vinCheck->user_id,
+                    'Email: '.($user?->email ?? 'N/A'),
+                    'VinCheck ID: '.$vinCheck->id,
+                    'Registration: '.$regNumber,
+                    'Check Type: '.$vinCheck->check_type,
+                    'Provider: '.$provider,
+                    'Failure: '.$failureReason,
+                    'Time: '.now()->format('d M Y H:i:s'),
+                ]);
+
+                SendTelegramGuestActivityNotification::dispatch(
+                    'auth.vehicle_check.failed',
+                    (string) $vinCheck->id,
+                    $message
+                );
+            }
+
             if (
                 $this->guestReportPurchaseId !== null
                 && ($isPermanentFailure || $this->attempts() >= $this->tries)

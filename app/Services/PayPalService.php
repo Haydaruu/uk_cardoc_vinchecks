@@ -32,6 +32,7 @@ class PayPalService
         }
 
         $response = Http::asForm()
+            ->timeout(10)
             ->withBasicAuth(
                 config('services.paypal.client_id'),
                 config('services.paypal.client_secret'),
@@ -60,29 +61,48 @@ class PayPalService
     }
 
     /** @return array<string, mixed> */
-    public function createOrder(User $user, string $planSlug): array
+    public function createOrder(User $user, string $planSlug, ?\App\Models\CreditCheckoutAttempt $attempt = null): array
     {
         $plan = config("credit_plans.{$planSlug}");
 
-        if (! $plan || $plan['type'] !== 'one_time') {
+        if (! $plan || ($plan['type'] ?? null) !== 'one_time') {
             throw new RuntimeException('Invalid Paypal credit plan.');
         }
 
-        $amount = number_format($plan['amount_minor'] / 100, 2, '.', '');
+        if ($attempt !== null) {
+            $amountMinor = $attempt->amount_minor;
+            $currency = $attempt->currency;
+            $requestId = 'credit-order-'.$attempt->attempt_uuid;
+            $invoiceId = $attempt->invoice_id;
+            $customId = $user->id.'|'.$planSlug;
+        } else {
+            $amountMinor = (int) $plan['amount_minor'];
+            $currency = $plan['currency'];
+            $requestId = (string) Str::uuid();
+            $invoiceId = 'UKC-PPL'.strtoupper(Str::random(12));
+            $customId = $user->id.'|'.$planSlug;
+        }
 
-        $currency = $plan['currency'];
+        // Pure integer arithmetic representation without floating-point rounding artifacts
+        $pounds = intdiv($amountMinor, 100);
+        $pence = abs($amountMinor % 100);
+        $amount = sprintf('%d.%02d', $pounds, $pence);
 
         $response = Http::withToken($this->accessToken())
+            ->timeout(15)
             ->acceptJson()
-            ->withHeaders(['PayPal-Request-Id' => (string) Str::uuid()])
+            ->withHeaders([
+                'PayPal-Request-Id' => $requestId,
+                'Prefer' => 'return=representation',
+            ])
             ->post($this->baseUrl().'/v2/checkout/orders',
                 [
                     'intent' => 'CAPTURE',
                     'purchase_units' => [
                         [
                             'reference_id' => $planSlug,
-                            'custom_id' => $user->id.'|'.$planSlug,
-                            'invoice_id' => 'UKC-PPL'.strtoupper(Str::random(12)),
+                            'custom_id' => $customId,
+                            'invoice_id' => $invoiceId,
                             'description' => $plan['label'],
                             'amount' => [
                                 'currency_code' => $currency,
@@ -148,6 +168,7 @@ class PayPalService
         $requestId = 'guest-report-order-'.$checkoutReference;
 
         $response = Http::withToken($this->accessToken())
+            ->timeout(15)
             ->acceptJson()
             ->withHeaders([
                 'PayPal-Request-Id' => $requestId,
@@ -210,6 +231,7 @@ class PayPalService
         $purchaseUnitPath = "/purchase_units/@reference_id=='{$referenceId}'";
 
         $response = Http::withToken($this->accessToken())
+            ->timeout(15)
             ->acceptJson()
             ->patch(
                 $this->baseUrl()."/v2/checkout/orders/{$orderId}",
@@ -396,6 +418,7 @@ class PayPalService
     public function getOrder(string $orderId): array
     {
         $response = Http::withToken($this->accessToken())
+            ->timeout(10)
             ->acceptJson()
             ->get($this->baseUrl()."/v2/checkout/orders/{$orderId}");
 
@@ -421,6 +444,7 @@ class PayPalService
     public function captureOrder(string $orderId): array
     {
         $response = Http::withToken($this->accessToken())
+            ->timeout(20)
             ->acceptJson()
             ->withHeaders(['PayPal-Request-Id' => 'capture-'.$orderId])
             ->withBody('{}', 'application/json')
@@ -486,6 +510,7 @@ class PayPalService
 
         $response = Http::withToken($this
             ->accessToken())
+            ->timeout(10)
             ->acceptJson()
             ->withBody($payload, 'application/json')
             ->post($this->baseUrl().'/v1/notifications/verify-webhook-signature'
@@ -502,6 +527,7 @@ class PayPalService
     public function createCatalogProduct(string $name, string $description): array
     {
         $response = Http::withToken($this->accessToken())
+            ->timeout(15)
             ->acceptJson()
             ->withHeaders([
                 'PayPal-Request-Id' => (string) Str::uuid(),
@@ -528,6 +554,7 @@ class PayPalService
         $amount = number_format($amountMinor / 100, 2, '.', '');
 
         $response = Http::withToken($this->accessToken())
+            ->timeout(15)
             ->acceptJson()
             ->withHeaders([
                 'PayPal-Request-Id' => (string) Str::uuid(),
@@ -588,6 +615,7 @@ class PayPalService
         }
 
         $response = Http::withToken($this->accessToken())
+            ->timeout(15)
             ->acceptJson()
             ->withHeaders([
                 'PayPal-Request-Id' => (string) Str::uuid(),
@@ -617,6 +645,7 @@ class PayPalService
     public function getSubscription(string $subscriptionId): array
     {
         $response = Http::withToken($this->accessToken())
+            ->timeout(10)
             ->acceptJson()
             ->get($this->baseUrl()."/v1/billing/subscriptions/{$subscriptionId}");
 
@@ -633,6 +662,7 @@ class PayPalService
     public function reviseSubscription(string $subscriptionId, string $payPalPlanId, string $returnUrl, string $cancelUrl): array
     {
         $response = Http::withToken($this->accessToken())
+            ->timeout(15)
             ->acceptJson()
             ->withHeaders([
                 'PayPal-Request-Id' => (string) Str::uuid(),
@@ -664,6 +694,7 @@ class PayPalService
     public function cancelSubscription(string $subscriptionId): void
     {
         $response = Http::withToken($this->accessToken())
+            ->timeout(10)
             ->acceptJson()
             ->post($this->baseUrl()."/v1/billing/subscriptions/{$subscriptionId}/cancel", [
                 'reason' => 'Cancelled by customer.',
@@ -703,6 +734,7 @@ class PayPalService
         }
 
         $response = Http::withToken($this->accessToken())
+            ->timeout(15)
             ->acceptJson()
             ->withHeaders($headers)
             ->post($this->baseUrl()."/v2/payments/captures/{$captureId}/refund", $payload);
@@ -720,6 +752,7 @@ class PayPalService
     public function getCapture(string $captureId): array
     {
         $response = Http::withToken($this->accessToken())
+            ->timeout(10)
             ->acceptJson()
             ->get($this->baseUrl()."/v2/payments/captures/{$captureId}");
 

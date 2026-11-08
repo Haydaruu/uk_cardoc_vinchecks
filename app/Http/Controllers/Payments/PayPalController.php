@@ -2,39 +2,73 @@
 
 namespace App\Http\Controllers\Payments;
 
+use App\Exceptions\PayPalCaptureDeniedException;
+use App\Exceptions\PayPalCapturePendingException;
+use App\Exceptions\PayPalOrderOwnershipException;
 use App\Http\Controllers\Controller;
-use App\Jobs\SendTelegramSaleNotification;
+use App\Models\CreditCheckoutAttempt;
 use App\Models\Transaction;
-use App\Services\CreditService;
+use App\Services\CreditCaptureService;
+use App\Services\CreditCheckoutService;
 use App\Services\PayPalService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 use RuntimeException;
 
 class PayPalController extends Controller
 {
-    public function createOrder(Request $request, PayPalService $payPalService): JsonResponse
+    public function createOrder(Request $request, CreditCheckoutService $checkoutService): JsonResponse
     {
         $request->validate([
             'plan' => ['required', 'string'],
+            'intent_reference' => ['nullable', 'string', 'max:64'],
         ]);
 
         $planSlug = $request->string('plan')->toString();
 
         $plan = config("credit_plans.{$planSlug}");
 
-        if (! $plan || $plan['type'] !== 'one_time') {
+        if (! $plan || ($plan['type'] ?? null) !== 'one_time') {
             return response()->json([
                 'message' => 'Invalid credit plan.',
             ], 422);
         }
 
+        $intentReference = $request->filled('intent_reference')
+            ? $request->string('intent_reference')->toString()
+            : null;
+
+        if ($intentReference === null) {
+            $sessionKey = "checkout_intent.{$planSlug}";
+            $cachedIntent = $request->session()->get($sessionKey);
+
+            if (is_string($cachedIntent) && $cachedIntent !== '') {
+                $existing = CreditCheckoutAttempt::query()
+                    ->where('user_id', $request->user()->id)
+                    ->where('intent_reference', $cachedIntent)
+                    ->first();
+
+                if ($existing && ! $existing->isCompleted() && ! $existing->isExpired() && $existing->status !== CreditCheckoutAttempt::STATUS_UNRECONCILED_STALE) {
+                    $intentReference = $cachedIntent;
+                }
+            }
+
+            if ($intentReference === null) {
+                $intentReference = (string) Str::uuid();
+                $request->session()->put($sessionKey, $intentReference);
+            }
+        }
+
         try {
-            $order = $payPalService->createOrder($request->user(), $planSlug);
+            $result = $checkoutService->createPayPalOrder($request->user(), $planSlug, $intentReference);
+        } catch (ValidationException $e) {
+            throw $e;
         } catch (RuntimeException $e) {
             report($e);
 
@@ -43,12 +77,21 @@ class PayPalController extends Controller
             ], 502);
         }
 
+        if (($result['status'] ?? null) === 'processing') {
+            return response()->json([
+                'status' => 'processing',
+                'attempt_id' => $result['attempt_id'],
+                'retry_after' => $result['retry_after'] ?? 2,
+            ], 202);
+        }
+
         return response()->json([
-            'id' => $order['id'],
+            'id' => $result['id'],
+            'attempt_id' => $result['attempt_id'],
         ]);
     }
 
-    public function capture(Request $request, PayPalService $payPalService, CreditService $creditService): JsonResponse
+    public function capture(Request $request, CreditCaptureService $captureService): JsonResponse
     {
         $request->validate([
             'order_id' => ['required', 'string'],
@@ -58,137 +101,56 @@ class PayPalController extends Controller
         $orderId = $request->string('order_id')->toString();
 
         try {
-            $order = $payPalService->getOrder($orderId);
-            $purchaseUnit = $order['purchase_units'][0] ?? null;
-
-            if (! $purchaseUnit) {
-                return response()->json([
-                    'message' => 'Invalid PayPal order. ',
-                ], 422);
-            }
-
-            $planSlug = $purchaseUnit['reference_id'] ?? null;
-            $customId = $purchaseUnit['custom_id'] ?? null;
-
-            [$orderUserId, $customPlanSlug] = array_pad(explode('|', (string) $customId, 2), 2, null);
-
-            if ((string) $orderUserId !== (string) $user->id || $planSlug !== $customPlanSlug) {
-                return response()->json([
-                    'message' => 'PayPal order validation failed',
-                ], 403);
-            }
-
-            $plan = config("credit_plans.{$planSlug}");
-
-            if (! $plan || $plan['type'] !== 'one_time') {
-                return response()->json([
-                    'message' => 'Invalid PayPal credit plan.',
-                ], 422);
-            }
-
-            if (($order['status'] ?? null) === 'COMPLETED') {
-                $capturedOrder = $order;
-            } else {
-                $capturedOrder = $payPalService->captureOrder($orderId);
-            }
-
+            $captureService->captureOrderAndFulfill(
+                orderId: $orderId,
+                user: $user,
+            );
+        } catch (PayPalOrderOwnershipException $e) {
+            return response()->json(['message' => 'PayPal order ownership validation failed.'], 403);
+        } catch (PayPalCapturePendingException $e) {
+            return response()->json([
+                'status' => 'pending',
+                'capture_status' => 'PENDING',
+                'message' => 'PayPal payment is pending clearance. Your credits will be added automatically once cleared.',
+            ], 202);
+        } catch (PayPalCaptureDeniedException $e) {
+            return response()->json([
+                'status' => 'failed',
+                'capture_status' => $e->getCaptureStatus(),
+                'message' => 'PayPal payment capture was declined or failed.',
+            ], 422);
         } catch (RuntimeException $e) {
             report($e);
 
+            if (
+                str_contains($e->getMessage(), 'already being processed')
+                || str_contains($e->getMessage(), 'timed out')
+                || str_contains($e->getMessage(), 'reconciliation')
+            ) {
+                return response()->json([
+                    'status' => 'processing',
+                    'message' => 'Payment capture is currently being processed or reconciled. Please wait a moment.',
+                    'retry_after' => 3,
+                ], 202);
+            }
+
+            if (
+                str_contains($e->getMessage(), 'Invalid')
+                || str_contains($e->getMessage(), 'missing')
+            ) {
+                return response()->json(['message' => $e->getMessage()], 422);
+            }
+
             return response()->json([
-                'message' => 'Unable to capture PayPal payment.',
-            ], 502);
-        }
-
-        if (($capturedOrder['status'] ?? null) !== 'COMPLETED') {
-            return response()->json([
-                'message' => 'PayPal payment has not completed.',
-            ], 422);
-        }
-
-        $purchaseUnit = $capturedOrder['purchase_units'][0] ?? null;
-        $capture = $purchaseUnit['payments']['captures'][0] ?? null;
-
-        if (! $capture || ($capture['status'] ?? null) !== 'COMPLETED') {
-            return response()->json([
-                'message' => 'PayPal capture is not completed.',
-            ], 422);
-        }
-
-        $captureId = $capture['id'] ?? null;
-
-        if (! $captureId) {
-            return response()->json([
-                'message' => 'PayPal capture ID is missing',
-            ], 422);
-        }
-        $expectedAmount = number_format($plan['amount_minor'] / 100, 2, '.', '');
-
-        $expectedCurrency = strtoupper($plan['currency']);
-
-        $captureAmount = $capture['amount']['value'] ?? null;
-
-        $captureCurrency = strtoupper($capture['amount']['currency_code'] ?? '');
-
-        if ($captureAmount !== $expectedAmount || $captureCurrency !== $expectedCurrency) {
-            return response()->json([
-                'message' => 'PayPal payment amount does not match the selected plan.',
-            ], 422);
-        }
-
-        $creditService->grantCredits(
-            user: $user,
-            amount: (int) $plan['credits'],
-            type: 'purchase',
-
-            referenceId: $captureId,
-            idempotencyKey: $captureId,
-            description: "PayPal purchase: {$captureId}",
-        );
-
-        $paidAt = isset($capture['create_time']) ? Carbon::parse($capture['create_time']) : now();
-
-        $transaction = Transaction::updateOrCreate(
-            [
-                'payment_gateway_ref' => $captureId,
-            ],
-            [
-                'user_id' => $user->id,
-                'invoice_id' => 'UKC-PPL-'.strtoupper(substr($captureId, 0, 8)),
-                'currency' => $captureCurrency,
-                'amount' => $captureAmount,
-                'type' => 'payment',
-                'category' => 'credit_purchase',
-                'payment_method' => 'paypal',
-                'description' => $plan['label'],
-                'status' => 'success',
-                'paid_at' => $paidAt,
-            ],
-        );
-
-        if ($transaction->wasRecentlyCreated && (float) $transaction->amount > 0) {
-            $amount = number_format(
-                (float) $transaction->amount,
-                2,
-                '.',
-                ','
-            );
-
-            SendTelegramSaleNotification::dispatch(
-                'Credit purchase',
-                'PayPal',
-                (string) $transaction->payment_gateway_ref,
-                strtoupper((string) $transaction->currency).' '.$amount,
-            )->afterCommit();
+                'status' => 'processing',
+                'message' => 'Payment capture is being reconciled with PayPal. Please check back shortly.',
+                'retry_after' => 5,
+            ], 202);
         }
 
         return response()->json([
             'status' => 'success',
-            'redirect' => route('checkout.paypal.success',
-                [
-                    'order_id' => $orderId,
-                ]
-            ),
+            'redirect' => route('checkout.paypal.success', ['order_id' => $orderId]),
         ]);
     }
 
@@ -215,7 +177,9 @@ class PayPalController extends Controller
         $purchaseUnit = $order['purchase_units'][0] ?? null;
         $planSlug = $purchaseUnit['reference_id'] ?? null;
         $customId = $purchaseUnit['custom_id'] ?? null;
-        [$orderUserId, $customPlanSlug] = array_pad(explode('|', (string) $customId, 2), 2, null);
+        $parts = explode('|', (string) $customId, 3);
+        $orderUserId = $parts[0] ?? null;
+        $customPlanSlug = $parts[1] ?? null;
 
         if ((string) $orderUserId !== (string) $user->id || $planSlug !== $customPlanSlug) {
             abort(403);
