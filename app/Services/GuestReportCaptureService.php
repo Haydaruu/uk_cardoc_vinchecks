@@ -146,12 +146,22 @@ class GuestReportCaptureService
 
             // 2. Terminal Capture Status Guards
             if ($purchase->capture_status === GuestReportPurchase::CAPTURE_COMPLETED) {
+                if ($purchase->payment_status === GuestReportPurchase::STATUS_PAID && $purchase->provider_payment_id) {
+                    return [
+                        'early_result' => new GuestCaptureResult(
+                            status: 'completed',
+                            redirect: $this->buildSuccessUrl($purchase),
+                            reconciled: true,
+                            httpStatus: 200,
+                        ),
+                    ];
+                }
+
                 return [
                     'early_result' => new GuestCaptureResult(
-                        status: 'completed',
-                        redirect: $this->buildSuccessUrl($purchase),
-                        reconciled: true,
-                        httpStatus: 200,
+                        status: 'failed',
+                        errorMessage: "Inconsistent purchase state: capture is marked completed but payment status is '{$purchase->payment_status}'.",
+                        httpStatus: 422,
                     ),
                 ];
             }
@@ -410,24 +420,55 @@ class GuestReportCaptureService
 
         // 2. Order VOIDED at provider
         if ($orderStatus === 'VOIDED') {
-            DB::transaction(function () use ($purchase, $attempt) {
-                $attempt?->update([
+            $result = DB::transaction(function () use ($purchase, $attempt) {
+                $lockedPurchase = GuestReportPurchase::query()
+                    ->lockForUpdate()
+                    ->find($purchase->id);
+
+                if (! $lockedPurchase) {
+                    return null;
+                }
+
+                $lockedAttempt = $attempt
+                    ? GuestReportCaptureAttempt::query()->lockForUpdate()->find($attempt->id)
+                    : null;
+
+                if ($this->isPurchaseInProtectedState($lockedPurchase)) {
+                    return $this->resolveProtectedStateResult($lockedPurchase);
+                }
+
+                if ($this->isAttemptSuperseded($lockedAttempt, $lockedPurchase)) {
+                    return new GuestCaptureResult(
+                        status: 'processing',
+                        errorMessage: 'Capture attempt has been superseded by a newer attempt.',
+                        httpStatus: 202,
+                    );
+                }
+
+                $this->safelyUpdateAttempt($lockedAttempt, $lockedPurchase, [
                     'status' => GuestReportCaptureAttempt::STATUS_FAILED,
                     'failure_reason' => 'PayPal order was VOIDED.',
                 ]);
-                $purchase->update([
+
+                $lockedPurchase->update([
                     'payment_status' => GuestReportPurchase::PAYMENT_STATUS_FAILED,
                     'capture_status' => GuestReportPurchase::CAPTURE_STATUS_FAILED,
                     'failed_at' => now(),
                     'capture_failure_reason' => 'PayPal order was VOIDED.',
                     'last_reconciled_at' => now(),
                 ]);
+
+                return new GuestCaptureResult(
+                    status: 'failed',
+                    errorMessage: 'Payment order was voided by provider.',
+                    httpStatus: 422,
+                );
             });
 
-            return new GuestCaptureResult(
+            return $result ?? new GuestCaptureResult(
                 status: 'failed',
-                errorMessage: 'Payment order was voided by provider.',
-                httpStatus: 422,
+                errorMessage: 'Guest report purchase record not found.',
+                httpStatus: 404,
             );
         }
 
@@ -441,18 +482,49 @@ class GuestReportCaptureService
                 } catch (PayPalApiException $e) {
                     return $this->handlePayPalApiException($e, $purchase, $attempt, $orderId);
                 } catch (\Throwable $e) {
-                    DB::transaction(function () use ($purchase, $attempt, $e) {
-                        $attempt?->update([
+                    $result = DB::transaction(function () use ($purchase, $attempt, $e) {
+                        $lockedPurchase = GuestReportPurchase::query()
+                            ->lockForUpdate()
+                            ->find($purchase->id);
+
+                        if (! $lockedPurchase) {
+                            return null;
+                        }
+
+                        $lockedAttempt = $attempt
+                            ? GuestReportCaptureAttempt::query()->lockForUpdate()->find($attempt->id)
+                            : null;
+
+                        if ($this->isPurchaseInProtectedState($lockedPurchase)) {
+                            return $this->resolveProtectedStateResult($lockedPurchase);
+                        }
+
+                        if ($this->isAttemptSuperseded($lockedAttempt, $lockedPurchase)) {
+                            return new GuestCaptureResult(
+                                status: 'processing',
+                                errorMessage: 'Capture attempt has been superseded by a newer attempt.',
+                                httpStatus: 202,
+                            );
+                        }
+
+                        $this->safelyUpdateAttempt($lockedAttempt, $lockedPurchase, [
                             'status' => GuestReportCaptureAttempt::STATUS_ERROR,
                             'failure_reason' => $e->getMessage(),
                         ]);
-                        $purchase->update([
+
+                        $lockedPurchase->update([
                             'capture_status' => GuestReportPurchase::CAPTURE_RECONCILIATION_REQUIRED,
                             'capture_failure_reason' => 'Network error during capture: '.$e->getMessage(),
                         ]);
+
+                        return new GuestCaptureResult(
+                            status: 'failed',
+                            errorMessage: 'Payment processing error.',
+                            httpStatus: 500,
+                        );
                     });
 
-                    return new GuestCaptureResult(
+                    return $result ?? new GuestCaptureResult(
                         status: 'failed',
                         errorMessage: 'Payment processing error.',
                         httpStatus: 500,
@@ -461,11 +533,26 @@ class GuestReportCaptureService
             }
 
             // Order is APPROVED but POST is not permitted (GET-only operation)
-            if ($purchase->capture_status === GuestReportPurchase::CAPTURE_PENDING) {
-                $purchase->update([
-                    'last_reconciled_at' => now(),
-                ]);
+            $isPending = ($purchase->capture_status === GuestReportPurchase::CAPTURE_PENDING);
 
+            DB::transaction(function () use ($purchase) {
+                $lockedPurchase = GuestReportPurchase::query()
+                    ->lockForUpdate()
+                    ->find($purchase->id);
+
+                if (! $lockedPurchase) {
+                    return;
+                }
+
+                // Never overwrite timestamps on completed or terminal states
+                if (! $this->isPurchaseInProtectedState($lockedPurchase)) {
+                    $lockedPurchase->update([
+                        'last_reconciled_at' => now(),
+                    ]);
+                }
+            });
+
+            if ($isPending) {
                 return new GuestCaptureResult(
                     status: 'processing',
                     errorMessage: 'Payment is pending bank clearance.',
@@ -473,10 +560,6 @@ class GuestReportCaptureService
                     httpStatus: 202,
                 );
             }
-
-            $purchase->update([
-                'last_reconciled_at' => now(),
-            ]);
 
             return new GuestCaptureResult(
                 status: 'processing',
@@ -518,22 +601,59 @@ class GuestReportCaptureService
 
         // Handle PENDING capture status (eCheck, delayed settlement)
         if ($pendingCapture && ! $completedCapture) {
-            DB::transaction(function () use ($purchase, $attempt, $pendingCapture) {
-                $attempt?->update([
+            $result = DB::transaction(function () use ($purchase, $attempt, $pendingCapture) {
+                $lockedPurchase = GuestReportPurchase::query()
+                    ->lockForUpdate()
+                    ->find($purchase->id);
+
+                if (! $lockedPurchase) {
+                    return null;
+                }
+
+                $lockedAttempt = $attempt
+                    ? GuestReportCaptureAttempt::query()->lockForUpdate()->find($attempt->id)
+                    : null;
+
+                if ($this->isPurchaseInProtectedState($lockedPurchase)) {
+                    return $this->resolveProtectedStateResult($lockedPurchase);
+                }
+
+                if ($this->isAttemptSuperseded($lockedAttempt, $lockedPurchase)) {
+                    return new GuestCaptureResult(
+                        status: 'processing',
+                        errorMessage: 'Capture attempt has been superseded by a newer attempt.',
+                        httpStatus: 202,
+                    );
+                }
+
+                $this->safelyUpdateAttempt($lockedAttempt, $lockedPurchase, [
                     'status' => GuestReportCaptureAttempt::STATUS_PENDING,
                 ]);
-                $purchase->update([
+
+                $updates = [
                     'capture_status' => GuestReportPurchase::CAPTURE_PENDING,
-                    'provider_payment_id' => $pendingCapture['id'],
                     'capture_failure_reason' => 'Payment pending: '.($pendingCapture['status_details']['reason'] ?? 'eCheck/processing'),
-                ]);
+                ];
+
+                // Never overwrite a confirmed or existing provider payment ID with a pending capture ID
+                if (empty($lockedPurchase->provider_payment_id)) {
+                    $updates['provider_payment_id'] = $pendingCapture['id'];
+                }
+
+                $lockedPurchase->update($updates);
+
+                return new GuestCaptureResult(
+                    status: 'processing',
+                    errorMessage: 'Payment is pending bank clearance.',
+                    reconciled: false,
+                    httpStatus: 202,
+                );
             });
 
-            return new GuestCaptureResult(
-                status: 'processing',
-                errorMessage: 'Payment is pending bank clearance.',
-                reconciled: false,
-                httpStatus: 202,
+            return $result ?? new GuestCaptureResult(
+                status: 'failed',
+                errorMessage: 'Guest report purchase record not found.',
+                httpStatus: 404,
             );
         }
 
@@ -544,17 +664,48 @@ class GuestReportCaptureService
                 return $this->settleSuccessfulCapture($fallbackOrder, $purchase, $attempt, isReconciliation: true);
             }
 
-            DB::transaction(function () use ($purchase, $attempt) {
-                $attempt?->update([
+            $result = DB::transaction(function () use ($purchase, $attempt) {
+                $lockedPurchase = GuestReportPurchase::query()
+                    ->lockForUpdate()
+                    ->find($purchase->id);
+
+                if (! $lockedPurchase) {
+                    return null;
+                }
+
+                $lockedAttempt = $attempt
+                    ? GuestReportCaptureAttempt::query()->lockForUpdate()->find($attempt->id)
+                    : null;
+
+                if ($this->isPurchaseInProtectedState($lockedPurchase)) {
+                    return $this->resolveProtectedStateResult($lockedPurchase);
+                }
+
+                if ($this->isAttemptSuperseded($lockedAttempt, $lockedPurchase)) {
+                    return new GuestCaptureResult(
+                        status: 'processing',
+                        errorMessage: 'Capture attempt has been superseded by a newer attempt.',
+                        httpStatus: 202,
+                    );
+                }
+
+                $this->safelyUpdateAttempt($lockedAttempt, $lockedPurchase, [
                     'status' => GuestReportCaptureAttempt::STATUS_ERROR,
                 ]);
-                $purchase->update([
+
+                $lockedPurchase->update([
                     'capture_status' => GuestReportPurchase::CAPTURE_RECONCILIATION_REQUIRED,
                     'capture_failure_reason' => 'Capture response missing valid COMPLETED capture resource.',
                 ]);
+
+                return new GuestCaptureResult(
+                    status: 'failed',
+                    errorMessage: 'Payment verification failed.',
+                    httpStatus: 500,
+                );
             });
 
-            return new GuestCaptureResult(
+            return $result ?? new GuestCaptureResult(
                 status: 'failed',
                 errorMessage: 'Payment verification failed.',
                 httpStatus: 500,
@@ -576,10 +727,82 @@ class GuestReportCaptureService
         // Enforce existing settlement invariants (amounts, report eligibility, ProcessVehicleCheck dispatch, Telegram sale notification)
         $this->paymentService->handlePayPalGuestOrder($capturedOrder);
 
-        DB::transaction(function () use ($purchase, $attempt, $isReconciliation) {
-            $attempt?->update([
-                'status' => GuestReportCaptureAttempt::STATUS_COMPLETED,
-            ]);
+        $result = DB::transaction(function () use ($purchase, $attempt, $isReconciliation) {
+            $lockedPurchase = GuestReportPurchase::query()
+                ->lockForUpdate()
+                ->find($purchase->id);
+
+            if (! $lockedPurchase) {
+                return new GuestCaptureResult(
+                    status: 'failed',
+                    errorMessage: 'Guest report purchase record not found.',
+                    httpStatus: 404,
+                );
+            }
+
+            // 1. Authoritative check: If purchase is in terminal negative state, do NOT mark completed
+            if ($lockedPurchase->payment_status === GuestReportPurchase::STATUS_REFUNDED) {
+                return new GuestCaptureResult(
+                    status: 'failed',
+                    errorMessage: 'Purchase has been refunded and cannot be captured.',
+                    httpStatus: 422,
+                );
+            }
+
+            if (in_array($lockedPurchase->payment_status, [
+                GuestReportPurchase::PAYMENT_STATUS_FAILED,
+                GuestReportPurchase::STATUS_EXPIRED,
+            ], true)) {
+                return new GuestCaptureResult(
+                    status: 'failed',
+                    errorMessage: "Purchase is in terminal status '{$lockedPurchase->payment_status}' and cannot be captured.",
+                    httpStatus: 422,
+                );
+            }
+
+            // 2. Authoritative check: Must be STATUS_PAID
+            if ($lockedPurchase->payment_status !== GuestReportPurchase::STATUS_PAID) {
+                return new GuestCaptureResult(
+                    status: 'failed',
+                    errorMessage: "Purchase payment status is '{$lockedPurchase->payment_status}', not paid.",
+                    httpStatus: 422,
+                );
+            }
+
+            // 3. Purchase is authoritatively PAID: safely update capture tracking
+            $lockedAttempt = $attempt
+                ? GuestReportCaptureAttempt::query()->lockForUpdate()->find($attempt->id)
+                : null;
+
+            // Preserve attempt consistency: only mark attempt completed if it belongs to this purchase and order
+            if (
+                $lockedAttempt
+                && (int) $lockedAttempt->guest_report_purchase_id === (int) $lockedPurchase->id
+                && $lockedAttempt->provider_order_id === $lockedPurchase->provider_order_id
+            ) {
+                $lockedAttempt->update([
+                    'status' => GuestReportCaptureAttempt::STATUS_COMPLETED,
+                ]);
+            }
+
+            // Also mark active attempt if it matches
+            if (
+                $lockedPurchase->active_capture_attempt_uuid
+                && $lockedAttempt?->attempt_uuid !== $lockedPurchase->active_capture_attempt_uuid
+            ) {
+                $activeAttempt = GuestReportCaptureAttempt::query()
+                    ->where('guest_report_purchase_id', $lockedPurchase->id)
+                    ->where('attempt_uuid', $lockedPurchase->active_capture_attempt_uuid)
+                    ->where('provider_order_id', $lockedPurchase->provider_order_id)
+                    ->lockForUpdate()
+                    ->first();
+
+                if ($activeAttempt && $activeAttempt->status !== GuestReportCaptureAttempt::STATUS_COMPLETED) {
+                    $activeAttempt->update([
+                        'status' => GuestReportCaptureAttempt::STATUS_COMPLETED,
+                    ]);
+                }
+            }
 
             $updates = [
                 'capture_status' => GuestReportPurchase::CAPTURE_COMPLETED,
@@ -590,17 +813,19 @@ class GuestReportCaptureService
                 $updates['last_reconciled_at'] = now();
             }
 
-            $purchase->update($updates);
+            $lockedPurchase->update($updates);
+
+            return new GuestCaptureResult(
+                status: 'completed',
+                redirect: $this->buildSuccessUrl($lockedPurchase),
+                reconciled: $isReconciliation,
+                httpStatus: 200,
+            );
         });
 
         $purchase->refresh();
 
-        return new GuestCaptureResult(
-            status: 'completed',
-            redirect: $this->buildSuccessUrl($purchase),
-            reconciled: $isReconciliation,
-            httpStatus: 200,
-        );
+        return $result;
     }
 
     /**
@@ -620,80 +845,204 @@ class GuestReportCaptureService
         }
 
         if ($e->hasIssue('INSTRUMENT_DECLINED')) {
-            DB::transaction(function () use ($purchase, $attempt) {
-                $attempt?->update([
+            $result = DB::transaction(function () use ($purchase, $attempt) {
+                $lockedPurchase = GuestReportPurchase::query()
+                    ->lockForUpdate()
+                    ->find($purchase->id);
+
+                if (! $lockedPurchase) {
+                    return null;
+                }
+
+                $lockedAttempt = $attempt
+                    ? GuestReportCaptureAttempt::query()->lockForUpdate()->find($attempt->id)
+                    : null;
+
+                if ($this->isPurchaseInProtectedState($lockedPurchase)) {
+                    return $this->resolveProtectedStateResult($lockedPurchase);
+                }
+
+                if ($this->isAttemptSuperseded($lockedAttempt, $lockedPurchase)) {
+                    return new GuestCaptureResult(
+                        status: 'processing',
+                        errorMessage: 'Capture attempt has been superseded by a newer attempt.',
+                        httpStatus: 202,
+                    );
+                }
+
+                $this->safelyUpdateAttempt($lockedAttempt, $lockedPurchase, [
                     'status' => GuestReportCaptureAttempt::STATUS_FUNDING_DECLINED,
                     'failure_reason' => 'Funding instrument declined by processor.',
                 ]);
-                $purchase->update([
+
+                $lockedPurchase->update([
                     'capture_status' => GuestReportPurchase::CAPTURE_FUNDING_DECLINED,
                     'capture_failure_reason' => 'Funding instrument declined by processor.',
                 ]);
+
+                return new GuestCaptureResult(
+                    status: 'funding_declined',
+                    errorMessage: 'Payment method declined. Please choose a different payment method.',
+                    httpStatus: 422,
+                );
             });
 
-            return new GuestCaptureResult(
-                status: 'funding_declined',
-                errorMessage: 'Payment method declined. Please choose a different payment method.',
-                httpStatus: 422,
+            return $result ?? new GuestCaptureResult(
+                status: 'failed',
+                errorMessage: 'Guest report purchase record not found.',
+                httpStatus: 404,
             );
         }
 
         if ($e->hasIssue('PAYER_ACTION_REQUIRED')) {
             $payerActionUrl = $this->extractPayerActionUrl($e, $purchase);
 
-            DB::transaction(function () use ($purchase, $attempt) {
-                $attempt?->update([
+            $result = DB::transaction(function () use ($purchase, $attempt, $payerActionUrl) {
+                $lockedPurchase = GuestReportPurchase::query()
+                    ->lockForUpdate()
+                    ->find($purchase->id);
+
+                if (! $lockedPurchase) {
+                    return null;
+                }
+
+                $lockedAttempt = $attempt
+                    ? GuestReportCaptureAttempt::query()->lockForUpdate()->find($attempt->id)
+                    : null;
+
+                if ($this->isPurchaseInProtectedState($lockedPurchase)) {
+                    return $this->resolveProtectedStateResult($lockedPurchase);
+                }
+
+                if ($this->isAttemptSuperseded($lockedAttempt, $lockedPurchase)) {
+                    return new GuestCaptureResult(
+                        status: 'processing',
+                        errorMessage: 'Capture attempt has been superseded by a newer attempt.',
+                        httpStatus: 202,
+                    );
+                }
+
+                $this->safelyUpdateAttempt($lockedAttempt, $lockedPurchase, [
                     'status' => GuestReportCaptureAttempt::STATUS_PAYER_ACTION_REQUIRED,
                     'failure_reason' => 'Buyer authentication required.',
                 ]);
-                $purchase->update([
+
+                $lockedPurchase->update([
                     'capture_status' => GuestReportPurchase::CAPTURE_PAYER_ACTION_REQUIRED,
                     'capture_failure_reason' => 'Buyer authentication required.',
                 ]);
+
+                return new GuestCaptureResult(
+                    status: 'payer_action_required',
+                    payerActionUrl: $payerActionUrl,
+                    errorMessage: 'Customer authentication required.',
+                    httpStatus: 200,
+                );
             });
 
-            return new GuestCaptureResult(
-                status: 'payer_action_required',
-                payerActionUrl: $payerActionUrl,
-                errorMessage: 'Customer authentication required.',
-                httpStatus: 200,
+            return $result ?? new GuestCaptureResult(
+                status: 'failed',
+                errorMessage: 'Guest report purchase record not found.',
+                httpStatus: 404,
             );
         }
 
         if ($e->hasIssue('MAX_NUMBER_OF_PAYMENT_ATTEMPTS_EXCEEDED') || $e->hasIssue('ORDER_NOT_APPROVED')) {
-            DB::transaction(function () use ($purchase, $attempt, $e) {
-                $attempt?->update([
+            $result = DB::transaction(function () use ($purchase, $attempt, $e) {
+                $lockedPurchase = GuestReportPurchase::query()
+                    ->lockForUpdate()
+                    ->find($purchase->id);
+
+                if (! $lockedPurchase) {
+                    return null;
+                }
+
+                $lockedAttempt = $attempt
+                    ? GuestReportCaptureAttempt::query()->lockForUpdate()->find($attempt->id)
+                    : null;
+
+                if ($this->isPurchaseInProtectedState($lockedPurchase)) {
+                    return $this->resolveProtectedStateResult($lockedPurchase);
+                }
+
+                if ($this->isAttemptSuperseded($lockedAttempt, $lockedPurchase)) {
+                    return new GuestCaptureResult(
+                        status: 'processing',
+                        errorMessage: 'Capture attempt has been superseded by a newer attempt.',
+                        httpStatus: 202,
+                    );
+                }
+
+                $this->safelyUpdateAttempt($lockedAttempt, $lockedPurchase, [
                     'status' => GuestReportCaptureAttempt::STATUS_FAILED,
                     'failure_reason' => $e->getMessage(),
                 ]);
-                $purchase->update([
+
+                $lockedPurchase->update([
                     'payment_status' => GuestReportPurchase::PAYMENT_STATUS_FAILED,
                     'capture_status' => GuestReportPurchase::CAPTURE_STATUS_FAILED,
                     'failed_at' => now(),
                     'capture_failure_reason' => 'Terminal decline: '.($e->getIssue() ?? $e->getMessage()),
                 ]);
+
+                return new GuestCaptureResult(
+                    status: 'failed',
+                    errorMessage: 'Payment failed: '.($e->getIssue() ?? 'Declined by provider.'),
+                    httpStatus: 422,
+                );
             });
 
-            return new GuestCaptureResult(
+            return $result ?? new GuestCaptureResult(
                 status: 'failed',
-                errorMessage: 'Payment failed: '.($e->getIssue() ?? 'Declined by provider.'),
-                httpStatus: 422,
+                errorMessage: 'Guest report purchase record not found.',
+                httpStatus: 404,
             );
         }
 
         // Generic error -> queue for reconciliation
-        DB::transaction(function () use ($purchase, $attempt, $e) {
-            $attempt?->update([
+        $result = DB::transaction(function () use ($purchase, $attempt, $e) {
+            $lockedPurchase = GuestReportPurchase::query()
+                ->lockForUpdate()
+                ->find($purchase->id);
+
+            if (! $lockedPurchase) {
+                return null;
+            }
+
+            $lockedAttempt = $attempt
+                ? GuestReportCaptureAttempt::query()->lockForUpdate()->find($attempt->id)
+                : null;
+
+            if ($this->isPurchaseInProtectedState($lockedPurchase)) {
+                return $this->resolveProtectedStateResult($lockedPurchase);
+            }
+
+            if ($this->isAttemptSuperseded($lockedAttempt, $lockedPurchase)) {
+                return new GuestCaptureResult(
+                    status: 'processing',
+                    errorMessage: 'Capture attempt has been superseded by a newer attempt.',
+                    httpStatus: 202,
+                );
+            }
+
+            $this->safelyUpdateAttempt($lockedAttempt, $lockedPurchase, [
                 'status' => GuestReportCaptureAttempt::STATUS_ERROR,
                 'failure_reason' => $e->getMessage(),
             ]);
-            $purchase->update([
+
+            $lockedPurchase->update([
                 'capture_status' => GuestReportPurchase::CAPTURE_RECONCILIATION_REQUIRED,
                 'capture_failure_reason' => 'API error during capture: '.$e->getMessage(),
             ]);
+
+            return new GuestCaptureResult(
+                status: 'failed',
+                errorMessage: 'Payment capture failed and requires reconciliation.',
+                httpStatus: 500,
+            );
         });
 
-        return new GuestCaptureResult(
+        return $result ?? new GuestCaptureResult(
             status: 'failed',
             errorMessage: 'Payment capture failed and requires reconciliation.',
             httpStatus: 500,
@@ -748,36 +1097,96 @@ class GuestReportCaptureService
                 throw new \RuntimeException('Provider payment ID mismatch.');
             }
 
-            DB::transaction(function () use ($purchase, $captureId) {
-                $purchase->update([
+            $result = DB::transaction(function () use ($purchase, $captureId) {
+                $lockedPurchase = GuestReportPurchase::query()
+                    ->lockForUpdate()
+                    ->find($purchase->id);
+
+                if (! $lockedPurchase) {
+                    return null;
+                }
+
+                if ($lockedPurchase->payment_status === GuestReportPurchase::STATUS_REFUNDED) {
+                    return new GuestCaptureResult(
+                        status: 'failed',
+                        errorMessage: 'Purchase has been refunded.',
+                        httpStatus: 422,
+                    );
+                }
+
+                if (
+                    is_string($lockedPurchase->provider_payment_id)
+                    && $lockedPurchase->provider_payment_id !== ''
+                    && ! hash_equals($lockedPurchase->provider_payment_id, $captureId)
+                ) {
+                    throw new \RuntimeException('Provider payment ID mismatch.');
+                }
+
+                $lockedPurchase->update([
                     'capture_status' => GuestReportPurchase::CAPTURE_COMPLETED,
                     'provider_payment_id' => $captureId,
                     'last_reconciled_at' => now(),
                     'capture_failure_reason' => null,
                 ]);
+
+                return new GuestCaptureResult(
+                    status: 'completed',
+                    redirect: $this->buildSuccessUrl($lockedPurchase),
+                    reconciled: true,
+                    httpStatus: 200,
+                );
             });
 
-            $purchase->refresh();
-
-            return new GuestCaptureResult(
-                status: 'completed',
-                redirect: $this->buildSuccessUrl($purchase),
-                reconciled: true,
-                httpStatus: 200,
+            return $result ?? new GuestCaptureResult(
+                status: 'failed',
+                errorMessage: 'Guest report purchase record not found.',
+                httpStatus: 404,
             );
         } catch (\Throwable $e) {
             Log::warning("Paid record proof verification failed for order {$orderId}: ".$e->getMessage());
 
-            // Intentionally omit updating `last_reconciled_at`: this discrepancy indicates a paid
-            // record without verified provider capture proof. Preserving a null/stale timestamp keeps
-            // the record eligible for repeated scheduler evaluation and continued alerting/escalation
-            // until manually investigated and resolved.
-            DB::transaction(function () use ($purchase, $e) {
-                $purchase->update([
+            $earlyCompleted = DB::transaction(function () use ($purchase, $e) {
+                $lockedPurchase = GuestReportPurchase::query()
+                    ->lockForUpdate()
+                    ->find($purchase->id);
+
+                if (! $lockedPurchase) {
+                    return null;
+                }
+
+                // If already completed and proven by another process, do NOT overwrite with discrepancy!
+                if (
+                    $lockedPurchase->capture_status === GuestReportPurchase::CAPTURE_COMPLETED
+                    && ! empty($lockedPurchase->provider_payment_id)
+                ) {
+                    return new GuestCaptureResult(
+                        status: 'completed',
+                        redirect: $this->buildSuccessUrl($lockedPurchase),
+                        reconciled: true,
+                        httpStatus: 200,
+                    );
+                }
+
+                // Do not overwrite refunded state
+                if ($lockedPurchase->payment_status === GuestReportPurchase::STATUS_REFUNDED) {
+                    return new GuestCaptureResult(
+                        status: 'failed',
+                        errorMessage: 'Purchase has been refunded.',
+                        httpStatus: 422,
+                    );
+                }
+
+                $lockedPurchase->update([
                     'capture_status' => GuestReportPurchase::CAPTURE_RECONCILIATION_REQUIRED,
                     'capture_failure_reason' => 'Discrepancy: paid record missing valid provider capture proof: '.$e->getMessage(),
                 ]);
+
+                return null;
             });
+
+            if ($earlyCompleted) {
+                return $earlyCompleted;
+            }
 
             if ($this->telegramNotificationService) {
                 try {
@@ -795,6 +1204,118 @@ class GuestReportCaptureService
                 httpStatus: 422,
             );
         }
+    }
+
+    /**
+     * Check whether a locked purchase is in a protected immutable or terminal state.
+     */
+    protected function isPurchaseInProtectedState(GuestReportPurchase $lockedPurchase): bool
+    {
+        return in_array($lockedPurchase->payment_status, [
+            GuestReportPurchase::STATUS_PAID,
+            GuestReportPurchase::STATUS_REFUNDED,
+            GuestReportPurchase::PAYMENT_STATUS_FAILED,
+            GuestReportPurchase::STATUS_EXPIRED,
+        ], true) || $lockedPurchase->capture_status === GuestReportPurchase::CAPTURE_COMPLETED;
+    }
+
+    /**
+     * Resolve the outcome for a purchase that is already in a protected state.
+     * Guarantees that completed status is ONLY returned when payment_status is authoritatively STATUS_PAID.
+     */
+    protected function resolveProtectedStateResult(GuestReportPurchase $lockedPurchase): GuestCaptureResult
+    {
+        // 1. Explicit terminal negative states must ALWAYS fail safely and NEVER return completed
+        if ($lockedPurchase->payment_status === GuestReportPurchase::STATUS_REFUNDED) {
+            return new GuestCaptureResult(
+                status: 'failed',
+                errorMessage: 'Purchase has been refunded and cannot be captured.',
+                httpStatus: 422,
+            );
+        }
+
+        if (in_array($lockedPurchase->payment_status, [
+            GuestReportPurchase::PAYMENT_STATUS_FAILED,
+            GuestReportPurchase::STATUS_EXPIRED,
+        ], true)) {
+            return new GuestCaptureResult(
+                status: 'failed',
+                errorMessage: "Purchase is in terminal status '{$lockedPurchase->payment_status}' and cannot be captured.",
+                httpStatus: 422,
+            );
+        }
+
+        // 2. Authoritative completed result requires payment_status === STATUS_PAID
+        if (
+            $lockedPurchase->payment_status === GuestReportPurchase::STATUS_PAID
+            && $lockedPurchase->capture_status === GuestReportPurchase::CAPTURE_COMPLETED
+            && ! empty($lockedPurchase->provider_payment_id)
+        ) {
+            return new GuestCaptureResult(
+                status: 'completed',
+                redirect: $this->buildSuccessUrl($lockedPurchase),
+                reconciled: true,
+                httpStatus: 200,
+            );
+        }
+
+        // 3. Inconsistent state (e.g. capture_status === completed but payment_status is pending/other)
+        // Must fail safely without redirecting to the success page.
+        return new GuestCaptureResult(
+            status: 'failed',
+            errorMessage: "Purchase state is inconsistent (payment_status: '{$lockedPurchase->payment_status}', capture_status: '{$lockedPurchase->capture_status}').",
+            httpStatus: 422,
+        );
+    }
+
+    /**
+     * Determine whether an attempt has been superseded by a newer active attempt on the purchase.
+     */
+    protected function isAttemptSuperseded(
+        ?GuestReportCaptureAttempt $lockedAttempt,
+        GuestReportPurchase $lockedPurchase,
+    ): bool {
+        if (! $lockedAttempt) {
+            return false;
+        }
+
+        return (int) $lockedAttempt->guest_report_purchase_id !== (int) $lockedPurchase->id
+            || (
+                $lockedPurchase->active_capture_attempt_uuid
+                && $lockedAttempt->attempt_uuid !== $lockedPurchase->active_capture_attempt_uuid
+            );
+    }
+
+    /**
+     * Validate and update an attempt only if it belongs to the purchase, is not completed,
+     * and matches the active attempt UUID if one is designated.
+     */
+    protected function safelyUpdateAttempt(
+        ?GuestReportCaptureAttempt $lockedAttempt,
+        GuestReportPurchase $lockedPurchase,
+        array $attributes,
+    ): void {
+        if (! $lockedAttempt) {
+            return;
+        }
+
+        if ((int) $lockedAttempt->guest_report_purchase_id !== (int) $lockedPurchase->id) {
+            return;
+        }
+
+        if ($lockedAttempt->status === GuestReportCaptureAttempt::STATUS_COMPLETED) {
+            return;
+        }
+
+        // An old attempt response must not update when a newer attempt is active
+        if (
+            $lockedPurchase->active_capture_attempt_uuid
+            && $lockedAttempt->attempt_uuid !== $lockedPurchase->active_capture_attempt_uuid
+        ) {
+            return;
+        }
+
+        $lockedAttempt->update($attributes);
     }
 
     public function extractPayerActionUrl(PayPalApiException $e, GuestReportPurchase $purchase): ?string

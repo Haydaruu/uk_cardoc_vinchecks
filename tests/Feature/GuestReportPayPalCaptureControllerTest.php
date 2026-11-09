@@ -130,7 +130,14 @@ test('paypal capture endpoint captures approved order and verifies completed ord
     $paymentService->shouldReceive('handlePayPalGuestOrder')
         ->once()
         ->with($completedOrder)
-        ->andReturn(true);
+        ->andReturnUsing(function () use ($purchase) {
+            $purchase->update([
+                'payment_status' => GuestReportPurchase::STATUS_PAID,
+                'capture_status' => GuestReportPurchase::CAPTURE_COMPLETED,
+            ]);
+
+            return true;
+        });
 
     $guestToken = str_repeat('a', 64);
 
@@ -198,7 +205,14 @@ test('paypal capture endpoint does not capture an already completed order again'
     $paymentService->shouldReceive('handlePayPalGuestOrder')
         ->once()
         ->with($completedOrder)
-        ->andReturn(true);
+        ->andReturnUsing(function () use ($purchase) {
+            $purchase->update([
+                'payment_status' => GuestReportPurchase::STATUS_PAID,
+                'capture_status' => GuestReportPurchase::CAPTURE_COMPLETED,
+            ]);
+
+            return true;
+        });
 
     $checkoutService = Mockery::mock(GuestReportCheckoutService::class);
 

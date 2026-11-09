@@ -308,6 +308,14 @@ class GuestReportPaymentService
                     throw new RuntimeException('Guest report is not eligible for Premium fulfillment.');
                 }
 
+                // Stripe webhook path: dispatch is called directly here.
+                // Unlike the PayPal path (handlePayPalGuestOrder), this method
+                // is invoked only from the Stripe webhook controller, not from
+                // GuestReportCaptureService. If dispatch() throws under sync the
+                // exception propagates to the webhook controller, which returns a
+                // 5xx so Stripe retries the webhook. No capture-attempt tracking
+                // is affected. The sync-driver isolation in enqueueVehicleCheck()
+                // is therefore scoped to the PayPal path only.
                 ProcessVehicleCheck::dispatch(
                     (int) $report->vin_check_id,
                     (int) $report->id,
@@ -564,10 +572,11 @@ class GuestReportPaymentService
         });
 
         if ($result['dispatch']) {
-            ProcessVehicleCheck::dispatch(
+            $this->enqueueVehicleCheck(
                 (int) $report->vin_check_id,
                 (int) $report->id,
                 (int) $purchase->id,
+                $orderId,
             );
         }
 
@@ -584,6 +593,70 @@ class GuestReportPaymentService
         }
 
         return $result['payment_changed'];
+    }
+
+    /**
+     * Enqueue ProcessVehicleCheck after a confirmed payment settlement.
+     *
+     * This method is called after the payment database transaction has already
+     * committed. It MUST NOT throw, because any exception here will propagate
+     * through GuestReportCaptureService::settleSuccessfulCapture() and prevent
+     * capture attempt tracking from completing even though the purchase is PAID.
+     *
+     * Sync driver policy (QUEUE_CONNECTION=sync):
+     *   Under the sync driver, dispatch() executes handle() synchronously in
+     *   the same PHP process. Any exception thrown by handle() re-throws from
+     *   dispatch() and would escape this method entirely.
+     *   - We deliberately skip dispatch under the sync driver and log a critical
+     *     configuration warning instead.
+     *   - fulfillment_status remains FULFILLMENT_PENDING for future recovery.
+     *   - Tests must use Queue::fake() — this method is then a no-op for the
+     *     real sync driver and the fake captures the push without executing it.
+     *
+     * Async driver policy (database, redis, sqs, …):
+     *   dispatch() serialises the job payload and writes it to the queue store.
+     *   If the queue store is temporarily unavailable the push itself may throw
+     *   before the job ever runs. We catch those infrastructure exceptions,
+     *   log them, and absorb them. fulfillment_status remains PENDING.
+     *   Note: network-level timeouts can be ambiguous — the payload may or may
+     *   not have reached the store. The fulfillment recovery scheduler handles
+     *   PENDING purchases that were never fulfilled.
+     */
+    private function enqueueVehicleCheck(
+        int $vinCheckId,
+        int $reportId,
+        int $purchaseId,
+        string $orderId,
+    ): void {
+        $defaultConnection = config('queue.default', 'sync');
+        $driver = config("queue.connections.{$defaultConnection}.driver", 'sync');
+
+        if ($driver === 'sync') {
+            // Sync driver executes jobs in-process. Dispatching here would let
+            // job execution exceptions escape and break capture attempt tracking.
+            // Log a critical warning and leave fulfillment PENDING for recovery.
+            Log::critical('ProcessVehicleCheck skipped: sync queue driver is not safe for post-payment dispatch', [
+                'purchase_id' => $purchaseId,
+                'provider_order_id' => $orderId,
+                'queue_driver' => $driver,
+            ]);
+
+            return;
+        }
+
+        try {
+            ProcessVehicleCheck::dispatch($vinCheckId, $reportId, $purchaseId);
+        } catch (\Throwable $e) {
+            // Queue infrastructure enqueue failure (e.g. database/Redis connection
+            // error or timeout while dispatching). Dispatch raised an exception
+            // and job acceptance/processing may be unknown. Log and absorb so the
+            // confirmed PAID state is not affected.
+            Log::error('ProcessVehicleCheck enqueue failed after successful PayPal settlement', [
+                'purchase_id' => $purchaseId,
+                'provider_order_id' => $orderId,
+                'message' => $e->getMessage(),
+            ]);
+        }
     }
 
     private function dispatchGuestReportSaleNotification(

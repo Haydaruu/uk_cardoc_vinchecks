@@ -7,6 +7,7 @@ use App\Models\Report;
 use App\Models\Vehicle;
 use App\Models\VinCheck;
 use App\Services\GuestReportPaymentService;
+use Illuminate\Contracts\Bus\Dispatcher;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
 
@@ -68,7 +69,6 @@ function createPayPalGuestOrderForServiceTest(
                     $purchase->checkout_reference,
                     $purchase->report_id,
                 ),
-
                 'invoice_id' => 'UKC-GR-'.str_replace(
                     '-',
                     '',
@@ -92,6 +92,8 @@ function createPayPalGuestOrderForServiceTest(
 }
 
 test('paypal guest payment marks purchase paid and dispatches fulfillment', function () {
+    // Configure an async driver so enqueueVehicleCheck() reaches ProcessVehicleCheck::dispatch().
+    config(['queue.default' => 'database']);
     Queue::fake();
 
     [$purchase] = createPayPalGuestPurchaseForServiceTest();
@@ -115,6 +117,8 @@ test('paypal guest payment marks purchase paid and dispatches fulfillment', func
         ->and($purchase->paid_at)
         ->not->toBeNull();
 
+    Queue::assertPushed(ProcessVehicleCheck::class, 1);
+
     Queue::assertPushed(
         SendTelegramSaleNotification::class,
         fn (SendTelegramSaleNotification $job): bool => $job->saleType === 'Guest Report'
@@ -131,6 +135,7 @@ test('paypal guest payment marks purchase paid and dispatches fulfillment', func
 });
 
 test('paypal guest payment does not duplicate an already queued fulfillment', function () {
+    config(['queue.default' => 'database']);
     Queue::fake();
 
     [$purchase] = createPayPalGuestPurchaseForServiceTest();
@@ -140,7 +145,6 @@ test('paypal guest payment does not duplicate an already queued fulfillment', fu
     $service = app(GuestReportPaymentService::class);
 
     $firstResult = $service->handlePayPalGuestOrder($order);
-
     $secondResult = $service->handlePayPalGuestOrder($order);
 
     expect($firstResult)->toBeTrue()
@@ -222,6 +226,7 @@ test('paypal duplicate callback does not reprocess a completed premium report', 
 });
 
 test('paypal guest payment can redispatch a failed fulfillment', function () {
+    config(['queue.default' => 'database']);
     Queue::fake();
 
     [$purchase] = createPayPalGuestPurchaseForServiceTest();
@@ -244,6 +249,7 @@ test('paypal guest payment can redispatch a failed fulfillment', function () {
 });
 
 test('repeated settlement with the same capture ID repairs missing capture_status safely without updating last_reconciled_at', function () {
+    config(['queue.default' => 'database']);
     Queue::fake();
 
     [$purchase] = createPayPalGuestPurchaseForServiceTest();
@@ -305,6 +311,7 @@ test('repeated settlement with conflicting capture ID is rejected and does not o
 });
 
 test('order containing pending and completed captures selects the completed capture resource', function () {
+    config(['queue.default' => 'database']);
     Queue::fake();
 
     [$purchase] = createPayPalGuestPurchaseForServiceTest();
@@ -378,6 +385,123 @@ test('order without a completed capture is rejected', function () {
     expect($purchase->payment_status)->toBe(GuestReportPurchase::STATUS_PENDING)
         ->and($purchase->capture_status)->toBeNull()
         ->and($purchase->provider_payment_id)->toBeNull();
+
+    Queue::assertNothingPushed();
+});
+
+// ---------------------------------------------------------------------------
+// Sync-driver behaviour
+// ---------------------------------------------------------------------------
+
+test('sync queue driver skips ProcessVehicleCheck dispatch without throwing after payment is PAID', function () {
+    // phpunit.xml sets QUEUE_CONNECTION=sync — do not override here.
+    // Verify that enqueueVehicleCheck() silently skips dispatch rather than
+    // throwing an exception that could break capture attempt tracking.
+
+    [$purchase] = createPayPalGuestPurchaseForServiceTest();
+    $order = createPayPalGuestOrderForServiceTest($purchase, 'CAPTURE-SYNC-SKIP');
+
+    // No Queue::fake() — we want the real sync-driver guard to run.
+    $result = app(GuestReportPaymentService::class)->handlePayPalGuestOrder($order);
+
+    expect($result)->toBeTrue();
+
+    $purchase->refresh();
+
+    expect($purchase->payment_status)->toBe(GuestReportPurchase::STATUS_PAID)
+        ->and($purchase->provider_payment_id)->toBe('CAPTURE-SYNC-SKIP')
+        ->and($purchase->capture_status)->toBe(GuestReportPurchase::CAPTURE_COMPLETED)
+        ->and($purchase->fulfillment_status)->toBe(GuestReportPurchase::FULFILLMENT_PENDING);
+});
+
+test('sync queue driver skip leaves capture attempt tracking unaffected', function () {
+    // The purpose of this test is to confirm that when the sync driver guard
+    // skips ProcessVehicleCheck the method returns normally, so callers such
+    // as GuestReportCaptureService::settleSuccessfulCapture() can proceed to
+    // update the capture attempt status.
+    //
+    // We verify this by confirming handlePayPalGuestOrder() returns true
+    // (payment_changed) and does NOT throw, which is the minimum contract
+    // that settleSuccessfulCapture() relies on.
+
+    [$purchase] = createPayPalGuestPurchaseForServiceTest();
+    $order = createPayPalGuestOrderForServiceTest($purchase, 'CAPTURE-SYNC-ATTEMPT');
+
+    $threw = false;
+
+    try {
+        $result = app(GuestReportPaymentService::class)->handlePayPalGuestOrder($order);
+    } catch (Throwable) {
+        $threw = true;
+        $result = false;
+    }
+
+    expect($threw)->toBeFalse('handlePayPalGuestOrder must not throw when sync driver skips dispatch')
+        ->and($result)->toBeTrue();
+
+    $purchase->refresh();
+
+    expect($purchase->payment_status)->toBe(GuestReportPurchase::STATUS_PAID);
+});
+
+// ---------------------------------------------------------------------------
+// Async enqueue failure (database / redis / sqs infrastructure error)
+// ---------------------------------------------------------------------------
+
+test('async queue enqueue failure after successful payment leaves payment PAID and fulfillment PENDING', function () {
+    // Configure an async driver so the sync guard does not intercept.
+    config(['queue.default' => 'database']);
+
+    [$purchase] = createPayPalGuestPurchaseForServiceTest();
+    $order = createPayPalGuestOrderForServiceTest($purchase, 'CAPTURE-ENQUEUE-FAIL');
+
+    // Simulate a queue-infrastructure failure (e.g. DB connection refused
+    // while inserting the job record). The job has NOT been accepted.
+    $dispatcher = Mockery::mock(Dispatcher::class);
+    $dispatcher->shouldReceive('dispatch')
+        ->andReturnUsing(function ($job) {
+            if ($job instanceof ProcessVehicleCheck) {
+                throw new RuntimeException('Queue connection refused');
+            }
+
+            return null;
+        });
+    app()->instance(Dispatcher::class, $dispatcher);
+
+    $result = app(GuestReportPaymentService::class)->handlePayPalGuestOrder($order);
+
+    expect($result)->toBeTrue();
+
+    $purchase->refresh();
+
+    expect($purchase->payment_status)->toBe(GuestReportPurchase::STATUS_PAID)
+        ->and($purchase->capture_status)->toBe(GuestReportPurchase::CAPTURE_COMPLETED)
+        ->and($purchase->provider_payment_id)->toBe('CAPTURE-ENQUEUE-FAIL')
+        ->and($purchase->fulfillment_status)->toBe(GuestReportPurchase::FULFILLMENT_PENDING);
+});
+
+test('payment validation failures propagate normally and do not modify purchase state', function () {
+    Queue::fake();
+
+    [$purchase] = createPayPalGuestPurchaseForServiceTest();
+
+    $order = createPayPalGuestOrderForServiceTest($purchase);
+    // Tamper currency to cause validation failure before transaction commits
+    $order['purchase_units'][0]['payments']['captures'][0]['amount']['currency_code'] = 'USD';
+
+    expect(
+        fn () => app(GuestReportPaymentService::class)->handlePayPalGuestOrder($order)
+    )->toThrow(
+        RuntimeException::class,
+        'PayPal amount or currency mismatch.'
+    );
+
+    $purchase->refresh();
+
+    expect($purchase->payment_status)->toBe(GuestReportPurchase::STATUS_PENDING)
+        ->and($purchase->capture_status)->toBeNull()
+        ->and($purchase->provider_payment_id)->toBeNull()
+        ->and($purchase->fulfillment_status)->toBe(GuestReportPurchase::FULFILLMENT_LOCKED);
 
     Queue::assertNothingPushed();
 });

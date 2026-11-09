@@ -689,6 +689,8 @@ test('reconciliation of funding_declined purchase performs GET-only without POST
 });
 
 test('reconciliation settles order and triggers fulfillment when provider confirms status is COMPLETED', function () {
+    // Configure an async driver so enqueueVehicleCheck() reaches ProcessVehicleCheck::dispatch().
+    config(['queue.default' => 'database']);
     Queue::fake();
 
     $purchase = createReconcileTestPurchase([

@@ -126,7 +126,14 @@ test('valid signed return continues payer action, completes capture, and redirec
     $paymentService->shouldReceive('handlePayPalGuestOrder')
         ->once()
         ->with($completedOrder)
-        ->andReturn(true);
+        ->andReturnUsing(function () use ($purchase) {
+            $purchase->update([
+                'payment_status' => GuestReportPurchase::STATUS_PAID,
+                'capture_status' => GuestReportPurchase::CAPTURE_COMPLETED,
+            ]);
+
+            return true;
+        });
 
     $checkoutService = Mockery::mock(GuestReportCheckoutService::class);
     $checkoutService->shouldReceive('guestAccessToken')
