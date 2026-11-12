@@ -4,8 +4,8 @@ use App\Models\CreditCheckoutAttempt;
 use App\Models\User;
 use App\Services\CreditCheckoutService;
 use App\Services\PayPalService;
-use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
@@ -426,7 +426,7 @@ test('pure integer arithmetic formatting in PayPalService::createOrder', functio
             'access_token' => 'fake-access-token',
             'expires_in' => 3600,
         ], 200),
-        '*/v2/checkout/orders' => function (\Illuminate\Http\Client\Request $request) use ($attempt) {
+        '*/v2/checkout/orders' => function (Request $request) use ($attempt) {
             expect($request->header('PayPal-Request-Id'))->toBe(['credit-order-'.$attempt->attempt_uuid]);
 
             $payload = $request->data();

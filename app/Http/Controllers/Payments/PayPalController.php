@@ -86,7 +86,7 @@ class PayPalController extends Controller
         }
 
         return response()->json([
-            'id' => $result['id'],
+            'id' => $result['id'] ?? null,
             'attempt_id' => $result['attempt_id'],
         ]);
     }
@@ -178,7 +178,7 @@ class PayPalController extends Controller
         $planSlug = $purchaseUnit['reference_id'] ?? null;
         $customId = $purchaseUnit['custom_id'] ?? null;
         $parts = explode('|', (string) $customId, 3);
-        $orderUserId = $parts[0] ?? null;
+        $orderUserId = $parts[0];
         $customPlanSlug = $parts[1] ?? null;
 
         if ((string) $orderUserId !== (string) $user->id || $planSlug !== $customPlanSlug) {

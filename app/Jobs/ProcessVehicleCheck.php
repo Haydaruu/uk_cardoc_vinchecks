@@ -477,6 +477,7 @@ class ProcessVehicleCheck implements ShouldBeUnique, ShouldQueue
                 && $isTerminalFailure
             ) {
                 $user = $vinCheck->user;
+                $email = $user?->email;
                 $provider = (string) config(
                     'services.vehicle_reports.provider',
                     'unknown'
@@ -490,7 +491,7 @@ class ProcessVehicleCheck implements ShouldBeUnique, ShouldQueue
                     'UKCARDOC - AUTH VEHICLE CHECK FAILED',
                     '',
                     'User ID: '.$vinCheck->user_id,
-                    'Email: '.($user?->email ?? 'N/A'),
+                    'Email: '.($email ?? 'N/A'),
                     'VinCheck ID: '.$vinCheck->id,
                     'Registration: '.$regNumber,
                     'Check Type: '.$vinCheck->check_type,

@@ -445,7 +445,7 @@ class WebhookRecoveryService
             if ($intent->status === 'succeeded') {
                 $userId = $intent->metadata->user_id ?? null;
                 $credits = (int) ($intent->metadata->credits ?? 0);
-                $user = $userId ? User::find($userId) : null;
+                $user = is_numeric($userId) ? User::find((int) $userId) : null;
 
                 if (! $user || $credits <= 0) {
                     return [
@@ -742,7 +742,7 @@ class WebhookRecoveryService
 
             return [
                 'action' => 'retry',
-                'reason' => 'Credit checkout attempt reconciliation pending: '.($res['status'] ?? 'unknown'),
+                'reason' => 'Credit checkout attempt reconciliation pending: '.$res['status'],
             ];
         }
 
@@ -947,7 +947,10 @@ class WebhookRecoveryService
         GuestReportPurchase $purchase,
         string $completedReason,
     ): array {
-        $fresh = GuestReportPurchase::query()->find($purchase->id);
+        $fresh = GuestReportPurchase::query()
+            ->whereKey($purchase->id)
+            ->first();
+        $freshStatus = $fresh?->fulfillment_status;
 
         if ($fresh !== null && $fresh->fulfillment_manual_review_at !== null) {
             return [
@@ -984,7 +987,7 @@ class WebhookRecoveryService
             ];
         }
 
-        $status = $fresh?->fulfillment_status ?? $purchase->fulfillment_status;
+        $status = $freshStatus ?? $purchase->fulfillment_status;
 
         if ($status === GuestReportPurchase::FULFILLMENT_FAILED) {
             return [

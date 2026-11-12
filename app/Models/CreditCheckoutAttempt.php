@@ -2,26 +2,41 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 
 class CreditCheckoutAttempt extends Model
 {
+    /** @use HasFactory<Factory<self>> */
     use HasFactory;
 
     public const STATUS_INITIATED = 'initiated';
+
     public const STATUS_CALLING_PROVIDER = 'calling_provider';
+
     public const STATUS_PROVIDER_CREATED = 'provider_created';
+
     public const STATUS_CREATE_AMBIGUOUS = 'create_ambiguous';
+
     public const STATUS_PROVIDER_APPROVED = 'provider_approved';
+
     public const STATUS_CAPTURING = 'capturing';
+
     public const STATUS_CAPTURE_COMPLETED = 'capture_completed';
+
     public const STATUS_CAPTURE_PENDING = 'capture_pending';
+
     public const STATUS_CAPTURE_RECONCILIATION_REQUIRED = 'capture_reconciliation_required';
+
     public const STATUS_TERMINAL_FAILED = 'terminal_failed';
+
     public const STATUS_UNRECONCILED_STALE = 'unreconciled_stale';
+
     public const STATUS_ABANDONED_CREATED = 'abandoned_created';
+
     public const STATUS_SUPERSEDED = 'superseded';
 
     protected $fillable = [
@@ -78,7 +93,7 @@ class CreditCheckoutAttempt extends Model
     {
         $anchor = $this->provider_request_started_at ?? $this->created_at;
 
-        return $anchor !== null && $anchor->lte(now()->subHours(6));
+        return $anchor !== null && Carbon::parse($anchor)->lte(now()->subHours(6));
     }
 
     /**

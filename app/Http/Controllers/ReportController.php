@@ -115,6 +115,7 @@ class ReportController extends Controller
 
             if ($request->session()->get($authNotificationKey) !== true) {
                 $vinCheck = $vinCheck ?? $report->vinCheck;
+                $registration = $vinCheck?->registration_number;
 
                 $message = implode("\n", [
                     'UKCARDOC - AUTH PREVIEW VIEWED',
@@ -123,7 +124,7 @@ class ReportController extends Controller
                     'Email: '.$user->email,
                     'Report ID: '.$report->id,
                     'Report Type: '.$report->report_type,
-                    'Registration: '.($vinCheck?->registration_number ?? 'N/A'),
+                    'Registration: '.($registration ?? 'N/A'),
                     'Time: '.now()->format('d M Y H:i:s'),
                 ]);
 

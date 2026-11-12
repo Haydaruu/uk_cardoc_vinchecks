@@ -8,11 +8,12 @@ use App\Models\ProcessedWebhookEvent;
 use App\Models\Transaction;
 use App\Models\User;
 use App\Services\CreditCaptureService;
+use App\Services\CreditService;
+use App\Services\GuestReportPaymentService;
 use App\Services\PayPalService;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Bus;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
@@ -36,13 +37,13 @@ function makeAttempt(User $user, array $overrides = []): CreditCheckoutAttempt
         'user_id' => $user->id,
         'intent_reference' => (string) Str::uuid(),
         'attempt_uuid' => (string) Str::uuid(),
-        'invoice_id' => 'UKC-CR-' . strtoupper(Str::random(16)),
+        'invoice_id' => 'UKC-CR-'.strtoupper(Str::random(16)),
         'plan_slug' => '1-credit',
         'credits_to_grant' => 1,
         'amount_minor' => 1999,
         'currency' => 'GBP',
         'status' => CreditCheckoutAttempt::STATUS_PROVIDER_CREATED,
-        'provider_order_id' => 'ORDER-' . strtoupper(Str::random(8)),
+        'provider_order_id' => 'ORDER-'.strtoupper(Str::random(8)),
         'expires_at' => now()->addMinutes(30),
     ], $overrides));
 }
@@ -710,9 +711,9 @@ test('Phase 2: guest report payment webhook is not affected by CreditCaptureServ
 
     $this->instance(PayPalService::class, $mockPayPal);
 
-    $mockGuestService = Mockery::mock(\App\Services\GuestReportPaymentService::class);
+    $mockGuestService = Mockery::mock(GuestReportPaymentService::class);
     $mockGuestService->shouldReceive('handlePayPalGuestOrder')->once();
-    $this->instance(\App\Services\GuestReportPaymentService::class, $mockGuestService);
+    $this->instance(GuestReportPaymentService::class, $mockGuestService);
 
     $mockCaptureService = Mockery::mock(CreditCaptureService::class);
     $mockCaptureService->shouldNotReceive('fulfill');
@@ -797,7 +798,7 @@ test('Phase 2: crash after credit grant but before attempt completion can be rec
     $capturedOrder = makeCapturedOrder($user, $attempt, $captureId);
 
     // Simulate that creditService->grantCredits WAS already called before the crash:
-    $creditService = app(App\Services\CreditService::class);
+    $creditService = app(CreditService::class);
     $creditService->grantCredits(
         user: $user,
         amount: 1,

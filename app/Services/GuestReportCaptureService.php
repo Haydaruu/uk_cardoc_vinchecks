@@ -8,6 +8,7 @@ use App\Models\GuestReportCaptureAttempt;
 use App\Models\GuestReportFulfillmentAttempt;
 use App\Models\GuestReportPurchase;
 use Illuminate\Contracts\Cache\LockTimeoutException;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -32,11 +33,9 @@ class GuestReportCaptureService
         CaptureIntent $intent = CaptureIntent::INITIAL_BUYER_CAPTURE,
     ): GuestCaptureResult {
         $lock = Cache::lock("paypal-order-capture:{$orderId}", 85);
-        $acquired = false;
 
         try {
             $lock->block(5);
-            $acquired = true;
         } catch (LockTimeoutException) {
             return new GuestCaptureResult(
                 status: 'processing',
@@ -48,9 +47,7 @@ class GuestReportCaptureService
         try {
             return $this->orchestrateCapture($orderId, $intent);
         } finally {
-            if ($acquired) {
-                $lock->release();
-            }
+            $lock->release();
         }
     }
 
@@ -141,6 +138,7 @@ class GuestReportCaptureService
                         status: 'failed',
                         errorMessage: "Purchase is in terminal status '{$purchase->payment_status}' and cannot be captured.",
                         httpStatus: 422,
+                        terminal: true,
                     ),
                 ];
             }
@@ -173,6 +171,7 @@ class GuestReportCaptureService
                         status: 'failed',
                         errorMessage: 'Capture has permanently failed: '.($purchase->capture_failure_reason ?? 'unknown reason'),
                         httpStatus: 422,
+                        terminal: true,
                     ),
                 ];
             }
@@ -379,7 +378,7 @@ class GuestReportCaptureService
             ];
         });
 
-        if (isset($eval['early_result']) && $eval['early_result'] instanceof GuestCaptureResult) {
+        if (isset($eval['early_result'])) {
             return $eval['early_result'];
         }
 
@@ -463,6 +462,7 @@ class GuestReportCaptureService
                     status: 'failed',
                     errorMessage: 'Payment order was voided by provider.',
                     httpStatus: 422,
+                    terminal: true,
                 );
             });
 
@@ -588,6 +588,8 @@ class GuestReportCaptureService
 
     /**
      * Handles successful HTTP response from captureOrder().
+     *
+     * @param  array<string, mixed>  $capturedOrder
      */
     protected function handleCaptureResponse(
         array $capturedOrder,
@@ -597,6 +599,7 @@ class GuestReportCaptureService
     ): GuestCaptureResult {
         $purchaseUnit = $capturedOrder['purchase_units'][0] ?? null;
         $captures = $purchaseUnit['payments']['captures'] ?? [];
+        $captures = is_array($captures) ? $captures : [];
         $completedCapture = collect($captures)->firstWhere('status', 'COMPLETED');
         $pendingCapture = collect($captures)->firstWhere('status', 'PENDING');
 
@@ -718,6 +721,8 @@ class GuestReportCaptureService
 
     /**
      * Delegates settlement to existing payment service and updates tracking state.
+     *
+     * @param  array<string, mixed>  $capturedOrder
      */
     protected function settleSuccessfulCapture(
         array $capturedOrder,
@@ -752,6 +757,7 @@ class GuestReportCaptureService
                     status: 'failed',
                     errorMessage: 'Purchase has been refunded and cannot be captured.',
                     httpStatus: 422,
+                    terminal: true,
                 );
             }
 
@@ -763,6 +769,7 @@ class GuestReportCaptureService
                     status: 'failed',
                     errorMessage: "Purchase is in terminal status '{$lockedPurchase->payment_status}' and cannot be captured.",
                     httpStatus: 422,
+                    terminal: true,
                 );
             }
 
@@ -890,6 +897,7 @@ class GuestReportCaptureService
                     status: 'funding_declined',
                     errorMessage: 'Payment method declined. Please choose a different payment method.',
                     httpStatus: 422,
+                    terminal: true,
                 );
             });
 
@@ -995,6 +1003,7 @@ class GuestReportCaptureService
                     status: 'failed',
                     errorMessage: 'Payment failed: '.($e->getIssue() ?? 'Declined by provider.'),
                     httpStatus: 422,
+                    terminal: true,
                 );
             });
 
@@ -1117,6 +1126,7 @@ class GuestReportCaptureService
                         status: 'failed',
                         errorMessage: 'Purchase has been refunded.',
                         httpStatus: 422,
+                        terminal: true,
                     );
                 }
 
@@ -1179,6 +1189,7 @@ class GuestReportCaptureService
                         status: 'failed',
                         errorMessage: 'Purchase has been refunded.',
                         httpStatus: 422,
+                        terminal: true,
                     );
                 }
 
@@ -1237,6 +1248,7 @@ class GuestReportCaptureService
                 status: 'failed',
                 errorMessage: 'Purchase has been refunded and cannot be captured.',
                 httpStatus: 422,
+                terminal: true,
             );
         }
 
@@ -1248,6 +1260,7 @@ class GuestReportCaptureService
                 status: 'failed',
                 errorMessage: "Purchase is in terminal status '{$lockedPurchase->payment_status}' and cannot be captured.",
                 httpStatus: 422,
+                terminal: true,
             );
         }
 
@@ -1295,6 +1308,8 @@ class GuestReportCaptureService
     /**
      * Validate and update an attempt only if it belongs to the purchase, is not completed,
      * and matches the active attempt UUID if one is designated.
+     *
+     * @param  array<string, mixed>  $attributes
      */
     protected function safelyUpdateAttempt(
         ?GuestReportCaptureAttempt $lockedAttempt,
@@ -1377,7 +1392,7 @@ class GuestReportCaptureService
         }
 
         $now = now();
-        $startedAt = $attempt->request_started_at;
+        $startedAt = Carbon::parse($attempt->request_started_at);
 
         // Future timestamp beyond small clock drift margin is invalid
         if ($startedAt->gt($now->copy()->addMinute())) {

@@ -41,7 +41,7 @@ class ReconcilePayPalCreditPurchases extends Command
 
             $this->info("Reconciling attempt [{$attempt->attempt_uuid}] (status: {$attempt->status}, order: {$attempt->provider_order_id})...");
             $result = $captureService->reconcileAttempt($attempt);
-            $this->info("Result: " . json_encode($result));
+            $this->info('Result: '.json_encode($result));
 
             return $result['reconciled'] ? self::SUCCESS : self::FAILURE;
         }

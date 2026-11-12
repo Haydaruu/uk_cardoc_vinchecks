@@ -273,8 +273,8 @@ class GuestReportFulfillmentService
         object $state,
         string $origin,
     ): GuestReportDispatchOutcome {
-        $dispatchUuid = (string) $state->fulfillment_dispatch_uuid;
-        $generation = (int) $state->fulfillment_generation;
+        $dispatchUuid = (string) ($state->fulfillment_dispatch_uuid ?? '');
+        $generation = (int) ($state->fulfillment_generation ?? 0);
         $slotsAllocated = (int) ($state->fulfillment_dispatch_push_slots_allocated ?? 0);
 
         if ($slotsAllocated >= self::MAX_PUSH_SLOTS) {

@@ -4,6 +4,4 @@ namespace App\Exceptions;
 
 use RuntimeException;
 
-class PayPalOrderOwnershipException extends RuntimeException
-{
-}
+class PayPalOrderOwnershipException extends RuntimeException {}

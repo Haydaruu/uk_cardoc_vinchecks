@@ -161,8 +161,8 @@ class CreditCaptureService
                     $result = $this->captureOrderAndFulfill($orderId, null);
 
                     return [
-                        'reconciled' => ($result['capture_status'] ?? '') === 'COMPLETED',
-                        'status' => $result['capture_status'] ?? 'unknown',
+                        'reconciled' => $result['capture_status'] === 'COMPLETED',
+                        'status' => $result['capture_status'],
                         'attempt_id' => $attempt->attempt_uuid,
                     ];
                 } catch (\Throwable $e) {
@@ -260,7 +260,6 @@ class CreditCaptureService
      * 5. Extract and validate nested capture resource (must be COMPLETED).
      * 6. Delegate to fulfill() for snapshot/legacy fulfillment.
      *
-     * @param  string  $orderId
      * @param  User|null  $user  When provided (frontend), strict ownership is checked.
      * @return array{transaction: ?Transaction, credits_granted: int, capture_status: string}
      *
@@ -305,7 +304,7 @@ class CreditCaptureService
 
             // Step 3: Parse custom_id and verify owner
             $parts = explode('|', $customId, 3);
-            $orderUserId = $parts[0] ?? null;
+            $orderUserId = $parts[0];
             $planSlug = $parts[1] ?? null;
             $attemptUuid = $parts[2] ?? null;
 
@@ -477,7 +476,7 @@ class CreditCaptureService
 
         // Parse custom_id: format may be user_id|plan_slug (legacy) or user_id|plan_slug|attempt_uuid (Phase 1+)
         $parts = explode('|', $customId, 3);
-        $userId = $parts[0] ?? null;
+        $userId = $parts[0];
         $planSlug = $parts[1] ?? null;
         $attemptUuid = $parts[2] ?? null;
 

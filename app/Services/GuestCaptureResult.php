@@ -11,6 +11,7 @@ class GuestCaptureResult
         public readonly ?string $errorMessage = null,
         public readonly bool $reconciled = false,
         public readonly ?int $httpStatus = null,
+        public readonly bool $terminal = false,
     ) {}
 
     public function isCompleted(): bool
@@ -41,5 +42,18 @@ class GuestCaptureResult
     public function isFailed(): bool
     {
         return $this->status === 'failed';
+    }
+
+    /**
+     * Whether this is an explicitly confirmed permanent negative outcome.
+     *
+     * Only results marked terminal at the point where a definitive provider or
+     * local terminal state is observed are terminal. Unapproved orders,
+     * ambiguous states, missing purchases, order mismatches, and provider
+     * communication failures remain retryable even when they use HTTP 4xx.
+     */
+    public function isTerminalFailure(): bool
+    {
+        return $this->terminal;
     }
 }

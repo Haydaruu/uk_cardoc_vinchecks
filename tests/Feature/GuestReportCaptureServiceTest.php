@@ -162,7 +162,8 @@ test('it rejects terminal purchase payment statuses with 422', function () {
 
     expect($result->isFailed())->toBeTrue()
         ->and($result->httpStatus)->toBe(422)
-        ->and($result->errorMessage)->toContain("terminal status 'failed'");
+        ->and($result->errorMessage)->toContain("terminal status 'failed'")
+        ->and($result->isTerminalFailure())->toBeTrue();
 });
 
 test('it executes initial capture for new purchase, creates attempt #1, settles, and dispatches job', function () {
@@ -331,7 +332,8 @@ test('it handles INSTRUMENT_DECLINED by transitioning to funding_declined and al
 
     expect($result->isFundingDeclined())->toBeTrue()
         ->and($result->httpStatus)->toBe(422)
-        ->and($result->errorMessage)->toContain('Payment method declined');
+        ->and($result->errorMessage)->toContain('Payment method declined')
+        ->and($result->isTerminalFailure())->toBeTrue();
 
     $purchase->refresh();
     expect($purchase->capture_status)->toBe(GuestReportPurchase::CAPTURE_FUNDING_DECLINED)
@@ -1534,4 +1536,95 @@ test('capture tracking and attempt complete even if post-settlement fulfillment 
         ->and((int) $attempt->guest_report_purchase_id)->toBe((int) $purchase->id)
         ->and($attempt->provider_order_id)->toBe($purchase->provider_order_id)
         ->and($attempt->status)->toBe(GuestReportCaptureAttempt::STATUS_COMPLETED);
+});
+
+// ─────────────────────────────────────────────────────────────
+// Terminal Failure Classification Tests
+// ─────────────────────────────────────────────────────────────
+
+test('unapproved CREATED order remains retryable rather than terminal', function () {
+    [$purchase] = createCaptureTestPurchase();
+    $orderId = $purchase->provider_order_id;
+
+    $createdOrder = buildFakePayPalOrder($purchase, 'CREATED');
+
+    $payPalMock = Mockery::mock(PayPalService::class);
+    $payPalMock->shouldReceive('getOrder')->once()->with($orderId)->andReturn($createdOrder);
+    $payPalMock->shouldReceive('prepareGuestReportOrderForCapture')->once()->andReturn($createdOrder);
+
+    $service = new GuestReportCaptureService(
+        $payPalMock,
+        app(GuestReportPaymentService::class),
+        app(GuestReportCheckoutService::class),
+    );
+
+    $result = $service->reconcileGetOnly($orderId);
+
+    expect($result->isFailed())->toBeTrue()
+        ->and($result->httpStatus)->toBe(422)
+        ->and($result->errorMessage)->toContain('has not been approved yet')
+        ->and($result->isTerminalFailure())->toBeFalse();
+});
+
+test('confirmed VOIDED order is classified terminal', function () {
+    [$purchase] = createCaptureTestPurchase();
+    $orderId = $purchase->provider_order_id;
+
+    $voidedOrder = buildFakePayPalOrder($purchase, 'VOIDED');
+
+    $payPalMock = Mockery::mock(PayPalService::class);
+    $payPalMock->shouldReceive('getOrder')->once()->with($orderId)->andReturn($voidedOrder);
+    $payPalMock->shouldReceive('prepareGuestReportOrderForCapture')->once()->andReturn($voidedOrder);
+
+    $service = new GuestReportCaptureService(
+        $payPalMock,
+        app(GuestReportPaymentService::class),
+        app(GuestReportCheckoutService::class),
+    );
+
+    $result = $service->reconcileGetOnly($orderId);
+
+    expect($result->isFailed())->toBeTrue()
+        ->and($result->httpStatus)->toBe(422)
+        ->and($result->errorMessage)->toContain('voided by provider')
+        ->and($result->isTerminalFailure())->toBeTrue();
+
+    $purchase->refresh();
+    expect($purchase->payment_status)->toBe(GuestReportPurchase::PAYMENT_STATUS_FAILED)
+        ->and($purchase->capture_status)->toBe(GuestReportPurchase::CAPTURE_STATUS_FAILED);
+});
+
+test('provider communication failure remains retryable rather than terminal', function () {
+    [$purchase] = createCaptureTestPurchase();
+    $orderId = $purchase->provider_order_id;
+
+    $payPalMock = Mockery::mock(PayPalService::class);
+    $payPalMock->shouldReceive('getOrder')
+        ->once()
+        ->with($orderId)
+        ->andThrow(new RuntimeException('Connection timed out.'));
+
+    $service = new GuestReportCaptureService(
+        $payPalMock,
+        app(GuestReportPaymentService::class),
+        app(GuestReportCheckoutService::class),
+    );
+
+    $result = $service->reconcileGetOnly($orderId);
+
+    expect($result->isFailed())->toBeTrue()
+        ->and($result->httpStatus)->toBe(500)
+        ->and($result->errorMessage)->toContain('Unable to communicate with payment provider')
+        ->and($result->isTerminalFailure())->toBeFalse();
+});
+
+test('missing purchase remains retryable so correlation recovery policy applies', function () {
+    $service = app(GuestReportCaptureService::class);
+
+    $result = $service->reconcileGetOnly('ORDER-MISSING-'.Str::random(8));
+
+    expect($result->isFailed())->toBeTrue()
+        ->and($result->httpStatus)->toBe(404)
+        ->and($result->errorMessage)->toContain('purchase record not found')
+        ->and($result->isTerminalFailure())->toBeFalse();
 });

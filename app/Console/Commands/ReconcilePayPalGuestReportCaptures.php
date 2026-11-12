@@ -7,6 +7,7 @@ use App\Models\GuestReportPurchase;
 use App\Services\GuestReportCaptureService;
 use Carbon\CarbonInterface;
 use Illuminate\Bus\UniqueLock;
+use Illuminate\Cache\Lock;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Cache;
@@ -177,7 +178,8 @@ class ReconcilePayPalGuestReportCaptures extends Command
             $isAlreadyQueued = false;
 
             try {
-                $isAlreadyQueued = Cache::lock($uniqueKey, $job->uniqueFor)->isLocked();
+                $lock = Cache::lock($uniqueKey, $job->uniqueFor);
+                $isAlreadyQueued = $lock instanceof Lock && $lock->isLocked();
             } catch (Throwable) {
                 // If lock driver does not support isLocked(), proceed with standard dispatch
             }
@@ -326,6 +328,6 @@ class ReconcilePayPalGuestReportCaptures extends Command
             })
             ->orderByRaw('CASE WHEN last_reconciled_at IS NULL THEN 0 ELSE 1 END, last_reconciled_at ASC')
             ->orderByRaw('CASE WHEN last_reconciliation_dispatched_at IS NULL THEN 0 ELSE 1 END, last_reconciliation_dispatched_at ASC')
-            ->orderBy('id', 'ASC');
+            ->orderBy('id', 'asc');
     }
 }

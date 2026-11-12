@@ -13,6 +13,7 @@ use App\Services\CreditService;
 use App\Services\Reports\NormalizedReportBuilder;
 use App\Services\VehicleProviders\OneAutoProvider;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Queue\Jobs\FakeJob;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 
@@ -59,7 +60,7 @@ test('dispatches auth.preview.viewed when an authenticated user views their repo
 
     Queue::assertPushed(
         SendTelegramGuestActivityNotification::class,
-        function (SendTelegramGuestActivityNotification $job) use ($user, $report, $vinCheck) {
+        function (SendTelegramGuestActivityNotification $job) use ($user, $report) {
             return $job->eventType === 'auth.preview.viewed'
                 && $job->dedupeKey === (string) $report->id
                 && str_contains($job->message, 'UKCARDOC - AUTH PREVIEW VIEWED')
@@ -296,7 +297,7 @@ test('dispatches auth.vehicle_check.failed when maximum retries are exhausted', 
     $creditService->shouldNotReceive('consume');
 
     // Simulate 3rd and final attempt (attempts >= tries)
-    $fakeJob = new \Illuminate\Queue\Jobs\FakeJob;
+    $fakeJob = new FakeJob;
     $fakeJob->attempts = 3;
 
     $job = new ProcessVehicleCheck($vinCheck->id);
@@ -310,7 +311,7 @@ test('dispatches auth.vehicle_check.failed when maximum retries are exhausted', 
 
     Queue::assertPushed(
         SendTelegramGuestActivityNotification::class,
-        function (SendTelegramGuestActivityNotification $job) use ($user, $vinCheck) {
+        function (SendTelegramGuestActivityNotification $job) use ($vinCheck) {
             return $job->eventType === 'auth.vehicle_check.failed'
                 && $job->dedupeKey === (string) $vinCheck->id
                 && str_contains($job->message, 'UKCARDOC - AUTH VEHICLE CHECK FAILED')
@@ -347,7 +348,7 @@ test('does not dispatch auth.vehicle_check.failed on intermediate retries', func
     $creditService = Mockery::mock(CreditService::class);
 
     // Simulate 1st attempt (attempts = 1, tries = 3)
-    $fakeJob = new \Illuminate\Queue\Jobs\FakeJob;
+    $fakeJob = new FakeJob;
     $fakeJob->attempts = 1;
 
     $job = new ProcessVehicleCheck($vinCheck->id);
