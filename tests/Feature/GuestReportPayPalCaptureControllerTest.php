@@ -129,7 +129,7 @@ test('paypal capture endpoint captures approved order and verifies completed ord
 
     $paymentService->shouldReceive('handlePayPalGuestOrder')
         ->once()
-        ->with($completedOrder)
+        ->with($completedOrder, 'normal')
         ->andReturnUsing(function () use ($purchase) {
             $purchase->update([
                 'payment_status' => GuestReportPurchase::STATUS_PAID,
@@ -204,7 +204,7 @@ test('paypal capture endpoint does not capture an already completed order again'
 
     $paymentService->shouldReceive('handlePayPalGuestOrder')
         ->once()
-        ->with($completedOrder)
+        ->with($completedOrder, 'recovery')
         ->andReturnUsing(function () use ($purchase) {
             $purchase->update([
                 'payment_status' => GuestReportPurchase::STATUS_PAID,

@@ -125,7 +125,7 @@ test('valid signed return continues payer action, completes capture, and redirec
     $paymentService = Mockery::mock(GuestReportPaymentService::class);
     $paymentService->shouldReceive('handlePayPalGuestOrder')
         ->once()
-        ->with($completedOrder)
+        ->with($completedOrder, 'normal')
         ->andReturnUsing(function () use ($purchase) {
             $purchase->update([
                 'payment_status' => GuestReportPurchase::STATUS_PAID,

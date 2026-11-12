@@ -86,6 +86,14 @@ class GuestReportPurchase extends Model
         'fulfillment_attempts' => 'integer',
         'fulfillment_started_at' => 'datetime',
         'fulfilled_at' => 'datetime',
+        'fulfillment_generation' => 'integer',
+        'fulfillment_dispatch_expires_at' => 'datetime',
+        'fulfillment_claim_expires_at' => 'datetime',
+        'fulfillment_generation_attempts' => 'integer',
+        'fulfillment_recovery_attempts' => 'integer',
+        'fulfillment_recovery_exhausted_at' => 'datetime',
+        'fulfillment_manual_review_at' => 'datetime',
+        'fulfillment_dispatch_push_slots_allocated' => 'integer',
         'capture_attempts' => 'integer',
         'capture_request_started_at' => 'datetime',
         'last_reconciled_at' => 'datetime',
@@ -123,5 +131,13 @@ class GuestReportPurchase extends Model
     public function captureAttempts(): HasMany
     {
         return $this->hasMany(GuestReportCaptureAttempt::class);
+    }
+
+    /**
+     * @return HasMany<GuestReportFulfillmentAttempt, $this>
+     */
+    public function fulfillmentAttempts(): HasMany
+    {
+        return $this->hasMany(GuestReportFulfillmentAttempt::class);
     }
 }

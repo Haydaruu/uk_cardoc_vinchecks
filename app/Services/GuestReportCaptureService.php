@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Exceptions\PayPalApiException;
 use App\Exceptions\PayPalGuestOrderMismatchException;
 use App\Models\GuestReportCaptureAttempt;
+use App\Models\GuestReportFulfillmentAttempt;
 use App\Models\GuestReportPurchase;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Support\Facades\Cache;
@@ -725,7 +726,12 @@ class GuestReportCaptureService
         bool $isReconciliation = false,
     ): GuestCaptureResult {
         // Enforce existing settlement invariants (amounts, report eligibility, ProcessVehicleCheck dispatch, Telegram sale notification)
-        $this->paymentService->handlePayPalGuestOrder($capturedOrder);
+        $this->paymentService->handlePayPalGuestOrder(
+            $capturedOrder,
+            $isReconciliation
+                ? GuestReportFulfillmentAttempt::ORIGIN_RECOVERY
+                : GuestReportFulfillmentAttempt::ORIGIN_NORMAL,
+        );
 
         $result = DB::transaction(function () use ($purchase, $attempt, $isReconciliation) {
             $lockedPurchase = GuestReportPurchase::query()

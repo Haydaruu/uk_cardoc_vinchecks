@@ -11,3 +11,4 @@ Artisan::command('inspire', function () {
 Schedule::command('refunds:reconcile')->hourly();
 Schedule::command('paypal:reconcile-credit-captures')->everyFifteenMinutes();
 Schedule::command('paypal:reconcile-guest-captures')->everyFifteenMinutes();
+Schedule::command('webhooks:reconcile-stale --stale-minutes=10')->everyTenMinutes()->withoutOverlapping(15);

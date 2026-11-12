@@ -2,6 +2,7 @@
 
 use App\Jobs\ProcessVehicleCheck;
 use App\Jobs\SendTelegramSaleNotification;
+use App\Models\GuestReportFulfillmentAttempt;
 use App\Models\GuestReportPurchase;
 use App\Models\Report;
 use App\Models\Vehicle;
@@ -118,6 +119,14 @@ test('paypal guest payment marks purchase paid and dispatches fulfillment', func
         ->not->toBeNull();
 
     Queue::assertPushed(ProcessVehicleCheck::class, 1);
+
+    Queue::assertPushed(ProcessVehicleCheck::class, function (ProcessVehicleCheck $job): bool {
+        return (new ReflectionProperty($job, 'fulfillmentOrigin'))->getValue($job) === 'normal';
+    });
+
+    expect($purchase->fulfillment_dispatch_uuid)->not->toBeNull()
+        ->and($purchase->fulfillment_generation)->toBe(1)
+        ->and($purchase->fulfillment_dispatch_push_slots_allocated)->toBe(1);
 
     Queue::assertPushed(
         SendTelegramSaleNotification::class,
@@ -411,7 +420,9 @@ test('sync queue driver skips ProcessVehicleCheck dispatch without throwing afte
     expect($purchase->payment_status)->toBe(GuestReportPurchase::STATUS_PAID)
         ->and($purchase->provider_payment_id)->toBe('CAPTURE-SYNC-SKIP')
         ->and($purchase->capture_status)->toBe(GuestReportPurchase::CAPTURE_COMPLETED)
-        ->and($purchase->fulfillment_status)->toBe(GuestReportPurchase::FULFILLMENT_PENDING);
+        ->and($purchase->fulfillment_status)->toBe(GuestReportPurchase::FULFILLMENT_PENDING)
+        ->and($purchase->fulfillment_dispatch_uuid)->toBeNull()
+        ->and($purchase->fulfillment_dispatch_push_slots_allocated)->toBe(0);
 });
 
 test('sync queue driver skip leaves capture attempt tracking unaffected', function () {
@@ -477,7 +488,17 @@ test('async queue enqueue failure after successful payment leaves payment PAID a
     expect($purchase->payment_status)->toBe(GuestReportPurchase::STATUS_PAID)
         ->and($purchase->capture_status)->toBe(GuestReportPurchase::CAPTURE_COMPLETED)
         ->and($purchase->provider_payment_id)->toBe('CAPTURE-ENQUEUE-FAIL')
-        ->and($purchase->fulfillment_status)->toBe(GuestReportPurchase::FULFILLMENT_PENDING);
+        ->and($purchase->fulfillment_status)->toBe(GuestReportPurchase::FULFILLMENT_PENDING)
+        ->and($purchase->fulfillment_dispatch_uuid)->not->toBeNull()
+        ->and($purchase->fulfillment_dispatch_push_slots_allocated)->toBe(1);
+
+    $ledger = GuestReportFulfillmentAttempt::query()
+        ->where('guest_report_purchase_id', $purchase->id)
+        ->where('kind', GuestReportFulfillmentAttempt::KIND_PRE_CLAIM_FAILED)
+        ->get();
+
+    expect($ledger)->toHaveCount(1)
+        ->and($ledger->first()->status)->toBe(GuestReportFulfillmentAttempt::STATUS_FAILED);
 });
 
 test('payment validation failures propagate normally and do not modify purchase state', function () {

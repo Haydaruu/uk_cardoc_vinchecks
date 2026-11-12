@@ -13,6 +13,7 @@ use App\Services\PayPalService;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Stripe\Exception\ApiErrorException;
 use Stripe\StripeClient;
 
@@ -26,8 +27,19 @@ class AdminRefundReconciliationService
         $this->stripeClient = $this->stripeClient ?? new StripeClient(config('services.stripe.secret'));
     }
 
+    public const PROCESSING_LEASE_SECONDS = 120;
+
     /**
      * Wrap any webhook event execution in a retry-safe deduplication guard.
+     *
+     * Guarantees:
+     * - Workers compete atomically to acquire event ownership.
+     * - Duplicates during a valid processing lease return 'in_flight'.
+     * - Completed events are not executed again.
+     * - Failed and stale events can be reclaimed through conditional UPDATE.
+     * - Ownership tokens prevent stale workers from changing event state.
+     * - Callback side effects may still overlap after lease expiration and
+     *   must be protected by domain-level idempotency.
      *
      * @param  array<string, mixed>|null  $payloadSummary
      * @return array{processed: bool, status: string, message?: string}
@@ -38,76 +50,171 @@ class AdminRefundReconciliationService
         string $eventType,
         callable $callback,
         ?array $payloadSummary = null,
+        ?int $leaseSeconds = null,
     ): array {
-        // Fast check for existing event record
+        $configuredLease = (int) config('services.webhooks.processing_lease_seconds', self::PROCESSING_LEASE_SECONDS);
+        $lease = $leaseSeconds !== null ? max(1, $leaseSeconds) : max(1, $configuredLease);
+        $staleThreshold = now()->subSeconds($lease);
+
+        // 1. Fast check for an existing event record
         $event = ProcessedWebhookEvent::query()
             ->where('provider', $provider)
             ->where('event_id', $eventId)
             ->first();
 
-        if ($event && $event->isCompleted()) {
-            return [
-                'processed' => false,
-                'status' => 'already_completed',
-                'message' => "Webhook event {$eventId} already processed successfully.",
-            ];
+        if ($event) {
+            if ($event->isCompleted()) {
+                return [
+                    'processed' => false,
+                    'status' => 'already_completed',
+                    'message' => "Webhook event {$eventId} already processed successfully.",
+                ];
+            }
+
+            if ($event->isManualReview()) {
+                return [
+                    'processed' => false,
+                    'status' => 'manual_review',
+                    'message' => "Webhook event {$eventId} is flagged for manual review.",
+                ];
+            }
+
+            // If actively processing within the valid lease, reject duplicate
+            $isStale = ! $event->updated_at || $event->updated_at->lessThanOrEqualTo($staleThreshold);
+            if ($event->isProcessing() && ! $isStale) {
+                return [
+                    'processed' => false,
+                    'status' => 'in_flight',
+                    'message' => "Webhook event {$eventId} is currently in flight.",
+                ];
+            }
         }
 
-        // If currently processing in another worker (< 30 seconds old), avoid race condition
-        if ($event && $event->isProcessing() && $event->created_at && $event->created_at->diffInSeconds(now()) < 30) {
-            return [
-                'processed' => false,
-                'status' => 'in_flight',
-                'message' => "Webhook event {$eventId} is currently in flight.",
-            ];
-        }
+        $acquired = false;
+        $ownershipToken = (string) Str::uuid();
 
+        // 2. Ownership Acquisition
         if (! $event) {
+            // First delivery attempt: insert record with status 'processing' and ownership token
             try {
-                $event = ProcessedWebhookEvent::create([
-                    'provider' => $provider,
-                    'event_id' => $eventId,
-                    'event_type' => $eventType,
-                    'status' => ProcessedWebhookEvent::STATUS_PROCESSING,
-                    'payload_summary' => $payloadSummary,
-                ]);
+                // If called within an outer transaction, DB::transaction() creates a SAVEPOINT in PostgreSQL
+                DB::transaction(function () use ($provider, $eventId, $eventType, $ownershipToken, $payloadSummary) {
+                    return ProcessedWebhookEvent::create([
+                        'provider' => $provider,
+                        'event_id' => $eventId,
+                        'event_type' => $eventType,
+                        'status' => ProcessedWebhookEvent::STATUS_PROCESSING,
+                        'ownership_token' => $ownershipToken,
+                        'payload_summary' => $payloadSummary,
+                    ]);
+                });
+
+                $acquired = true;
             } catch (UniqueConstraintViolationException) {
-                $event = ProcessedWebhookEvent::query()
+                // Insert collided with a concurrent delivery. Another worker created the record.
+                $acquired = false;
+            }
+        }
+
+        if (! $acquired) {
+            // Record exists (either found initially or inserted by another worker).
+            // Attempt to atomically claim ownership if the record is failed or stale, setting a fresh ownership token.
+            $ownershipToken = (string) Str::uuid();
+            $affected = ProcessedWebhookEvent::query()
+                ->where('provider', $provider)
+                ->where('event_id', $eventId)
+                ->where(function ($query) use ($staleThreshold) {
+                    $query->where('status', ProcessedWebhookEvent::STATUS_FAILED)
+                        ->orWhere(function ($q) use ($staleThreshold) {
+                            $q->where('status', ProcessedWebhookEvent::STATUS_PROCESSING)
+                                ->where(function ($sub) use ($staleThreshold) {
+                                    $sub->whereNull('updated_at')
+                                        ->orWhere('updated_at', '<=', $staleThreshold);
+                                });
+                        });
+                })
+                ->update([
+                    'status' => ProcessedWebhookEvent::STATUS_PROCESSING,
+                    'ownership_token' => $ownershipToken,
+                    'error_message' => null,
+                    'updated_at' => now(),
+                ]);
+
+            if ($affected > 0) {
+                $acquired = true;
+            } else {
+                // Could not claim: another worker is actively processing or already completed.
+                $freshEvent = ProcessedWebhookEvent::query()
                     ->where('provider', $provider)
                     ->where('event_id', $eventId)
                     ->first();
 
-                if ($event && $event->isCompleted()) {
+                if ($freshEvent && $freshEvent->isCompleted()) {
                     return [
                         'processed' => false,
                         'status' => 'already_completed',
+                        'message' => "Webhook event {$eventId} already processed successfully.",
                     ];
                 }
+
+                if ($freshEvent && $freshEvent->isManualReview()) {
+                    return [
+                        'processed' => false,
+                        'status' => 'manual_review',
+                        'message' => "Webhook event {$eventId} is flagged for manual review.",
+                    ];
+                }
+
+                return [
+                    'processed' => false,
+                    'status' => 'in_flight',
+                    'message' => "Webhook event {$eventId} is currently in flight.",
+                ];
             }
-        } else {
-            $event->update([
-                'status' => ProcessedWebhookEvent::STATUS_PROCESSING,
-                'error_message' => null,
-            ]);
         }
 
+        // Execute callback under the acquired lease.
+        // Ownership token fences subsequent database state transitions,
+        // but cannot prevent an expired worker from continuing side effects.
         try {
             $callback();
 
-            $event?->update([
-                'status' => ProcessedWebhookEvent::STATUS_COMPLETED,
-                'processed_at' => now(),
-            ]);
+            // Conditional completion: only succeed if ownership token still matches and status is processing
+            $updated = ProcessedWebhookEvent::query()
+                ->where('provider', $provider)
+                ->where('event_id', $eventId)
+                ->where('ownership_token', $ownershipToken)
+                ->where('status', ProcessedWebhookEvent::STATUS_PROCESSING)
+                ->update([
+                    'status' => ProcessedWebhookEvent::STATUS_COMPLETED,
+                    'processed_at' => now(),
+                ]);
+
+            if ($updated === 0) {
+                Log::warning("Webhook event {$eventId} completed callback execution, but ownership was lost (fencing token mismatch or status changed). State not marked completed.");
+
+                return [
+                    'processed' => false,
+                    'status' => 'ownership_lost',
+                    'message' => "Ownership of webhook event {$eventId} was lost before completion.",
+                ];
+            }
 
             return [
                 'processed' => true,
                 'status' => 'completed',
             ];
         } catch (\Throwable $e) {
-            $event?->update([
-                'status' => ProcessedWebhookEvent::STATUS_FAILED,
-                'error_message' => substr($e->getMessage(), 0, 1000),
-            ]);
+            // Conditional failure: only mark failed if ownership token still matches and status is processing
+            ProcessedWebhookEvent::query()
+                ->where('provider', $provider)
+                ->where('event_id', $eventId)
+                ->where('ownership_token', $ownershipToken)
+                ->where('status', ProcessedWebhookEvent::STATUS_PROCESSING)
+                ->update([
+                    'status' => ProcessedWebhookEvent::STATUS_FAILED,
+                    'error_message' => substr($e->getMessage(), 0, 1000),
+                ]);
 
             throw $e;
         }
