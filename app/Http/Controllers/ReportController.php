@@ -105,6 +105,38 @@ class ReportController extends Controller
             }
         }
 
+        // Authenticated preview notification — dispatched once per report per session only for the report owner.
+        if (
+            $user !== null
+            && $report->user_id !== null
+            && (int) $report->user_id === (int) $user->id
+        ) {
+            $authNotificationKey = "auth_preview_notification_sent.{$report->id}";
+
+            if ($request->session()->get($authNotificationKey) !== true) {
+                $vinCheck = $vinCheck ?? $report->vinCheck;
+
+                $message = implode("\n", [
+                    'UKCARDOC - AUTH PREVIEW VIEWED',
+                    '',
+                    'User ID: '.$user->id,
+                    'Email: '.$user->email,
+                    'Report ID: '.$report->id,
+                    'Report Type: '.$report->report_type,
+                    'Registration: '.($vinCheck?->registration_number ?? 'N/A'),
+                    'Time: '.now()->format('d M Y H:i:s'),
+                ]);
+
+                SendTelegramGuestActivityNotification::dispatch(
+                    'auth.preview.viewed',
+                    (string) $report->id,
+                    $message
+                );
+
+                $request->session()->put($authNotificationKey, true);
+            }
+        }
+
         $reportData = $report->report_data ?? [];
 
         $isNormalized = data_get($reportData, 'meta.format') === 'normalized'

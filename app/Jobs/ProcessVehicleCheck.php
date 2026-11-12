@@ -4,11 +4,13 @@ namespace App\Jobs;
 
 use App\Contracts\VehicleDataProviderInterface;
 use App\Exceptions\VehicleNotFoundException;
+use App\Models\GuestReportFulfillmentAttempt;
 use App\Models\GuestReportPurchase;
 use App\Models\Report;
 use App\Models\Vehicle;
 use App\Models\VinCheck;
 use App\Services\CreditService;
+use App\Services\GuestReportFulfillmentService;
 use App\Services\Reports\CompositeReportBuilder;
 use App\Services\Reports\NormalizedReportBuilder;
 use App\Services\VehicleProviders\OneAutoProvider;
@@ -36,6 +38,15 @@ class ProcessVehicleCheck implements ShouldBeUnique, ShouldQueue
 
     public int $uniqueFor = 3600;
 
+    /**
+     * Claim UUID acquired by this attempt.
+     *
+     * This is deliberately not part of the serialized payload. Laravel
+     * re-instantiates the job for failed(), so terminal failure resolves the
+     * claim from the payload UUID and the active ledger row instead.
+     */
+    private ?string $fulfillmentClaimUuid = null;
+
     public function uniqueId(): string
     {
         if ($this->guestReportPurchaseId !== null) {
@@ -51,7 +62,38 @@ class ProcessVehicleCheck implements ShouldBeUnique, ShouldQueue
         private int $vinCheckId,
         private ?int $existingReportId = null,
         private ?int $guestReportPurchaseId = null,
+        private ?string $fulfillmentDispatchUuid = null,
+        private ?int $fulfillmentGeneration = null,
+        private string $fulfillmentOrigin = GuestReportFulfillmentAttempt::ORIGIN_NORMAL,
     ) {}
+
+    /**
+     * Attach the Slice 2A dispatch context before the job is pushed.
+     *
+     * The values are serialized into the queue payload, so every automatic
+     * retry and queue:retry carries the same dispatch UUID and generation.
+     */
+    public function withGuestFulfillmentContext(
+        string $dispatchUuid,
+        int $generation,
+        string $origin,
+    ): static {
+        $this->fulfillmentDispatchUuid = $dispatchUuid;
+        $this->fulfillmentGeneration = $generation;
+        $this->fulfillmentOrigin = $origin;
+
+        return $this;
+    }
+
+    /**
+     * Guest jobs dispatched by the legacy Stripe, PayPal, and recovery paths
+     * carry no dispatch UUID or generation. They keep the pre-Slice-2B path.
+     */
+    private function hasClaimContext(): bool
+    {
+        return $this->fulfillmentDispatchUuid !== null
+            && $this->fulfillmentGeneration !== null;
+    }
 
     /**
      * @return array<int, FailOnException>
@@ -92,56 +134,94 @@ class ProcessVehicleCheck implements ShouldBeUnique, ShouldQueue
                     throw new \RuntimeException('Guest Premium fulfillment requires an existing report.');
                 }
 
-                $alreadyCompleted = DB::transaction(
-                    function () use ($vinCheck): bool {
-                        $purchase = GuestReportPurchase::query()
-                            ->lockForUpdate()
-                            ->findOrFail($this->guestReportPurchaseId);
-                        if ($purchase->payment_status !== GuestReportPurchase::STATUS_PAID) {
-                            throw new \RuntimeException('Guest report purchase has not been paid.');
-                        }
+                if ($this->hasClaimContext()) {
+                    $claim = app(GuestReportFulfillmentService::class)->claim(
+                        purchaseId: (int) $this->guestReportPurchaseId,
+                        reportId: (int) $this->existingReportId,
+                        dispatchUuid: (string) $this->fulfillmentDispatchUuid,
+                        generation: (int) $this->fulfillmentGeneration,
+                        origin: $this->fulfillmentOrigin,
+                        queueJobUuid: $this->job?->uuid(),
+                    );
 
-                        if ((int) $purchase->report_id !== (int) $this->existingReportId) {
-                            throw new \RuntimeException('Guest purchase does not match the report.');
-                        }
+                    if ($claim['status'] === GuestReportFulfillmentService::CLAIM_STATUS_COMPLETED) {
+                        SendGuestReportAccessEmail::dispatch(
+                            $this->guestReportPurchaseId
+                        )->afterCommit();
 
-                        if ($purchase->fulfillment_status === GuestReportPurchase::FULFILLMENT_COMPLETED) {
-                            return true;
-                        }
-
-                        if (! in_array($purchase->fulfillment_status, [
-                            GuestReportPurchase::FULFILLMENT_PENDING,
-                            GuestReportPurchase::FULFILLMENT_PROCESSING,
-                            GuestReportPurchase::FULFILLMENT_FAILED,
-                        ], true)) {
-                            throw new \RuntimeException('Guest report fulfillment is not eligible to run.');
-                        }
-
-                        $purchase->update([
-                            'fulfillment_status' => GuestReportPurchase::FULFILLMENT_PROCESSING,
-                            'fulfillment_attempts' => ((int) $purchase->fulfillment_attempts) + 1,
-                            'fulfillment_started_at' => now(),
-                        ]);
-
-                        $vinCheck->update([
-                            'check_type' => 'premium',
-                            'status' => 'pending',
-                            'stage' => 'queued',
-                        ]);
-
-                        return false;
+                        return;
                     }
-                );
 
-                if ($alreadyCompleted) {
-                    SendGuestReportAccessEmail::dispatch(
-                        $this->guestReportPurchaseId
-                    )->afterCommit();
+                    if ($claim['status'] === GuestReportFulfillmentService::CLAIM_STATUS_REJECTED) {
+                        Log::warning('Guest report fulfillment claim rejected', [
+                            'purchase_id' => $this->guestReportPurchaseId,
+                            'report_id' => $this->existingReportId,
+                            'dispatch_uuid' => $this->fulfillmentDispatchUuid,
+                            'generation' => $this->fulfillmentGeneration,
+                        ]);
 
-                    return;
+                        return;
+                    }
+
+                    $this->fulfillmentClaimUuid = $claim['claim_uuid'];
+
+                    $vinCheck->update([
+                        'check_type' => 'premium',
+                        'status' => 'pending',
+                        'stage' => 'queued',
+                    ]);
+                } else {
+                    $alreadyCompleted = DB::transaction(
+                        function () use ($vinCheck): bool {
+                            $purchase = GuestReportPurchase::query()
+                                ->lockForUpdate()
+                                ->findOrFail($this->guestReportPurchaseId);
+                            if ($purchase->payment_status !== GuestReportPurchase::STATUS_PAID) {
+                                throw new \RuntimeException('Guest report purchase has not been paid.');
+                            }
+
+                            if ((int) $purchase->report_id !== (int) $this->existingReportId) {
+                                throw new \RuntimeException('Guest purchase does not match the report.');
+                            }
+
+                            if ($purchase->fulfillment_status === GuestReportPurchase::FULFILLMENT_COMPLETED) {
+                                return true;
+                            }
+
+                            if (! in_array($purchase->fulfillment_status, [
+                                GuestReportPurchase::FULFILLMENT_PENDING,
+                                GuestReportPurchase::FULFILLMENT_PROCESSING,
+                                GuestReportPurchase::FULFILLMENT_FAILED,
+                            ], true)) {
+                                throw new \RuntimeException('Guest report fulfillment is not eligible to run.');
+                            }
+
+                            $purchase->update([
+                                'fulfillment_status' => GuestReportPurchase::FULFILLMENT_PROCESSING,
+                                'fulfillment_attempts' => ((int) $purchase->fulfillment_attempts) + 1,
+                                'fulfillment_started_at' => now(),
+                            ]);
+
+                            $vinCheck->update([
+                                'check_type' => 'premium',
+                                'status' => 'pending',
+                                'stage' => 'queued',
+                            ]);
+
+                            return false;
+                        }
+                    );
+
+                    if ($alreadyCompleted) {
+                        SendGuestReportAccessEmail::dispatch(
+                            $this->guestReportPurchaseId
+                        )->afterCommit();
+
+                        return;
+                    }
+
+                    $vinCheck->refresh();
                 }
-
-                $vinCheck->refresh();
             }
             $vinCheck->update([
                 'stage' => 'connecting',
@@ -216,6 +296,7 @@ class ProcessVehicleCheck implements ShouldBeUnique, ShouldQueue
             );
 
             $guestReportPurchaseId = $this->guestReportPurchaseId;
+            $completionSucceeded = true;
 
             DB::transaction(
                 function () use (
@@ -226,6 +307,7 @@ class ProcessVehicleCheck implements ShouldBeUnique, ShouldQueue
                     $reportData,
                     $creditService,
                     $guestReportPurchaseId,
+                    &$completionSucceeded,
                 ) {
                     if ($this->existingReportId) {
 
@@ -290,10 +372,34 @@ class ProcessVehicleCheck implements ShouldBeUnique, ShouldQueue
                             throw new \RuntimeException('Guest purchase validation failed during fulfillment.');
                         }
 
-                        $purchase->update([
-                            'fulfillment_status' => GuestReportPurchase::FULFILLMENT_COMPLETED,
-                            'fulfilled_at' => $purchase->fulfilled_at ?? now(),
-                        ]);
+                        if ($this->hasClaimContext()) {
+                            $completion = app(GuestReportFulfillmentService::class)->complete(
+                                purchaseId: (int) $guestReportPurchaseId,
+                                dispatchUuid: (string) $this->fulfillmentDispatchUuid,
+                                generation: (int) $this->fulfillmentGeneration,
+                                claimUuid: (string) $this->fulfillmentClaimUuid,
+                                fulfilledAt: $purchase->fulfilled_at,
+                            );
+
+                            $completionSucceeded = $completion['status']
+                                === GuestReportFulfillmentService::LIFECYCLE_STATUS_COMPLETED;
+
+                            if (! $completionSucceeded) {
+                                Log::warning('Guest report fulfillment completion was stale', [
+                                    'purchase_id' => $guestReportPurchaseId,
+                                    'dispatch_uuid' => $this->fulfillmentDispatchUuid,
+                                    'generation' => $this->fulfillmentGeneration,
+                                    'claim_uuid' => $this->fulfillmentClaimUuid,
+                                ]);
+
+                                return;
+                            }
+                        } else {
+                            $purchase->update([
+                                'fulfillment_status' => GuestReportPurchase::FULFILLMENT_COMPLETED,
+                                'fulfilled_at' => $purchase->fulfilled_at ?? now(),
+                            ]);
+                        }
                     }
 
                     $vinCheck->update([
@@ -302,7 +408,7 @@ class ProcessVehicleCheck implements ShouldBeUnique, ShouldQueue
                     ]);
                 }
             );
-            if ($guestReportPurchaseId !== null) {
+            if ($guestReportPurchaseId !== null && $completionSucceeded) {
                 SendGuestReportAccessEmail::dispatch(
                     $guestReportPurchaseId
                 )->afterCommit();
@@ -365,21 +471,119 @@ class ProcessVehicleCheck implements ShouldBeUnique, ShouldQueue
                 );
             }
 
+            // Notify for failed authenticated vehicle checks.
             if (
-                $this->guestReportPurchaseId !== null
-                && ($isPermanentFailure || $this->attempts() >= $this->tries)
+                $vinCheck->user_id !== null
+                && $isTerminalFailure
             ) {
-                GuestReportPurchase::query()
-                    ->whereKey($this->guestReportPurchaseId)
-                    ->where('payment_status', GuestReportPurchase::STATUS_PAID)
-                    ->where('fulfillment_status', GuestReportPurchase::FULFILLMENT_PROCESSING
-                    )
-                    ->update([
-                        'fulfillment_status' => GuestReportPurchase::FULFILLMENT_FAILED,
-                    ]);
+                $user = $vinCheck->user;
+                $provider = (string) config(
+                    'services.vehicle_reports.provider',
+                    'unknown'
+                );
+
+                $failureReason = $isPermanentFailure
+                    ? 'Vehicle not found'
+                    : 'Vehicle check failed after retries';
+
+                $message = implode("\n", [
+                    'UKCARDOC - AUTH VEHICLE CHECK FAILED',
+                    '',
+                    'User ID: '.$vinCheck->user_id,
+                    'Email: '.($user?->email ?? 'N/A'),
+                    'VinCheck ID: '.$vinCheck->id,
+                    'Registration: '.$regNumber,
+                    'Check Type: '.$vinCheck->check_type,
+                    'Provider: '.$provider,
+                    'Failure: '.$failureReason,
+                    'Time: '.now()->format('d M Y H:i:s'),
+                ]);
+
+                SendTelegramGuestActivityNotification::dispatch(
+                    'auth.vehicle_check.failed',
+                    (string) $vinCheck->id,
+                    $message
+                );
+            }
+
+            if ($this->guestReportPurchaseId !== null) {
+                if ($this->hasClaimContext()) {
+                    // A retryable attempt releases its claim before Laravel
+                    // retries the same payload. The terminal attempt is handled
+                    // by failed(), which Laravel calls only after it gives up.
+                    if (! $isTerminalFailure) {
+                        $this->releaseGuestFulfillmentClaim($e);
+                    }
+                } elseif ($isTerminalFailure) {
+                    GuestReportPurchase::query()
+                        ->whereKey($this->guestReportPurchaseId)
+                        ->where('payment_status', GuestReportPurchase::STATUS_PAID)
+                        ->where('fulfillment_status', GuestReportPurchase::FULFILLMENT_PROCESSING)
+                        ->update([
+                            'fulfillment_status' => GuestReportPurchase::FULFILLMENT_FAILED,
+                        ]);
+                }
             }
 
             throw $e;
+        }
+    }
+
+    /**
+     * Handle the terminal failure declared by Laravel.
+     *
+     * Laravel calls this only after the job has been marked failed: after the
+     * configured tries are exhausted, or when FailOnException marks it failed.
+     * A retryable attempt never reaches this method.
+     */
+    public function failed(?\Throwable $exception = null): void
+    {
+        if ($this->guestReportPurchaseId === null || ! $this->hasClaimContext()) {
+            return;
+        }
+
+        $result = app(GuestReportFulfillmentService::class)->fail(
+            purchaseId: (int) $this->guestReportPurchaseId,
+            dispatchUuid: (string) $this->fulfillmentDispatchUuid,
+            generation: (int) $this->fulfillmentGeneration,
+            claimUuid: $this->fulfillmentClaimUuid,
+            queueJobUuid: $this->job?->uuid(),
+            reason: $exception?->getMessage(),
+        );
+
+        if ($result['status'] !== GuestReportFulfillmentService::LIFECYCLE_STATUS_FAILED) {
+            Log::warning('Guest report fulfillment terminal failure was stale', [
+                'purchase_id' => $this->guestReportPurchaseId,
+                'dispatch_uuid' => $this->fulfillmentDispatchUuid,
+                'generation' => $this->fulfillmentGeneration,
+            ]);
+        }
+    }
+
+    /**
+     * Release this attempt's claim before Laravel retries the same payload.
+     */
+    private function releaseGuestFulfillmentClaim(\Throwable $exception): void
+    {
+        if ($this->fulfillmentClaimUuid === null) {
+            return;
+        }
+
+        $result = app(GuestReportFulfillmentService::class)->release(
+            purchaseId: (int) $this->guestReportPurchaseId,
+            dispatchUuid: (string) $this->fulfillmentDispatchUuid,
+            generation: (int) $this->fulfillmentGeneration,
+            claimUuid: $this->fulfillmentClaimUuid,
+            reason: $exception->getMessage(),
+        );
+
+        if ($result['status'] !== GuestReportFulfillmentService::LIFECYCLE_STATUS_RELEASED) {
+            Log::warning('Guest report fulfillment release was stale', [
+                'purchase_id' => $this->guestReportPurchaseId,
+                'dispatch_uuid' => $this->fulfillmentDispatchUuid,
+                'generation' => $this->fulfillmentGeneration,
+                'claim_uuid' => $this->fulfillmentClaimUuid,
+            ]);
         }
     }
 

@@ -1,5 +1,6 @@
 <?php
 
+use App\Exceptions\PayPalApiException;
 use App\Exceptions\PayPalGuestOrderMismatchException;
 use App\Models\GuestReportPurchase;
 use App\Models\Report;
@@ -104,9 +105,9 @@ test('paypal capture endpoint captures approved order and verifies completed ord
     $payPalService = Mockery::mock(PayPalService::class);
 
     $payPalService->shouldReceive('getOrder')
-        ->twice()
+        ->once()
         ->with($purchase->provider_order_id)
-        ->andReturn($approvedOrder, $completedOrder);
+        ->andReturn($approvedOrder);
 
     $payPalService->shouldReceive('prepareGuestReportOrderForCapture')
         ->once()
@@ -119,28 +120,24 @@ test('paypal capture endpoint captures approved order and verifies completed ord
         )
         ->andReturn($approvedOrder);
 
-    $payPalService->shouldReceive('prepareGuestReportOrderForCapture')
-        ->once()
-        ->with(
-            Mockery::on(
-                fn ($actualPurchase) => $actualPurchase instanceof GuestReportPurchase
-                    && $actualPurchase->id === $purchase->id
-            ),
-            $completedOrder,
-        )
-        ->andReturn($completedOrder);
-
     $payPalService->shouldReceive('captureOrder')
         ->once()
-        ->with($purchase->provider_order_id)
-        ->andReturn(['status' => 'COMPLETED']);
+        ->with($purchase->provider_order_id, Mockery::any())
+        ->andReturn($completedOrder);
 
     $paymentService = Mockery::mock(GuestReportPaymentService::class);
 
     $paymentService->shouldReceive('handlePayPalGuestOrder')
         ->once()
-        ->with($completedOrder)
-        ->andReturn(true);
+        ->with($completedOrder, 'normal')
+        ->andReturnUsing(function () use ($purchase) {
+            $purchase->update([
+                'payment_status' => GuestReportPurchase::STATUS_PAID,
+                'capture_status' => GuestReportPurchase::CAPTURE_COMPLETED,
+            ]);
+
+            return true;
+        });
 
     $guestToken = str_repeat('a', 64);
 
@@ -207,8 +204,15 @@ test('paypal capture endpoint does not capture an already completed order again'
 
     $paymentService->shouldReceive('handlePayPalGuestOrder')
         ->once()
-        ->with($completedOrder)
-        ->andReturn(true);
+        ->with($completedOrder, 'recovery')
+        ->andReturnUsing(function () use ($purchase) {
+            $purchase->update([
+                'payment_status' => GuestReportPurchase::STATUS_PAID,
+                'capture_status' => GuestReportPurchase::CAPTURE_COMPLETED,
+            ]);
+
+            return true;
+        });
 
     $checkoutService = Mockery::mock(GuestReportCheckoutService::class);
 
@@ -239,11 +243,14 @@ test('paypal capture endpoint rejects an order that is not completed after captu
         $purchase,
         'APPROVED',
     );
+    // Remove the completed capture to simulate missing completed capture resource
+    $incompleteOrder['purchase_units'][0]['payments']['captures'] = [];
 
     $payPalService = Mockery::mock(PayPalService::class);
 
     $payPalService->shouldReceive('getOrder')
         ->twice()
+        ->with($purchase->provider_order_id)
         ->andReturn($approvedOrder, $incompleteOrder);
 
     $payPalService->shouldReceive('prepareGuestReportOrderForCapture')
@@ -259,8 +266,8 @@ test('paypal capture endpoint rejects an order that is not completed after captu
 
     $payPalService->shouldReceive('captureOrder')
         ->once()
-        ->with($purchase->provider_order_id)
-        ->andReturn(['status' => 'PENDING']);
+        ->with($purchase->provider_order_id, Mockery::any())
+        ->andReturn($incompleteOrder);
 
     $paymentService = Mockery::mock(GuestReportPaymentService::class);
     $paymentService->shouldNotReceive('handlePayPalGuestOrder');
@@ -275,9 +282,10 @@ test('paypal capture endpoint rejects an order that is not completed after captu
     $this->postJson(
         route('guest-report.paypal.capture', ['report' => $report->id]),
         ['order_id' => $purchase->provider_order_id],
-    )->assertUnprocessable()
+    )->assertStatus(500)
         ->assertJson([
-            'message' => 'PayPal payment could not be confirmed. Please try again.',
+            'status' => 'failed',
+            'message' => 'Payment verification failed.',
         ]);
 });
 
@@ -375,6 +383,108 @@ test('paypal capture endpoint rejects an order that has not been approved', func
         ['order_id' => $purchase->provider_order_id],
     )->assertUnprocessable()
         ->assertJson([
-            'message' => 'PayPal order has not been approved.',
+            'status' => 'failed',
+            'message' => 'PayPal order has not been approved yet.',
+        ]);
+});
+
+test('paypal capture endpoint returns payer_action_required when 3DS challenge is returned', function () {
+    [$purchase, $report] = createPayPalPurchaseForCaptureControllerTest();
+
+    $approvedOrder = createPayPalOrderForCaptureControllerTest(
+        $purchase,
+        'APPROVED',
+    );
+
+    $payPalService = Mockery::mock(PayPalService::class);
+
+    $payPalService->shouldReceive('getOrder')
+        ->once()
+        ->with($purchase->provider_order_id)
+        ->andReturn($approvedOrder);
+
+    $payPalService->shouldReceive('prepareGuestReportOrderForCapture')
+        ->once()
+        ->andReturn($approvedOrder);
+
+    $payPalService->shouldReceive('captureOrder')
+        ->once()
+        ->with($purchase->provider_order_id, Mockery::any())
+        ->andThrow(new PayPalApiException(
+            errorName: 'UNPROCESSABLE_ENTITY',
+            errorMessage: 'Customer authentication required.',
+            details: [
+                [
+                    'issue' => 'PAYER_ACTION_REQUIRED',
+                    'links' => [
+                        [
+                            'rel' => 'payer-action',
+                            'href' => 'https://www.sandbox.paypal.com/checkoutnow?token=AUTH-CHALLENGE',
+                        ],
+                    ],
+                ],
+            ],
+            statusCode: 422,
+        ));
+
+    $this->instance(PayPalService::class, $payPalService);
+
+    $response = $this->postJson(
+        route('guest-report.paypal.capture', ['report' => $report->id]),
+        ['order_id' => $purchase->provider_order_id],
+    );
+
+    $response->assertOk()
+        ->assertJsonPath('status', 'payer_action_required')
+        ->assertJsonPath('message', 'Customer authentication required.');
+
+    expect($response->json('payerActionUrl'))->toContain('https://www.sandbox.paypal.com/checkoutnow?token=AUTH-CHALLENGE')
+        ->and($response->json('payerActionUrl'))->toContain('redirect_uri=');
+});
+
+test('paypal capture endpoint returns funding_declined on payment method decline', function () {
+    [$purchase, $report] = createPayPalPurchaseForCaptureControllerTest();
+
+    $approvedOrder = createPayPalOrderForCaptureControllerTest(
+        $purchase,
+        'APPROVED',
+    );
+
+    $payPalService = Mockery::mock(PayPalService::class);
+
+    $payPalService->shouldReceive('getOrder')
+        ->once()
+        ->with($purchase->provider_order_id)
+        ->andReturn($approvedOrder);
+
+    $payPalService->shouldReceive('prepareGuestReportOrderForCapture')
+        ->once()
+        ->andReturn($approvedOrder);
+
+    $payPalService->shouldReceive('captureOrder')
+        ->once()
+        ->with($purchase->provider_order_id, Mockery::any())
+        ->andThrow(new PayPalApiException(
+            errorName: 'UNPROCESSABLE_ENTITY',
+            errorMessage: 'Payment method declined.',
+            details: [
+                [
+                    'issue' => 'INSTRUMENT_DECLINED',
+                ],
+            ],
+            statusCode: 422,
+        ));
+
+    $this->instance(PayPalService::class, $payPalService);
+
+    $response = $this->postJson(
+        route('guest-report.paypal.capture', ['report' => $report->id]),
+        ['order_id' => $purchase->provider_order_id],
+    );
+
+    $response->assertStatus(422)
+        ->assertJson([
+            'status' => 'funding_declined',
+            'message' => 'Payment method declined. Please choose a different payment method.',
         ]);
 });

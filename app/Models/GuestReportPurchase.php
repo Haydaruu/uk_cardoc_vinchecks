@@ -13,7 +13,7 @@ class GuestReportPurchase extends Model
 
     public const STATUS_PAID = 'paid';
 
-    public const STATUS_FAILED = 'failed';
+    public const PAYMENT_STATUS_FAILED = 'failed';
 
     public const STATUS_EXPIRED = 'expired';
 
@@ -28,6 +28,22 @@ class GuestReportPurchase extends Model
     public const FULFILLMENT_COMPLETED = 'completed';
 
     public const FULFILLMENT_FAILED = 'failed';
+
+    public const CAPTURE_CAPTURING = 'capturing';
+
+    public const CAPTURE_COMPLETED = 'completed';
+
+    public const CAPTURE_PENDING = 'capture_pending';
+
+    public const CAPTURE_FUNDING_DECLINED = 'funding_declined';
+
+    public const CAPTURE_PAYER_ACTION_REQUIRED = 'payer_action_required';
+
+    public const CAPTURE_RECONCILIATION_REQUIRED = 'capture_reconciliation_required';
+
+    public const CAPTURE_STATUS_FAILED = 'failed';
+
+    public const CAPTURE_LEGACY_UNTRACKED = 'legacy_untracked';
 
     protected $fillable = [
         'report_id',
@@ -51,6 +67,13 @@ class GuestReportPurchase extends Model
         'fulfillment_attempts',
         'fulfillment_started_at',
         'fulfilled_at',
+        'capture_status',
+        'capture_attempts',
+        'capture_request_started_at',
+        'capture_failure_reason',
+        'last_reconciled_at',
+        'last_reconciliation_dispatched_at',
+        'active_capture_attempt_uuid',
     ];
 
     protected $casts = [
@@ -63,6 +86,18 @@ class GuestReportPurchase extends Model
         'fulfillment_attempts' => 'integer',
         'fulfillment_started_at' => 'datetime',
         'fulfilled_at' => 'datetime',
+        'fulfillment_generation' => 'integer',
+        'fulfillment_dispatch_expires_at' => 'datetime',
+        'fulfillment_claim_expires_at' => 'datetime',
+        'fulfillment_generation_attempts' => 'integer',
+        'fulfillment_recovery_attempts' => 'integer',
+        'fulfillment_recovery_exhausted_at' => 'datetime',
+        'fulfillment_manual_review_at' => 'datetime',
+        'fulfillment_dispatch_push_slots_allocated' => 'integer',
+        'capture_attempts' => 'integer',
+        'capture_request_started_at' => 'datetime',
+        'last_reconciled_at' => 'datetime',
+        'last_reconciliation_dispatched_at' => 'datetime',
     ];
 
     protected static function booted(): void
@@ -88,5 +123,21 @@ class GuestReportPurchase extends Model
     public function recoveryTokens(): HasMany
     {
         return $this->hasMany(GuestReportRecoveryToken::class);
+    }
+
+    /**
+     * @return HasMany<GuestReportCaptureAttempt, $this>
+     */
+    public function captureAttempts(): HasMany
+    {
+        return $this->hasMany(GuestReportCaptureAttempt::class);
+    }
+
+    /**
+     * @return HasMany<GuestReportFulfillmentAttempt, $this>
+     */
+    public function fulfillmentAttempts(): HasMany
+    {
+        return $this->hasMany(GuestReportFulfillmentAttempt::class);
     }
 }

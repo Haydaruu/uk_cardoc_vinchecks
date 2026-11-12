@@ -2,9 +2,10 @@
 
 namespace App\Services;
 
-use App\Jobs\ProcessVehicleCheck;
 use App\Jobs\SendTelegramSaleNotification;
+use App\Models\GuestReportFulfillmentAttempt;
 use App\Models\GuestReportPurchase;
+use App\Support\GuestReportDispatchOutcome;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -12,11 +13,33 @@ use RuntimeException;
 
 class GuestReportPaymentService
 {
+    protected ?GuestReportDispatchOutcome $lastFulfillmentOutcome = null;
+
+    public function __construct(
+        protected GuestReportFulfillmentService $fulfillmentService,
+    ) {}
+
+    /**
+     * The outcome of the most recent guest fulfillment reservation, if any.
+     *
+     * Recovery uses this to distinguish a queued push from lock contention or
+     * a queue push failure without changing the payment method's bool contract.
+     */
+    public function lastFulfillmentOutcome(): ?GuestReportDispatchOutcome
+    {
+        return $this->lastFulfillmentOutcome;
+    }
+
     /**
      * Create a new class instance.
      */
-    public function handleCheckoutSession(object $session, string $eventType): bool
-    {
+    public function handleCheckoutSession(
+        object $session,
+        string $eventType,
+        string $origin = GuestReportFulfillmentAttempt::ORIGIN_NORMAL,
+    ): bool {
+        $this->lastFulfillmentOutcome = null;
+
         $metadata = $session->metadata ?? null;
 
         if (($metadata->purpose ?? null) !== 'guest_report_purchase') {
@@ -249,7 +272,7 @@ class GuestReportPaymentService
                 if ($purchase->payment_status === GuestReportPurchase::STATUS_PENDING) {
                     $purchase->update([
                         ...$references,
-                        'payment_status' => GuestReportPurchase::STATUS_FAILED,
+                        'payment_status' => GuestReportPurchase::PAYMENT_STATUS_FAILED,
                         'failed_at' => now(),
                     ]);
                 } else {
@@ -308,11 +331,17 @@ class GuestReportPaymentService
                     throw new RuntimeException('Guest report is not eligible for Premium fulfillment.');
                 }
 
-                ProcessVehicleCheck::dispatch(
-                    (int) $report->vin_check_id,
-                    (int) $report->id,
-                    (int) $purchase->id,
+                // Stripe webhook path: the reservation service owns D/G creation
+                // and the queue push. Exceptions from authoritative payment or
+                // database writes still propagate so the webhook can be retried;
+                // a queue push failure is ambiguous and is recorded for recovery
+                // instead of failing the settled payment.
+                $this->lastFulfillmentOutcome = $this->fulfillmentService->reserveAndDispatch(
+                    $purchase,
+                    $origin,
                 );
+
+                $this->logFulfillmentOutcome($purchase, 'Stripe', $origin, $this->lastFulfillmentOutcome);
             }
         }
 
@@ -337,8 +366,12 @@ class GuestReportPaymentService
     /**
      * @param  array<string, mixed>  $order
      */
-    public function handlePayPalGuestOrder(array $order): bool
-    {
+    public function handlePayPalGuestOrder(
+        array $order,
+        string $origin = GuestReportFulfillmentAttempt::ORIGIN_NORMAL,
+    ): bool {
+        $this->lastFulfillmentOutcome = null;
+
         $orderId = $order['id'] ?? null;
         $customId = data_get($order, 'purchase_units.0.custom_id');
 
@@ -372,12 +405,19 @@ class GuestReportPaymentService
         }
 
         $purchaseUnit = $order['purchase_units'][0] ?? null;
-        $capture = $purchaseUnit['payments']['captures'][0] ?? null;
+        $captures = is_array($purchaseUnit['payments']['captures'] ?? null)
+            ? $purchaseUnit['payments']['captures']
+            : [];
+
+        $capture = collect($captures)->first(
+            fn ($item) => is_array($item) && ($item['status'] ?? null) === 'COMPLETED'
+        );
 
         if (
-            ! $capture
+            ! is_array($capture)
             || ($capture['status'] ?? null) !== 'COMPLETED'
             || ! is_string($capture['id'] ?? null)
+            || trim($capture['id']) === ''
         ) {
             throw new RuntimeException('PayPal capture is not completed.');
         }
@@ -482,6 +522,12 @@ class GuestReportPaymentService
                         throw new RuntimeException('Completed guest report is not Premium.');
                     }
 
+                    if ($lockedPurchase->capture_status !== GuestReportPurchase::CAPTURE_COMPLETED) {
+                        $lockedPurchase->update([
+                            'capture_status' => GuestReportPurchase::CAPTURE_COMPLETED,
+                        ]);
+                    }
+
                     return [
                         'payment_changed' => false,
                         'dispatch' => false,
@@ -503,14 +549,22 @@ class GuestReportPaymentService
                     throw new RuntimeException('Guest fulfillment status is not recoverable.');
                 }
 
+                $updates = [];
+
+                if ($lockedPurchase->capture_status !== GuestReportPurchase::CAPTURE_COMPLETED) {
+                    $updates['capture_status'] = GuestReportPurchase::CAPTURE_COMPLETED;
+                }
+
                 // A paid purchase must not remain locked.
                 if (
                     $lockedPurchase->fulfillment_status
                     === GuestReportPurchase::FULFILLMENT_LOCKED
                 ) {
-                    $lockedPurchase->update([
-                        'fulfillment_status' => GuestReportPurchase::FULFILLMENT_PENDING,
-                    ]);
+                    $updates['fulfillment_status'] = GuestReportPurchase::FULFILLMENT_PENDING;
+                }
+
+                if (! empty($updates)) {
+                    $lockedPurchase->update($updates);
                 }
 
                 return [
@@ -533,6 +587,7 @@ class GuestReportPaymentService
                 'payment_status' => GuestReportPurchase::STATUS_PAID,
                 'paid_at' => $lockedPurchase->paid_at ?? now(),
                 'fulfillment_status' => GuestReportPurchase::FULFILLMENT_PENDING,
+                'capture_status' => GuestReportPurchase::CAPTURE_COMPLETED,
             ]);
 
             return [
@@ -542,10 +597,10 @@ class GuestReportPaymentService
         });
 
         if ($result['dispatch']) {
-            ProcessVehicleCheck::dispatch(
-                (int) $report->vin_check_id,
-                (int) $report->id,
-                (int) $purchase->id,
+            $this->dispatchPayPalGuestFulfillment(
+                $purchaseId,
+                $orderId,
+                $origin,
             );
         }
 
@@ -562,6 +617,79 @@ class GuestReportPaymentService
         }
 
         return $result['payment_changed'];
+    }
+
+    /**
+     * Reserve and push guest fulfillment after a confirmed PayPal settlement.
+     *
+     * This method is called after the payment database transaction has already
+     * committed. It MUST NOT throw, because any exception here will propagate
+     * through GuestReportCaptureService::settleSuccessfulCapture() and prevent
+     * capture attempt tracking from completing even though the purchase is PAID.
+     *
+     * The reservation service owns D/G creation, same-D repush slot allocation,
+     * and the queue push. A sync queue driver is rejected by that service before
+     * any reservation, leaving fulfillment PENDING for recovery. Queue push
+     * failures and database/ledger failures are logged as critical and absorbed
+     * here so the confirmed PAID state and capture tracking are not affected;
+     * recovery/ops can retry them from the purchase state.
+     */
+    private function dispatchPayPalGuestFulfillment(
+        int $purchaseId,
+        string $orderId,
+        string $origin,
+    ): void {
+        try {
+            $purchase = GuestReportPurchase::query()->findOrFail($purchaseId);
+
+            $this->lastFulfillmentOutcome = $this->fulfillmentService->reserveAndDispatch(
+                $purchase,
+                $origin,
+            );
+
+            $this->logFulfillmentOutcome($purchase, 'PayPal', $origin, $this->lastFulfillmentOutcome);
+        } catch (\Throwable $e) {
+            // Fulfillment reservation, ledger, or queue infrastructure failure.
+            // Log and absorb so the confirmed PAID state is not affected.
+            Log::critical('Guest report fulfillment failed after successful PayPal settlement', [
+                'purchase_id' => $purchaseId,
+                'provider_order_id' => $orderId,
+                'origin' => $origin,
+                'exception' => $e::class,
+                'message' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    private function logFulfillmentOutcome(
+        GuestReportPurchase $purchase,
+        string $provider,
+        string $origin,
+        GuestReportDispatchOutcome $outcome,
+    ): void {
+        $context = [
+            'purchase_id' => $purchase->id,
+            'provider' => $provider,
+            'origin' => $origin,
+            'dispatch_uuid' => $outcome->dispatchUuid,
+            'outcome' => $outcome->outcome,
+        ];
+
+        if ($outcome->isPushFailed()) {
+            Log::error('Guest report fulfillment queue push failed; recovery required', $context + [
+                'error' => $outcome->error,
+            ]);
+
+            return;
+        }
+
+        if ($outcome->isSyncSkipped()) {
+            Log::critical('Guest report fulfillment skipped: sync queue driver is not safe for post-payment dispatch', $context);
+
+            return;
+        }
+
+        Log::info('Guest report fulfillment reservation outcome', $context);
     }
 
     private function dispatchGuestReportSaleNotification(

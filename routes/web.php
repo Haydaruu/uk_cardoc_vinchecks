@@ -7,6 +7,7 @@ use App\Http\Controllers\GuestReportInvoiceController;
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\Payments\GuestReportCheckoutController;
 use App\Http\Controllers\Payments\GuestReportCheckoutSuccessController;
+use App\Http\Controllers\Payments\GuestReportPayPalReturnController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ReportPdfController;
 use App\Http\Controllers\SupportMessageController;
@@ -38,6 +39,7 @@ Route::get('/guest-purchases/{purchase}/checkout-status', [GuestReportCheckoutSu
 // PayPal guest report checkout
 Route::post('/reports/{report}/guest-checkout/paypal/order', [GuestReportCheckoutController::class, 'createPayPalOrder'])->name('guest-report.paypal.create-order');
 Route::post('/reports/{report}/guest-checkout/paypal/capture', [GuestReportCheckoutController::class, 'capturePayPalOrder'])->name('guest-report.paypal.capture');
+Route::get('/guest-checkout/paypal/return', GuestReportPayPalReturnController::class)->name('guest-report.paypal.return');
 
 // iki Auth Report
 Route::get('/report/{report}', [ReportController::class, 'show'])->name('page.my-report.show');

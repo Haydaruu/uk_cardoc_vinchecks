@@ -3,11 +3,16 @@
 namespace App\Http\Controllers\Webhook;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\ProcessPayPalGuestCapture;
+use App\Jobs\ProcessPayPalOrderCapture;
 use App\Jobs\SendTelegramSaleNotification;
+use App\Models\CreditCheckoutAttempt;
+use App\Models\GuestReportPurchase;
 use App\Models\Subscription;
 use App\Models\Transaction;
 use App\Models\User;
 use App\Services\Admin\AdminRefundReconciliationService;
+use App\Services\CreditCaptureService;
 use App\Services\CreditService;
 use App\Services\GuestReportPaymentService;
 use App\Services\PayPalService;
@@ -24,6 +29,7 @@ class PayPalWebhookController extends Controller
         CreditService $creditService,
         AdminRefundReconciliationService $reconciliationService,
         GuestReportPaymentService $guestReportPaymentService,
+        CreditCaptureService $captureService,
     ): JsonResponse {
         if (! $payPalService->verifyWebhook($request)) {
             Log::warning('Invalid PayPal webhook signature.');
@@ -49,6 +55,7 @@ class PayPalWebhookController extends Controller
                     $creditService,
                     $reconciliationService,
                     $guestReportPaymentService,
+                    $captureService,
                 ) {
                     $this->processEvent(
                         $event,
@@ -57,6 +64,7 @@ class PayPalWebhookController extends Controller
                         $creditService,
                         $reconciliationService,
                         $guestReportPaymentService,
+                        $captureService,
                     );
                 },
                 payloadSummary: [
@@ -76,6 +84,7 @@ class PayPalWebhookController extends Controller
                 $creditService,
                 $reconciliationService,
                 $guestReportPaymentService,
+                $captureService,
             );
         }
 
@@ -94,14 +103,28 @@ class PayPalWebhookController extends Controller
         CreditService $creditService,
         AdminRefundReconciliationService $reconciliationService,
         GuestReportPaymentService $guestReportPaymentService,
+        CreditCaptureService $captureService,
     ): void {
         match ($eventType) {
             'PAYMENT.CAPTURE.COMPLETED' => $this->handleOneTimePayment(
                 $event,
                 $payPalService,
-                $creditService,
+                $captureService,
                 $guestReportPaymentService,
             ),
+
+            // CHECKOUT.ORDER.APPROVED: buyer approved payment at provider.
+            // Dispatch durable queued capture job to recover payments if buyer closes browser.
+            'CHECKOUT.ORDER.APPROVED' => $this->handleOrderApproved($event),
+
+            // CHECKOUT.PAYMENT-APPROVAL.REVERSED: buyer approval was reversed before capture.
+            'CHECKOUT.PAYMENT-APPROVAL.REVERSED' => $this->handleApprovalReversed($event),
+
+            // PAYMENT.CAPTURE.PENDING: capture is pending (e.g. eCheck, risk review). No credits granted.
+            'PAYMENT.CAPTURE.PENDING' => $this->handleCapturePending($event),
+
+            // PAYMENT.CAPTURE.DENIED: capture was denied by provider. No credits granted.
+            'PAYMENT.CAPTURE.DENIED' => $this->handleCaptureDenied($event),
 
             'PAYMENT.SALE.COMPLETED' => $this->handleSubscriptionPayment(
                 $event,
@@ -121,22 +144,40 @@ class PayPalWebhookController extends Controller
     }
 
     /**
+     * Handle PAYMENT.CAPTURE.COMPLETED for one-time credit purchases and guest report payments.
+     *
      * @param  array<string, mixed>  $event
      */
-    private function handleOneTimePayment(array $event, PayPalService $payPalService, CreditService $creditService, GuestReportPaymentService $guestReportPaymentService): void
-    {
-        $capture = $event['resource'] ?? null;
+    private function handleOneTimePayment(
+        array $event,
+        PayPalService $payPalService,
+        CreditCaptureService $captureService,
+        GuestReportPaymentService $guestReportPaymentService,
+    ): void {
+        $captureResource = $event['resource'] ?? null;
 
-        if (! $capture) {
+        if (! $captureResource) {
             return;
         }
 
-        $captureId = $capture['id'] ?? null;
-        $orderId = $capture['supplementary_data']['related_ids']['order_id'] ?? null;
+        $captureId = (string) ($captureResource['id'] ?? '');
+        $orderId = (string) ($captureResource['supplementary_data']['related_ids']['order_id'] ?? '');
 
-        if (! $captureId || ! $orderId) {
+        if ($captureId === '' || $orderId === '') {
             Log::warning('PayPal webhook missing capture/order ID', [
                 'event_id' => $event['id'] ?? null,
+            ]);
+
+            return;
+        }
+
+        // Verify the nested capture status is COMPLETED before any fulfillment.
+        // A PENDING capture must NOT grant credits.
+        if (($captureResource['status'] ?? null) !== 'COMPLETED') {
+            Log::info('PayPal PAYMENT.CAPTURE.COMPLETED webhook: capture status is not COMPLETED, skipping.', [
+                'event_id' => $event['id'] ?? null,
+                'capture_id' => $captureId,
+                'capture_status' => $captureResource['status'] ?? null,
             ]);
 
             return;
@@ -146,20 +187,27 @@ class PayPalWebhookController extends Controller
         $purchaseUnit = $order['purchase_units'][0] ?? null;
 
         if (! $purchaseUnit) {
-            throw new \RuntimeException('Invalid PayPal order.');
+            throw new \RuntimeException('Invalid PayPal order: missing purchase_unit.');
         }
 
-        // Route guest report purchases to the dedicated fulfillment service.
+        // ── Guest report purchases ────────────────────────────────────────────
         $customId = (string) ($purchaseUnit['custom_id'] ?? '');
 
         if (str_starts_with($customId, 'guest-report|')) {
-            $orderCaptureId = data_get(
-                $order,
-                'purchase_units.0.payments.captures.0.id'
+            $captures = is_array($purchaseUnit['payments']['captures'] ?? null)
+                ? $purchaseUnit['payments']['captures']
+                : [];
+
+            $completedCapture = collect($captures)->first(
+                fn ($item) => is_array($item) && ($item['status'] ?? null) === 'COMPLETED'
             );
 
+            $orderCaptureId = (is_array($completedCapture) && is_string($completedCapture['id'] ?? null) && trim($completedCapture['id']) !== '')
+                ? $completedCapture['id']
+                : null;
+
             if (
-                ! is_string($orderCaptureId)
+                $orderCaptureId === null
                 || ! hash_equals($captureId, $orderCaptureId)
             ) {
                 Log::critical('PayPal guest report webhook capture ID mismatch.', [
@@ -169,9 +217,7 @@ class PayPalWebhookController extends Controller
                     'order_capture_id' => $orderCaptureId,
                 ]);
 
-                throw new \RuntimeException(
-                    'PayPal webhook capture does not match the order capture.'
-                );
+                throw new \RuntimeException('PayPal webhook capture does not match the order capture.');
             }
 
             $guestReportPaymentService->handlePayPalGuestOrder($order);
@@ -179,76 +225,229 @@ class PayPalWebhookController extends Controller
             return;
         }
 
-        $planSlug = $purchaseUnit['reference_id'] ?? null;
-        $customId = $purchaseUnit['custom_id'] ?? null;
-
-        [$userId, $customPlanSlug] = array_pad(explode('|', (string) $customId, 2), 2, null);
-
-        if (! $userId || ! $planSlug || $planSlug !== $customPlanSlug) {
-            throw new \RuntimeException('PayPal order metadata is invalid. ');
-        }
-        $user = User::whereKey($userId)->first();
-        $plan = config("credit_plans.{$planSlug}");
-
-        if (! $user || ! $plan || $plan['type'] !== 'one_time') {
-            throw new \RuntimeException('Unable to resolve PayPal purchase. ');
-        }
-
-        $expectedAmount = number_format($plan['amount_minor'] / 100, 2, '.', '');
-        $expectedCurrency = strtoupper($plan['currency']);
-
-        $captureAmount = $capture['amount']['value'] ?? null;
-        $captureCurrency = strtoupper($capture['amount']['currency_code'] ?? '');
-
-        if ($captureAmount !== $expectedAmount || $captureCurrency !== $expectedCurrency) {
-            throw new \RuntimeException('PayPal payment amount mismatch.');
-        }
-
-        $creditService->grantCredits(
-            user: $user,
-            amount: (int) $plan['credits'],
-            type: 'purchase',
-            referenceId: $captureId,
-            idempotencyKey: $captureId,
-            description: "PayPal purchase: {$captureId}",
+        // ── Authenticated credit purchase — delegate to CreditCaptureService ─
+        // The service handles both snapshot-based (Phase 1+ attempt) and
+        // config-based (legacy) fulfillment paths.
+        $captureService->fulfill(
+            order: $order,
+            capture: $captureResource,
+            captureId: $captureId,
+            orderId: $orderId,
         );
+    }
 
-        $paidAt = isset($capture['create_time']) ? Carbon::parse($capture['create_time']) : now();
+    /**
+     * Handle CHECKOUT.ORDER.APPROVED: buyer approved payment at provider.
+     * Routes to the appropriate durable background job based on order type.
+     * Guest report orders → ProcessPayPalGuestCapture.
+     * Credit orders → ProcessPayPalOrderCapture.
+     * This recovers payments asynchronously when the buyer approves but closes the browser before frontend capture.
+     *
+     * @param  array<string, mixed>  $event
+     */
+    private function handleOrderApproved(array $event): void
+    {
+        $resource = $event['resource'] ?? [];
+        $orderId = (string) ($resource['id'] ?? '');
 
-        $transaction = Transaction::updateOrCreate(
-            [
-                'payment_gateway_ref' => $captureId,
-            ],
-            [
-                'user_id' => $user->id,
-                'invoice_id' => 'UKC-PPL-'.strtoupper(substr($captureId, 0, 8)),
-                'currency' => $captureCurrency,
-                'amount' => $captureAmount,
-                'type' => 'payment',
-                'category' => 'credit_purchase',
-                'payment_method' => 'paypal',
-                'description' => $plan['label'],
-                'status' => 'success',
-                'paid_at' => $paidAt,
+        Log::info('PayPal CHECKOUT.ORDER.APPROVED received. Scheduling asynchronous capture.', [
+            'event_id' => $event['id'] ?? null,
+            'order_id' => $orderId,
+        ]);
 
-            ],
-        );
-
-        if ($transaction->wasRecentlyCreated && (float) $transaction->amount > 0) {
-            $amount = number_format(
-                (float) $transaction->amount,
-                2,
-                '.',
-                ','
-            );
-
-            SendTelegramSaleNotification::dispatch(
-                'Credit purchase',
-                'PayPal',
-                (string) $transaction->payment_gateway_ref,
-                strtoupper((string) $transaction->currency).' '.$amount,
-            )->afterCommit();
+        if ($orderId === '') {
+            return;
         }
+
+        // 1. Verified Guest Report Order
+        $isGuestOrder = GuestReportPurchase::query()
+            ->where('payment_provider', 'paypal')
+            ->where('provider_order_id', $orderId)
+            ->exists();
+
+        if ($isGuestOrder) {
+            // Guest report order: route to GuestReportCaptureService via dedicated job.
+            // If the queue dispatch fails (e.g. database/redis failure), an exception is thrown,
+            // causing executeWithDeduplication to mark the event FAILED rather than COMPLETED,
+            // ensuring PayPal will safely retry the webhook delivery.
+            ProcessPayPalGuestCapture::dispatch($orderId, $event['id'] ?? null);
+
+            return;
+        }
+
+        // 2. Verified Current Credit Order (by provider_order_id or validated attempt_uuid)
+        $isCurrentCreditOrder = CreditCheckoutAttempt::query()
+            ->where('provider_order_id', $orderId)
+            ->exists();
+
+        $purchaseUnit = data_get($event, 'resource.purchase_units.0');
+        $customId = (string) ($purchaseUnit['custom_id'] ?? '');
+        $parts = $customId !== '' ? explode('|', $customId) : [];
+
+        if (! $isCurrentCreditOrder && count($parts) === 3 && ! empty($parts[2]) && ! empty($parts[0])) {
+            $matchedAttempt = CreditCheckoutAttempt::query()
+                ->where('attempt_uuid', $parts[2])
+                ->where('user_id', $parts[0])
+                ->first();
+
+            if ($matchedAttempt) {
+                $isCurrentCreditOrder = true;
+                if (! $matchedAttempt->provider_order_id) {
+                    $matchedAttempt->update(['provider_order_id' => $orderId]);
+                }
+            }
+        }
+
+        if ($isCurrentCreditOrder) {
+            CreditCheckoutAttempt::query()
+                ->where('provider_order_id', $orderId)
+                ->whereNotIn('status', [
+                    CreditCheckoutAttempt::STATUS_CAPTURE_COMPLETED,
+                    CreditCheckoutAttempt::STATUS_CAPTURING,
+                    CreditCheckoutAttempt::STATUS_UNRECONCILED_STALE,
+                ])
+                ->update(['status' => CreditCheckoutAttempt::STATUS_PROVIDER_APPROVED]);
+
+            ProcessPayPalOrderCapture::dispatch($orderId, $event['id'] ?? null);
+
+            return;
+        }
+
+        // 3. Legitimate Legacy Credit Order
+        // Validated correlation: exactly 2 parts (user_id|plan_slug), reference_id matches plan_slug,
+        // valid existing user, and valid one_time plan configured.
+        $referenceId = (string) ($purchaseUnit['reference_id'] ?? '');
+        $isLegacyCreditOrder = false;
+
+        if (count($parts) === 2 && ! empty($parts[0]) && ! empty($parts[1]) && $referenceId === $parts[1]) {
+            $userId = $parts[0];
+            $planSlug = $parts[1];
+
+            $userExists = is_numeric($userId) && User::query()->whereKey($userId)->exists();
+            $plan = config("credit_plans.{$planSlug}");
+            $isOneTimePlan = is_array($plan) && ($plan['type'] ?? null) === 'one_time';
+
+            if ($userExists && $isOneTimePlan) {
+                $isLegacyCreditOrder = true;
+            }
+        }
+
+        if ($isLegacyCreditOrder) {
+            Log::info('PayPal CHECKOUT.ORDER.APPROVED: legacy credit order correlated. Scheduling capture.', [
+                'event_id' => $event['id'] ?? null,
+                'order_id' => $orderId,
+            ]);
+
+            ProcessPayPalOrderCapture::dispatch($orderId, $event['id'] ?? null);
+
+            return;
+        }
+
+        // 4. Unknown / Unmatched Order
+        Log::warning('PayPal CHECKOUT.ORDER.APPROVED received for unrecognized order ID.', [
+            'event_id' => $event['id'] ?? null,
+            'order_id' => $orderId,
+        ]);
+    }
+
+    /**
+     * Handle CHECKOUT.PAYMENT-APPROVAL.REVERSED: buyer approval was reversed before capture.
+     * Log and update attempt state. Never downgrade a completed attempt.
+     *
+     * @param  array<string, mixed>  $event
+     */
+    private function handleApprovalReversed(array $event): void
+    {
+        $resource = $event['resource'] ?? [];
+        $orderId = (string) ($resource['id'] ?? '');
+
+        Log::info('PayPal CHECKOUT.PAYMENT-APPROVAL.REVERSED received.', [
+            'event_id' => $event['id'] ?? null,
+            'order_id' => $orderId,
+        ]);
+
+        if ($orderId === '') {
+            return;
+        }
+
+        // Update attempt to provider_created if it is still in an active non-captured state.
+        // Never downgrade CAPTURE_COMPLETED, CAPTURING, or UNRECONCILED_STALE.
+        CreditCheckoutAttempt::query()
+            ->where('provider_order_id', $orderId)
+            ->whereNotIn('status', [
+                CreditCheckoutAttempt::STATUS_CAPTURE_COMPLETED,
+                CreditCheckoutAttempt::STATUS_CAPTURING,
+                CreditCheckoutAttempt::STATUS_UNRECONCILED_STALE,
+            ])
+            ->update(['status' => CreditCheckoutAttempt::STATUS_PROVIDER_CREATED]);
+    }
+
+    /**
+     * Handle PAYMENT.CAPTURE.PENDING: capture is pending (eCheck, risk review).
+     * Strictly DO NOT grant credits. Update attempt status to capture_pending.
+     *
+     * @param  array<string, mixed>  $event
+     */
+    private function handleCapturePending(array $event): void
+    {
+        $resource = $event['resource'] ?? [];
+        $captureId = (string) ($resource['id'] ?? '');
+        $orderId = (string) ($resource['supplementary_data']['related_ids']['order_id'] ?? '');
+
+        Log::info('PayPal PAYMENT.CAPTURE.PENDING received. Credits withheld until completion.', [
+            'event_id' => $event['id'] ?? null,
+            'capture_id' => $captureId,
+            'order_id' => $orderId,
+        ]);
+
+        if ($orderId === '') {
+            return;
+        }
+
+        CreditCheckoutAttempt::query()
+            ->where('provider_order_id', $orderId)
+            ->whereNotIn('status', [
+                CreditCheckoutAttempt::STATUS_CAPTURE_COMPLETED,
+                CreditCheckoutAttempt::STATUS_UNRECONCILED_STALE,
+            ])
+            ->update([
+                'status' => CreditCheckoutAttempt::STATUS_CAPTURE_PENDING,
+                'provider_capture_id' => $captureId !== '' ? $captureId : null,
+            ]);
+    }
+
+    /**
+     * Handle PAYMENT.CAPTURE.DENIED: capture was denied by provider.
+     * Strictly DO NOT grant credits. Update attempt status to terminal_failed.
+     *
+     * @param  array<string, mixed>  $event
+     */
+    private function handleCaptureDenied(array $event): void
+    {
+        $resource = $event['resource'] ?? [];
+        $captureId = (string) ($resource['id'] ?? '');
+        $orderId = (string) ($resource['supplementary_data']['related_ids']['order_id'] ?? '');
+
+        Log::warning('PayPal PAYMENT.CAPTURE.DENIED received. Payment denied by provider.', [
+            'event_id' => $event['id'] ?? null,
+            'capture_id' => $captureId,
+            'order_id' => $orderId,
+        ]);
+
+        if ($orderId === '') {
+            return;
+        }
+
+        CreditCheckoutAttempt::query()
+            ->where('provider_order_id', $orderId)
+            ->whereNotIn('status', [
+                CreditCheckoutAttempt::STATUS_CAPTURE_COMPLETED,
+                CreditCheckoutAttempt::STATUS_UNRECONCILED_STALE,
+            ])
+            ->update([
+                'status' => CreditCheckoutAttempt::STATUS_TERMINAL_FAILED,
+                'failure_reason' => 'PayPal payment capture was denied by provider.',
+            ]);
     }
 
     /**

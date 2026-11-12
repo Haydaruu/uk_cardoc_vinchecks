@@ -2,13 +2,12 @@
 
 namespace App\Http\Controllers\Payments;
 
-use App\Exceptions\PayPalGuestOrderMismatchException;
 use App\Http\Controllers\Controller;
 use App\Models\GuestReportPurchase;
 use App\Models\Report;
 use App\Models\SystemSetting;
+use App\Services\GuestReportCaptureService;
 use App\Services\GuestReportCheckoutService;
-use App\Services\GuestReportPaymentService;
 use App\Services\PayPalService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -168,9 +167,7 @@ class GuestReportCheckoutController extends Controller
     public function capturePayPalOrder(
         Request $request,
         Report $report,
-        PayPalService $payPalService,
-        GuestReportPaymentService $paymentService,
-        GuestReportCheckoutService $checkoutService,
+        GuestReportCaptureService $captureService,
     ): JsonResponse {
         $validated = $request->validate([
             'order_id' => ['required', 'string', 'max:64'],
@@ -178,100 +175,48 @@ class GuestReportCheckoutController extends Controller
 
         $orderId = $validated['order_id'];
 
+        // Enforce that the purchase exists for this report and provider order before delegating
         $purchase = GuestReportPurchase::query()
             ->where('report_id', $report->id)
             ->where('payment_provider', 'paypal')
             ->where('provider_order_id', $orderId)
             ->firstOrFail();
 
-        $stage = 'retrieve_order';
-        $order = [];
+        $result = $captureService->captureInitialBuyer($orderId);
 
-        try {
-            $stage = 'retrieve_order';
-            $order = $payPalService->getOrder($orderId);
-
-            $stage = 'validate_order';
-
-            $order = $payPalService->prepareGuestReportOrderForCapture(
-                $purchase,
-                $order,
-            );
-
-            if (($order['status'] ?? null) === 'APPROVED') {
-                $stage = 'capture_order';
-
-                // Execute the capture on PayPal.
-                $payPalService->captureOrder($orderId);
-
-                $stage = 'verify_capture';
-
-                $order = $payPalService->getOrder($orderId);
-
-                if (($order['status'] ?? null) === 'COMPLETED') {
-                    $order = $payPalService->prepareGuestReportOrderForCapture(
-                        $purchase,
-                        $order,
-                    );
-                }
-            } elseif (($order['status'] ?? null) !== 'COMPLETED') {
-                return response()->json([
-                    'message' => 'PayPal order has not been approved.',
-                ], 422);
-            }
-
-            // Never process a payment unless PayPal confirms completion.
-            if (($order['status'] ?? null) !== 'COMPLETED') {
-                throw new RuntimeException(
-                    'PayPal order capture has not completed.',
-                );
-            }
-
-            $stage = 'process_payment';
-            $paymentService->handlePayPalGuestOrder($order);
-
-            $purchase->refresh();
-
-            $stage = 'issue_access_token';
-            $guestToken = $checkoutService->guestAccessToken($purchase);
-
+        if ($result->isCompleted()) {
             return response()->json([
                 'status' => 'success',
-                'redirect' => route('guest-report.checkout.success', [
-                    'order_id' => $orderId,
-                    'guest_token' => $guestToken,
-                ]),
+                'redirect' => $result->redirect,
             ]);
-        } catch (PayPalGuestOrderMismatchException $exception) {
-            Log::warning('PayPal guest report order validation failed.', [
-                'purchase_id' => $purchase->id,
-                'order_id' => $orderId,
-                'stage' => $stage,
-                'exception' => $exception::class,
-            ]);
+        }
 
+        if ($result->isPayerActionRequired()) {
             return response()->json([
-                'message' => 'PayPal order validation failed.',
-            ], 403);
+                'status' => 'payer_action_required',
+                'payerActionUrl' => $result->payerActionUrl,
+                'message' => $result->errorMessage ?? 'Customer authentication required.',
+            ], 200);
+        }
 
-        } catch (RuntimeException $exception) {
-            Log::warning('PayPal guest report capture failed.', [
-                'purchase_id' => $purchase->id,
-                'order_id' => $orderId,
-                'stage' => $stage,
-                'order_status' => $order['status'] ?? null,
-                'capture_status' => data_get(
-                    $order,
-                    'purchase_units.0.payments.captures.0.status'
-                ),
-                'exception' => $exception::class,
-                'message' => $exception->getMessage(),
-            ]);
-
+        if ($result->isProcessing()) {
             return response()->json([
-                'message' => 'PayPal payment could not be confirmed. Please try again.',
+                'status' => 'processing',
+                'message' => $result->errorMessage ?? 'Payment is being processed. Please wait a moment.',
+            ], 202);
+        }
+
+        if ($result->isFundingDeclined()) {
+            return response()->json([
+                'status' => 'funding_declined',
+                'message' => $result->errorMessage ?? 'Payment method declined. Please choose a different payment method.',
             ], 422);
         }
+
+        return response()->json([
+            'status' => 'failed',
+            'message' => $result->errorMessage ?? 'PayPal payment could not be confirmed. Please try again.',
+        ], $result->httpStatus ?? 422);
     }
 
     public function prepare(Request $request, Report $report): RedirectResponse

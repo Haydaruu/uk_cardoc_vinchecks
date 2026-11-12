@@ -1,6 +1,7 @@
 <?php
 
 use App\Jobs\ProcessVehicleCheck;
+use App\Models\GuestReportFulfillmentAttempt;
 use App\Models\GuestReportPurchase;
 use App\Models\Report;
 use App\Models\Vehicle;
@@ -9,6 +10,61 @@ use App\Services\GuestReportCheckoutService;
 use App\Services\GuestReportPaymentService;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Schema;
+
+/**
+ * @return array{0: GuestReportPurchase, 1: Report}
+ */
+function p3stripeGuestFixture(): array
+{
+    $registration = 'P3STRIPE'.strtoupper(bin2hex(random_bytes(3)));
+
+    $vehicle = Vehicle::create([
+        'registration_number' => $registration,
+    ]);
+
+    $vinCheck = VinCheck::create([
+        'registration_number' => $registration,
+        'check_type' => 'free',
+        'status' => 'success',
+        'stage' => 'completed',
+    ]);
+
+    $report = Report::create([
+        'vehicle_id' => $vehicle->id,
+        'vin_check_id' => $vinCheck->id,
+        'report_type' => 'basic',
+    ]);
+
+    $purchase = GuestReportPurchase::create([
+        'report_id' => $report->id,
+        'email' => 'phase3-stripe@example.com',
+        'payment_provider' => 'stripe',
+        'payment_status' => GuestReportPurchase::STATUS_PENDING,
+        'amount_minor' => 2000,
+        'currency' => 'gbp',
+    ]);
+
+    return [$purchase, $report];
+}
+
+function p3stripeSession(GuestReportPurchase $purchase, Report $report, string $sessionId): object
+{
+    return (object) [
+        'id' => $sessionId,
+        'client_reference_id' => (string) $purchase->checkout_reference,
+        'mode' => 'payment',
+        'payment_status' => 'paid',
+        'amount_total' => 2000,
+        'currency' => 'gbp',
+        'payment_intent' => 'pi_'.$sessionId,
+        'metadata' => (object) [
+            'purpose' => 'guest_report_purchase',
+            'guest_report_reference' => (string) $purchase->checkout_reference,
+            'guest_report_purchase_id' => (string) $purchase->id,
+            'report_id' => (string) $report->id,
+        ],
+    ];
+}
 
 test('guest report purchases table has the expected columns', function () {
     expect(Schema::hasTable('guest_report_purchases'))->toBeTrue();
@@ -164,6 +220,7 @@ test('guest checkout rejects a report with an existing paid purchase', function 
 });
 
 test('guest purchase becomes paid only when the Stripe amount and currency match', function () {
+    config(['queue.default' => 'database']);
     Queue::fake();
 
     $vehicle = Vehicle::create([
@@ -225,9 +282,18 @@ test('guest purchase becomes paid only when the Stripe amount and currency match
     Queue::assertPushed(ProcessVehicleCheck::class);
     expect($purchase->fresh()->fulfillment_status)->toBe(GuestReportPurchase::FULFILLMENT_PENDING);
 
+    expect($purchase->fulfillment_dispatch_uuid)->not->toBeNull()
+        ->and($purchase->fulfillment_generation)->toBe(1)
+        ->and($purchase->fulfillment_dispatch_push_slots_allocated)->toBe(1);
+
+    Queue::assertPushed(ProcessVehicleCheck::class, function (ProcessVehicleCheck $job): bool {
+        return (new ReflectionProperty($job, 'fulfillmentOrigin'))->getValue($job) === 'normal';
+    });
+
 });
 
 test('duplicate successful guest payment webhook does not reset paid time', function () {
+    config(['queue.default' => 'database']);
     Queue::fake();
     $vehicle = Vehicle::create([
         'registration_number' => 'PAYMENT-TEST-002',
@@ -342,6 +408,7 @@ test('guest purchase rejects a successful Stripe event with a mismatched amount'
 });
 
 test('legacy Stripe guest checkout resolves purchase by numeric ID and becomes paid', function () {
+    config(['queue.default' => 'database']);
     Queue::fake();
 
     $vehicle = Vehicle::create([
@@ -472,6 +539,7 @@ test('legacy Stripe guest checkout rejects mismatched numeric client reference',
 });
 
 test('duplicate legacy Stripe checkout webhook does not queue fulfillment twice', function () {
+    config(['queue.default' => 'database']);
     Queue::fake();
 
     $vehicle = Vehicle::create([
@@ -651,4 +719,65 @@ test('legacy Stripe checkout rejects mismatched report metadata', function () {
         ->toBe(GuestReportPurchase::STATUS_PENDING);
 
     Queue::assertNothingPushed();
+});
+
+test('failed status constants retain explicit semantic names and intended values', function () {
+    expect(GuestReportPurchase::PAYMENT_STATUS_FAILED)->toBe('failed')
+        ->and(GuestReportPurchase::CAPTURE_STATUS_FAILED)->toBe('failed');
+});
+
+test('sync queue driver skips the guest fulfillment reservation without failing the paid Stripe webhook', function () {
+    // phpunit.xml sets QUEUE_CONNECTION=sync; Queue::fake() intercepts the
+    // Telegram notification but leaves the configured driver as sync.
+    Queue::fake();
+
+    [$purchase, $report] = p3stripeGuestFixture();
+    $session = p3stripeSession($purchase, $report, 'cs_test_sync_'.bin2hex(random_bytes(4)));
+
+    $becamePaid = app(GuestReportPaymentService::class)
+        ->handleCheckoutSession($session, 'checkout.session.completed');
+
+    expect($becamePaid)->toBeTrue();
+
+    $purchase->refresh();
+
+    expect($purchase->payment_status)->toBe(GuestReportPurchase::STATUS_PAID)
+        ->and($purchase->fulfillment_status)->toBe(GuestReportPurchase::FULFILLMENT_PENDING)
+        ->and($purchase->fulfillment_dispatch_uuid)->toBeNull()
+        ->and($purchase->fulfillment_dispatch_push_slots_allocated)->toBe(0);
+
+    Queue::assertNotPushed(ProcessVehicleCheck::class);
+});
+
+test('guest fulfillment push failure does not fail the paid Stripe webhook and records one pre-claim failure', function () {
+    config(['queue.default' => 'database']);
+
+    $fake = Queue::fake();
+    $fake->beforePushing(function (mixed $job): void {
+        if ($job instanceof ProcessVehicleCheck) {
+            throw new RuntimeException('queue store unavailable');
+        }
+    });
+
+    [$purchase, $report] = p3stripeGuestFixture();
+    $session = p3stripeSession($purchase, $report, 'cs_test_pushfail_'.bin2hex(random_bytes(4)));
+
+    $becamePaid = app(GuestReportPaymentService::class)
+        ->handleCheckoutSession($session, 'checkout.session.completed');
+
+    expect($becamePaid)->toBeTrue();
+
+    $purchase->refresh();
+
+    expect($purchase->payment_status)->toBe(GuestReportPurchase::STATUS_PAID)
+        ->and($purchase->fulfillment_dispatch_uuid)->not->toBeNull()
+        ->and($purchase->fulfillment_dispatch_push_slots_allocated)->toBe(1);
+
+    $ledger = GuestReportFulfillmentAttempt::query()
+        ->where('guest_report_purchase_id', $purchase->id)
+        ->where('kind', GuestReportFulfillmentAttempt::KIND_PRE_CLAIM_FAILED)
+        ->get();
+
+    expect($ledger)->toHaveCount(1)
+        ->and($ledger->first()->status)->toBe(GuestReportFulfillmentAttempt::STATUS_FAILED);
 });
