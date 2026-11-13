@@ -12,6 +12,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
+use Inertia\ExceptionResponse;
+use Inertia\Inertia;
 use SocialiteProviders\Manager\SocialiteWasCalled;
 use SocialiteProviders\Microsoft\Provider;
 
@@ -31,6 +33,24 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->configureDefaults();
+
+        Inertia::handleExceptionsUsing(function (ExceptionResponse $response) {
+            $page = match ($response->statusCode()) {
+                403 => 'errors/forbidden',
+                404 => 'errors/not-found',
+                419 => 'errors/session-expired',
+                503 => 'errors/service-unavailable',
+                default => null,
+            };
+
+            if ($page === null) {
+                return null;
+            }
+
+            return $response
+                ->render($page)
+                ->withSharedData();
+        });
 
         Event::listen(function (SocialiteWasCalled $event) {
             $event->extendSocialite('microsoft', Provider::class);

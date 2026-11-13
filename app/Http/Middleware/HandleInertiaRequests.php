@@ -54,9 +54,17 @@ class HandleInertiaRequests extends Middleware
                 ] : null,
             ],
             'flash' => [
-                'modal' => fn () => $request->session()->get('modal'),
-                'success' => fn () => $request->session()->get('success'),
-                'error' => fn () => $request->session()->get('error'),
+                'modal' => fn () => $request->hasSession()
+                    ? $request->session()->get('modal')
+                    : null,
+
+                'success' => fn () => $request->hasSession()
+                    ? $request->session()->get('success')
+                    : null,
+
+                'error' => fn () => $request->hasSession()
+                    ? $request->session()->get('error')
+                    : null,
             ],
         ];
     }
