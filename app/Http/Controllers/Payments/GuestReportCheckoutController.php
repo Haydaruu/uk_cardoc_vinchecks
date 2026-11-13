@@ -310,9 +310,11 @@ class GuestReportCheckoutController extends Controller
             'amountDisplay' => $summary['amountDisplay'],
             'credits' => 0,
 
-            // PayPal khusus guest belum tersedia
+            // PayPal guest checkout follows the configured PayPal environment.
             'paypalClientId' => config('services.paypal.client_id'),
-            'paypalEnvironment' => 'sandbox',
+            'paypalEnvironment' => config('services.paypal.mode') === 'live'
+                ? 'production'
+                : 'sandbox',
 
             'paypalEligibility' => [
                 'amount' => number_format(
