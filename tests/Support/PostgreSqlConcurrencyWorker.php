@@ -1,8 +1,14 @@
 <?php
 
+use App\Contracts\VehicleDataProviderInterface;
+use App\Jobs\ProcessVehicleCheck;
 use App\Models\ProcessedWebhookEvent;
 use App\Models\RefundRecord;
+use App\Models\Report;
+use App\Models\User;
 use App\Services\Admin\AdminRefundReconciliationService;
+use App\Services\CreditService;
+use App\Services\Reports\NormalizedReportBuilder;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -238,6 +244,129 @@ try {
 
             $result = $invoker($service, $record, $reason);
         }
+    } elseif ($action === 'credit-consume') {
+        $userId = (int) $config['user_id'];
+        $idempotencyKey = (string) $config['idempotency_key'];
+        $referenceId = (string) $config['reference_id'];
+        $holdWithBarrier = (bool) ($config['hold_with_barrier'] ?? false);
+        $waitForLock = (bool) ($config['wait_for_lock'] ?? false);
+
+        $creditService = app(CreditService::class);
+        $user = User::findOrFail($userId);
+
+        if ($barrier) {
+            $barrier->mark($role.'_ready');
+            $barrier->wait('consume_start_signal');
+        }
+
+        if ($waitForLock && $barrier) {
+            $barrier->wait('worker_1_charged');
+            $barrier->mark($role.'_attempting_consume');
+        }
+
+        $timings['step_at'] = microtime(true);
+
+        $result = DB::transaction(function () use ($creditService, $user, $idempotencyKey, $referenceId, $barrier, $role, $holdWithBarrier) {
+            $transaction = $creditService->consume(
+                user: $user,
+                referenceId: $referenceId,
+                description: 'Concurrency verification charge',
+                idempotencyKey: $idempotencyKey,
+            );
+
+            if ($holdWithBarrier && $barrier) {
+                // The usage row is inserted but still uncommitted: the second
+                // worker must block behind the first one and must not produce a
+                // second usage row once the first worker commits.
+                $barrier->mark('worker_1_charged');
+                $barrier->wait($role.'_allow_commit', 15.0);
+            }
+
+            return [
+                'transaction_id' => $transaction->id,
+                'idempotency_key' => $transaction->idempotency_key,
+                'balance_after' => $transaction->balance_after,
+            ];
+        });
+    } elseif ($action === 'vehicle-check') {
+        $vinCheckId = (int) $config['vin_check_id'];
+        $existingReportId = isset($config['existing_report_id']) && $config['existing_report_id'] !== null
+            ? (int) $config['existing_report_id']
+            : null;
+        $holdWithBarrier = (bool) ($config['hold_with_barrier'] ?? false);
+        $waitForLock = (bool) ($config['wait_for_lock'] ?? false);
+
+        if ($barrier) {
+            $barrier->mark($role.'_ready');
+            $barrier->wait('vehicle_check_start_signal');
+        }
+
+        if ($waitForLock && $barrier) {
+            $barrier->wait('worker_1_report_created');
+            $barrier->mark($role.'_attempting_check');
+        }
+
+        $timings['step_at'] = microtime(true);
+
+        $provider = Mockery::mock(VehicleDataProviderInterface::class);
+        $provider->shouldReceive('getRegistrationDetails')->andReturn([]);
+
+        $reportBuilder = Mockery::mock(NormalizedReportBuilder::class);
+        $reportBuilder->shouldReceive('build')->andReturn([
+            'normalized' => [
+                'vehicle' => [
+                    'vin' => 'VIN-CONCURRENCY-001',
+                    'make' => 'Ford',
+                    'model' => 'Focus',
+                    'year' => 2020,
+                    'colour' => 'Blue',
+                    'fuel_type' => 'Petrol',
+                    'engine_capacity_cc' => 1000,
+                    'image_url' => null,
+                ],
+                'history' => [
+                    'finance' => ['count' => 0],
+                    'write_off' => ['records' => []],
+                ],
+                'mot' => [
+                    'tests' => [
+                        [
+                            'date' => '2025-01-01',
+                            'expiry_date' => '2026-01-01',
+                        ],
+                    ],
+                    'tax_status' => 'Taxed',
+                ],
+                'specifications' => [
+                    'co2_gkm' => 100,
+                ],
+            ],
+            'raw' => ['source' => 'concurrency-test'],
+        ]);
+
+        $job = new ProcessVehicleCheck($vinCheckId, $existingReportId);
+
+        // The job transaction is nested inside this outer transaction, so the
+        // report row and the vin_check row lock stay uncommitted while the
+        // worker waits at the barrier. The second worker must therefore block
+        // on the vin_check row lock until the first worker commits.
+        $result = DB::transaction(function () use ($job, $provider, $reportBuilder, $barrier, $role, $holdWithBarrier, $vinCheckId) {
+            $job->handle(
+                $provider,
+                $reportBuilder,
+                app(CreditService::class),
+            );
+
+            if ($holdWithBarrier && $barrier) {
+                $barrier->mark('worker_1_report_created');
+                $barrier->wait($role.'_allow_commit', 15.0);
+            }
+
+            return [
+                'report_id' => Report::where('vin_check_id', $vinCheckId)->value('id'),
+                'report_count' => Report::where('vin_check_id', $vinCheckId)->count(),
+            ];
+        });
     } else {
         throw new InvalidArgumentException("Unknown worker action: {$action}");
     }

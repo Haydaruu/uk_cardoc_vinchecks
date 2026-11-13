@@ -309,6 +309,16 @@ class ProcessVehicleCheck implements ShouldBeUnique, ShouldQueue
                     $guestReportPurchaseId,
                     &$completionSucceeded,
                 ) {
+                    // Serialise every execution that resolves a report for this
+                    // vehicle check. The lock is taken on the vin_checks row
+                    // before any report row is touched, so concurrent
+                    // executions of the same vehicle check always acquire the
+                    // locks in the same order and cannot deadlock.
+                    VinCheck::query()
+                        ->whereKey($vinCheck->id)
+                        ->lockForUpdate()
+                        ->firstOrFail();
+
                     if ($this->existingReportId) {
 
                         $report = Report::findOrFail(
@@ -331,35 +341,67 @@ class ProcessVehicleCheck implements ShouldBeUnique, ShouldQueue
                             'generated_at' => now(),
                         ]);
                     } else {
-                        $report = Report::create([
-                            'user_id' => $vinCheck->user_id,
+                        // Fresh report path. A vehicle check owns exactly one
+                        // report: when a previous execution of this job already
+                        // created one, that report is reused instead of
+                        // creating a second report for the same vehicle check.
+                        $report = Report::query()
+                            ->where('vin_check_id', $vinCheck->id)
+                            ->lockForUpdate()
+                            ->first();
 
-                            'vehicle_id' => $vehicle->id,
+                        if ($report) {
+                            $report->update([
+                                'vehicle_id' => $vehicle->id,
 
-                            'vin_check_id' => $vinCheck->id,
+                                'vin' => $vehicle->vin,
 
-                            'vin' => $vehicle->vin,
+                                'report_data' => $reportData,
 
-                            'report_data' => $reportData,
+                                'report_type' => $isPremium
+                                        ? 'premium'
+                                        : 'basic',
 
-                            'report_type' => $isPremium
-                                    ? 'premium'
-                                    : 'basic',
+                                'generated_at' => now(),
+                            ]);
+                        } else {
+                            $report = Report::create([
+                                'user_id' => $vinCheck->user_id,
 
-                            'generated_at' => now(),
-                        ]);
+                                'vehicle_id' => $vehicle->id,
+
+                                'vin_check_id' => $vinCheck->id,
+
+                                'vin' => $vehicle->vin,
+
+                                'report_data' => $reportData,
+
+                                'report_type' => $isPremium
+                                        ? 'premium'
+                                        : 'basic',
+
+                                'generated_at' => now(),
+                            ]);
+                        }
                     }
 
                     if (
                         $actualReportType === 'premium'
                         && $vinCheck->user_id
                     ) {
+                        // One premium charge per vehicle check. The key is derived
+                        // from the vehicle check, not from the report, because a
+                        // redispatched job may carry a different report payload
+                        // (fresh report vs. existing report upgrade) while still
+                        // representing the same logical premium check.
                         $creditService->consume(
                             user: $vinCheck->user,
 
                             referenceId: (string) $report->id,
 
                             description: "Vehicle check: {$vinCheck->registration_number}",
+
+                            idempotencyKey: 'usage:vin_check:'.$vinCheck->id,
                         );
                     }
 

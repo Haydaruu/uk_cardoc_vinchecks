@@ -4,8 +4,11 @@ use App\Models\AdminActivityLog;
 use App\Models\CreditTransaction;
 use App\Models\ProcessedWebhookEvent;
 use App\Models\RefundRecord;
+use App\Models\Report;
 use App\Models\Transaction;
 use App\Models\User;
+use App\Models\Vehicle;
+use App\Models\VinCheck;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Symfony\Component\Process\Process;
@@ -657,5 +660,208 @@ test('D3. refund row-lock settlement: concurrent duplicate failure settlement re
         CreditTransaction::where('user_id', $user->id)->delete();
         AdminActivityLog::where('target_id', $tx->id)->delete();
         User::whereIn('id', [$admin->id, $user->id])->delete();
+    }
+});
+
+test('E. concurrent duplicate credit consumption: two processes charging the same vehicle check deduct exactly one credit', function () {
+    $user = User::factory()->create(['role' => 'user', 'credits' => 5]);
+
+    $registration = 'IDEM-CONC-'.Str::random(8);
+
+    $vehicle = Vehicle::create([
+        'registration_number' => $registration,
+    ]);
+
+    $vinCheck = VinCheck::create([
+        'user_id' => $user->id,
+        'registration_number' => $registration,
+        'check_type' => 'premium',
+        'status' => 'pending',
+        'stage' => 'queued',
+    ]);
+
+    $report = Report::create([
+        'user_id' => $user->id,
+        'vehicle_id' => $vehicle->id,
+        'vin_check_id' => $vinCheck->id,
+        'report_type' => 'basic',
+        'report_data' => ['level' => 'basic'],
+    ]);
+
+    // The worker processes use independent connections, so the fixture rows
+    // must be committed before the workers start.
+    DB::commit();
+
+    $idempotencyKey = 'usage:vin_check:'.$vinCheck->id;
+
+    $barrierDir = storage_path('framework/tmp/barrier_'.Str::random(8));
+    $barrier = new ConcurrencyBarrier($barrierDir);
+    $runningWorkers = [];
+
+    try {
+        $w1 = runConcurrencyWorker([
+            'action' => 'credit-consume',
+            'role' => 'worker_1',
+            'user_id' => $user->id,
+            'idempotency_key' => $idempotencyKey,
+            'reference_id' => (string) $report->id,
+            'hold_with_barrier' => true,
+            'barrier_dir' => $barrierDir,
+        ]);
+        $runningWorkers[] = $w1;
+
+        $w2 = runConcurrencyWorker([
+            'action' => 'credit-consume',
+            'role' => 'worker_2',
+            'user_id' => $user->id,
+            'idempotency_key' => $idempotencyKey,
+            'reference_id' => (string) $report->id,
+            'wait_for_lock' => true,
+            'barrier_dir' => $barrierDir,
+        ]);
+        $runningWorkers[] = $w2;
+
+        $barrier->wait('worker_1_ready');
+        $barrier->wait('worker_2_ready');
+
+        $w1Meta = $barrier->getMeta('worker_1_meta');
+        $w2Meta = $barrier->getMeta('worker_2_meta');
+
+        $barrier->mark('consume_start_signal');
+        $barrier->wait('worker_1_charged');
+
+        // Prove Worker 2 blocked behind Worker 1 (row lock on the user balance).
+        $blockInfo = waitForBlocking($w2Meta['pg_backend_pid'], $w1Meta['pg_backend_pid']);
+        expect($blockInfo['wait_event_type'])->toBe('Lock');
+
+        // Release Worker 1 so it commits its usage row.
+        $barrier->mark('worker_1_allow_commit');
+
+        $res1 = collectWorkerResult($w1);
+        $res2 = collectWorkerResult($w2);
+
+        expect($res1['success'])->toBeTrue()
+            ->and($res2['success'])->toBeTrue()
+            ->and($res1['result']['transaction_id'])->toBe($res2['result']['transaction_id'])
+            ->and($res1['result']['idempotency_key'])->toBe($idempotencyKey)
+            ->and($res2['result']['idempotency_key'])->toBe($idempotencyKey);
+
+        // Exactly ONE usage row exists for the vehicle check.
+        $usageRows = CreditTransaction::where('user_id', $user->id)
+            ->where('type', 'usage')
+            ->where('idempotency_key', $idempotencyKey)
+            ->get();
+
+        expect($usageRows)->toHaveCount(1)
+            ->and($usageRows->first()->amount)->toBe(-1)
+            ->and($usageRows->first()->reference_id)->toBe((string) $report->id);
+
+        // Exactly ONE credit was deducted: 5 - 1 = 4.
+        $freshUser = User::findOrFail($user->id);
+        expect($freshUser->credits)->toBe(4);
+
+    } finally {
+        cleanupWorkers($runningWorkers, $barrier);
+        CreditTransaction::where('user_id', $user->id)->delete();
+        Report::where('id', $report->id)->delete();
+        VinCheck::where('id', $vinCheck->id)->delete();
+        Vehicle::where('id', $vehicle->id)->delete();
+        User::whereKey($user->id)->delete();
+    }
+});
+
+test('F. concurrent fresh vehicle check execution: two processes create exactly one report for the same vin check', function () {
+    $user = User::factory()->create(['role' => 'user', 'credits' => 5]);
+
+    $registration = 'IDEM-REPORT-'.Str::random(8);
+
+    $vehicle = Vehicle::create([
+        'registration_number' => $registration,
+    ]);
+
+    $vinCheck = VinCheck::create([
+        'user_id' => $user->id,
+        'registration_number' => $registration,
+        'check_type' => 'premium',
+        'status' => 'pending',
+        'stage' => 'queued',
+    ]);
+
+    // The worker processes use independent connections, so the fixture rows
+    // must be committed before the workers start.
+    DB::commit();
+
+    $barrierDir = storage_path('framework/tmp/barrier_'.Str::random(8));
+    $barrier = new ConcurrencyBarrier($barrierDir);
+    $runningWorkers = [];
+
+    try {
+        $w1 = runConcurrencyWorker([
+            'action' => 'vehicle-check',
+            'role' => 'worker_1',
+            'vin_check_id' => $vinCheck->id,
+            'existing_report_id' => null,
+            'hold_with_barrier' => true,
+            'barrier_dir' => $barrierDir,
+        ]);
+        $runningWorkers[] = $w1;
+
+        $w2 = runConcurrencyWorker([
+            'action' => 'vehicle-check',
+            'role' => 'worker_2',
+            'vin_check_id' => $vinCheck->id,
+            'existing_report_id' => null,
+            'wait_for_lock' => true,
+            'barrier_dir' => $barrierDir,
+        ]);
+        $runningWorkers[] = $w2;
+
+        $barrier->wait('worker_1_ready');
+        $barrier->wait('worker_2_ready');
+
+        $w1Meta = $barrier->getMeta('worker_1_meta');
+        $w2Meta = $barrier->getMeta('worker_2_meta');
+
+        $barrier->mark('vehicle_check_start_signal');
+        $barrier->wait('worker_1_report_created');
+
+        // Prove Worker 2 blocked behind Worker 1 on the vin_check row lock.
+        $blockInfo = waitForBlocking($w2Meta['pg_backend_pid'], $w1Meta['pg_backend_pid']);
+        expect($blockInfo['wait_event_type'])->toBe('Lock');
+
+        // Release Worker 1 so it commits its report row.
+        $barrier->mark('worker_1_allow_commit');
+
+        $res1 = collectWorkerResult($w1);
+        $res2 = collectWorkerResult($w2);
+
+        expect($res1['success'])->toBeTrue()
+            ->and($res2['success'])->toBeTrue()
+            ->and($res1['result']['report_id'])->toBe($res2['result']['report_id']);
+
+        // Exactly ONE report exists for the vehicle check.
+        $reports = Report::where('vin_check_id', $vinCheck->id)->get();
+        expect($reports)->toHaveCount(1)
+            ->and($reports->first()->report_type)->toBe('premium');
+
+        // Exactly ONE credit was deducted: 5 - 1 = 4.
+        $freshUser = User::findOrFail($user->id);
+        expect($freshUser->credits)->toBe(4);
+
+        $usageRows = CreditTransaction::where('user_id', $user->id)
+            ->where('type', 'usage')
+            ->get();
+
+        expect($usageRows)->toHaveCount(1)
+            ->and($usageRows->first()->idempotency_key)->toBe('usage:vin_check:'.$vinCheck->id)
+            ->and($usageRows->first()->reference_id)->toBe((string) $reports->first()->id);
+
+    } finally {
+        cleanupWorkers($runningWorkers, $barrier);
+        CreditTransaction::where('user_id', $user->id)->delete();
+        Report::where('vin_check_id', $vinCheck->id)->delete();
+        VinCheck::where('id', $vinCheck->id)->delete();
+        Vehicle::where('id', $vehicle->id)->delete();
+        User::whereKey($user->id)->delete();
     }
 });

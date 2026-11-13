@@ -80,42 +80,123 @@ class CreditService
 
     /**
      * Consume one credit from a user's balance.
+     *
+     * The consumption is idempotent: the caller supplies an idempotency key
+     * that identifies the logical billing unit (one premium vehicle check).
+     * A replay of the same logical operation returns the original usage
+     * transaction and never deducts a second credit.
+     *
+     * @param  string|null  $idempotencyKey  Stable key of the logical charge.
+     *                                       Defaults to the reference id when omitted.
+     *
+     * @throws RuntimeException
      */
     public function consume(
         User $user,
         ?string $referenceId = null,
         ?string $description = null,
+        ?string $idempotencyKey = null,
     ): CreditTransaction {
-        return DB::transaction(function () use (
-            $user,
-            $referenceId,
-            $description,
-        ) {
-            // Lock the user's row before checking the balance.
-            $lockedUser = User::query()
-                ->whereKey($user->id)
-                ->lockForUpdate()
-                ->firstOrFail();
+        $idempotencyKey = $idempotencyKey
+            ?? ($referenceId !== null && $referenceId !== '' ? 'usage:reference:'.$referenceId : null);
 
-            if ($lockedUser->credits <= 0) {
-                throw new RuntimeException('Insufficient credits.');
+        if ($idempotencyKey === null || $idempotencyKey === '') {
+            throw new RuntimeException(
+                'A reference id or idempotency key is required to consume a credit.'
+            );
+        }
+
+        // Fast path: the charge was already recorded, so nothing is deducted.
+        // This check happens before the balance check on purpose: a replay of an
+        // already-paid operation must succeed even when the balance is now zero.
+        $existing = CreditTransaction::query()
+            ->where('idempotency_key', $idempotencyKey)
+            ->first();
+
+        if ($existing) {
+            return $this->resolveExistingConsumption($existing, $user);
+        }
+
+        try {
+            return DB::transaction(function () use (
+                $user,
+                $referenceId,
+                $description,
+                $idempotencyKey,
+            ) {
+                // Secondary idempotency check inside the transaction.
+                $lockedExisting = CreditTransaction::query()
+                    ->where('idempotency_key', $idempotencyKey)
+                    ->lockForUpdate()
+                    ->first();
+
+                if ($lockedExisting) {
+                    return $this->resolveExistingConsumption($lockedExisting, $user);
+                }
+
+                // Lock the user's row before checking the balance.
+                $lockedUser = User::query()
+                    ->whereKey($user->id)
+                    ->lockForUpdate()
+                    ->firstOrFail();
+
+                if ($lockedUser->credits <= 0) {
+                    throw new RuntimeException('Insufficient credits.');
+                }
+
+                $newBalance = $lockedUser->credits - 1;
+
+                $lockedUser->update([
+                    'credits' => $newBalance,
+                ]);
+
+                return CreditTransaction::create([
+                    'user_id' => $lockedUser->id,
+                    'type' => 'usage',
+                    'amount' => -1,
+                    'balance_after' => $newBalance,
+                    'reference_id' => $referenceId,
+                    'idempotency_key' => $idempotencyKey,
+                    'description' => $description,
+                ]);
+            });
+        } catch (UniqueConstraintViolationException $e) {
+            // A concurrent execution won the race for the same idempotency key.
+            // The losing transaction has already been rolled back (to its
+            // savepoint when nested), so its balance decrement never persisted.
+            $raceWinner = CreditTransaction::query()
+                ->where('idempotency_key', $idempotencyKey)
+                ->first();
+
+            if ($raceWinner) {
+                return $this->resolveExistingConsumption($raceWinner, $user);
             }
 
-            $newBalance = $lockedUser->credits - 1;
+            throw $e;
+        }
+    }
 
-            $lockedUser->update([
-                'credits' => $newBalance,
-            ]);
+    /**
+     * Verify that an existing usage transaction belongs to the expected
+     * consumption before it is replayed to the caller.
+     *
+     * @throws RuntimeException
+     */
+    protected function resolveExistingConsumption(
+        CreditTransaction $existing,
+        User $user,
+    ): CreditTransaction {
+        $isSameUser = (int) $existing->user_id === (int) $user->id;
+        $isUsage = $existing->type === 'usage';
+        $isSingleCredit = (int) $existing->amount === -1;
 
-            return CreditTransaction::create([
-                'user_id' => $lockedUser->id,
-                'type' => 'usage',
-                'amount' => -1,
-                'balance_after' => $newBalance,
-                'reference_id' => $referenceId,
-                'description' => $description,
-            ]);
-        });
+        if (! $isSameUser || ! $isUsage || ! $isSingleCredit) {
+            throw new RuntimeException(
+                'The idempotency key has already been used for a different credit operation.'
+            );
+        }
+
+        return $existing;
     }
 
     /**
