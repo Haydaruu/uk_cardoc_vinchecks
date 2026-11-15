@@ -928,6 +928,10 @@ test('Stripe services configuration exposes a dedicated guest report price ID', 
 });
 
 test('Stripe guest checkout accepts an empty optional phone number from session', function () {
+    config([
+        'services.stripe.checkout_enabled' => true,
+    ]);
+
     $vehicle = Vehicle::create([
         'registration_number' => 'STRIPE-OPTIONAL-PHONE',
     ]);

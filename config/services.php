@@ -63,6 +63,9 @@ return [
         'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
         'report_price_id' => env('STRIPE_REPORT_PRICE_ID'),
         'guest_report_price_id' => env('STRIPE_GUEST_REPORT_PRICE_ID'),
+
+        // Controls whether customers can initiate new Stripe checkouts.
+        'checkout_enabled' => env('STRIPE_CHECKOUT_ENABLED', false),
     ],
 
     'paypal' => [

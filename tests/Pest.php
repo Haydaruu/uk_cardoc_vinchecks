@@ -1,6 +1,9 @@
 <?php
 
+use App\Jobs\SendTelegramGuestActivityNotification;
+use App\Jobs\SendTelegramSaleNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
 
 /*
@@ -17,6 +20,19 @@ use Tests\TestCase;
 pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
     ->in('Feature');
+
+uses()->beforeEach(function (): void {
+    // Queue worker integration tests must use the real database queue.
+    if (str_ends_with($this::class, '\\ProcessGuestReportFulfillmentTest')) {
+        return;
+    }
+
+    // Prevent real Telegram notifications during feature tests.
+    Queue::fake([
+        SendTelegramGuestActivityNotification::class,
+        SendTelegramSaleNotification::class,
+    ]);
+})->in('Feature');
 
 /*
 |--------------------------------------------------------------------------

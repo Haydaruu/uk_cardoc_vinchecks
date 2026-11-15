@@ -25,6 +25,11 @@ class GuestReportCheckoutController extends Controller
         Report $report,
         GuestReportCheckoutService $checkoutService,
     ): SymfonyResponse {
+        if (! config('services.stripe.checkout_enabled', false)) {
+            return back()->withErrors([
+                'checkout' => 'Card payments are temporarily unavailable. Please use PayPal.',
+            ]);
+        }
         if (! SystemSetting::getBool('enable_guest_checkout', true)) {
             return redirect()->route('page.my-report.show', [
                 'report' => $report->id,
@@ -310,6 +315,7 @@ class GuestReportCheckoutController extends Controller
             'amountDisplay' => $summary['amountDisplay'],
             'credits' => 0,
 
+            'stripeCheckoutEnabled' => (bool) config('services.stripe.checkout_enabled', false),
             // PayPal guest checkout follows the configured PayPal environment.
             'paypalClientId' => config('services.paypal.client_id'),
             'paypalEnvironment' => config('services.paypal.mode') === 'live'

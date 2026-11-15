@@ -18,6 +18,12 @@ class StripeController extends Controller
 {
     public function createOneTimeIntent(Request $request): JsonResponse
     {
+        if (! config('services.stripe.checkout_enabled', false)) {
+            return response()->json([
+                'message' => 'Card payments are temporarily unavailable. Please use PayPal.',
+            ], 503);
+        }
+
         $request->validate([
             'plan' => 'required|string',
         ]);

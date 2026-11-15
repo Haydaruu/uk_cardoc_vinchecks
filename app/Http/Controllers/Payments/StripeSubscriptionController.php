@@ -19,6 +19,12 @@ class StripeSubscriptionController extends Controller
 {
     public function createIntent(Request $request): JsonResponse
     {
+        if (! config('services.stripe.checkout_enabled', false)) {
+            return response()->json([
+                'message' => 'Card payments are temporarily unavailable. Please use PayPal.',
+            ], 503);
+        }
+
         $request->validate([
             'plan' => [
                 'required',

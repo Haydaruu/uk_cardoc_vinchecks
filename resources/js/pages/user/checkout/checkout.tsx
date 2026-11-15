@@ -31,7 +31,13 @@ import type { FormEvent, ReactNode } from 'react';
 import BaseLayout from '@/layouts/base-layout';
 import { createIntent } from '@/routes/checkout';
 
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_KEY);
+let stripePromise: ReturnType<typeof loadStripe> | null = null;
+
+function getStripePromise() {
+    stripePromise ??= loadStripe(import.meta.env.VITE_STRIPE_KEY);
+
+    return stripePromise;
+}
 
 type PaymentMethod = 'stripe' | 'paypal';
 type PlanType = 'one_time' | 'subscription';
@@ -54,6 +60,7 @@ type CheckoutProps = {
     paypalEnvironment: 'sandbox' | 'production';
     checkoutMode?: CheckoutMode;
     guestReport?: GuestReportSummary;
+    stripeCheckoutEnabled: boolean;
 };
 
 export default function Checkout({
@@ -64,10 +71,13 @@ export default function Checkout({
     credits,
     paypalClientId,
     paypalEnvironment,
+    stripeCheckoutEnabled,
     checkoutMode = 'credits',
     guestReport,
 }: CheckoutProps) {
-    const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('stripe');
+    const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(
+        stripeCheckoutEnabled ? 'stripe' : 'paypal',
+    );
     const [clientSecret, setClientSecret] = useState<string | null>(null);
     const [subscriptionId, setSubscriptionId] = useState<string | null>(null);
     const [initError, setInitError] = useState<string | null>(null);
@@ -199,22 +209,30 @@ export default function Checkout({
                                     <Lock className="size-4 text-outline" />
                                 </div>
 
-                                <div className="grid grid-cols-2 rounded-lg bg-surface-container-low p-1">
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            setInitError(null);
-                                            setPaymentMethod('stripe');
-                                        }}
-                                        className={`flex items-center justify-center gap-2 rounded-md px-4 py-3 text-sm font-semibold transition-all ${
-                                            paymentMethod === 'stripe'
-                                                ? 'bg-white text-primary shadow-sm ring-1 ring-outline-variant/40'
-                                                : 'text-on-surface-variant hover:text-primary'
-                                        }`}
-                                    >
-                                        <CreditCard className="size-4" />
-                                        Card
-                                    </button>
+                                <div
+                                    className={`grid ${
+                                        stripeCheckoutEnabled
+                                            ? 'grid-cols-2'
+                                            : 'grid-cols-1'
+                                    } rounded-lg bg-surface-container-low p-1`}
+                                >
+                                    {stripeCheckoutEnabled && (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setInitError(null);
+                                                setPaymentMethod('stripe');
+                                            }}
+                                            className={`flex items-center justify-center gap-2 rounded-md px-4 py-3 text-sm font-semibold transition-all ${
+                                                paymentMethod === 'stripe'
+                                                    ? 'bg-white text-primary shadow-sm ring-1 ring-outline-variant/40'
+                                                    : 'text-on-surface-variant hover:text-primary'
+                                            }`}
+                                        >
+                                            <CreditCard className="size-4" />
+                                            Card
+                                        </button>
+                                    )}
 
                                     <button
                                         type="button"
@@ -256,7 +274,7 @@ export default function Checkout({
 
                                             {clientSecret && (
                                                 <Elements
-                                                    stripe={stripePromise}
+                                                    stripe={getStripePromise()}
                                                     options={{
                                                         clientSecret,
                                                         appearance: {

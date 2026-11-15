@@ -28,6 +28,7 @@ class CheckoutController extends Controller
 
             'paypalClientId' => config('services.paypal.client_id'),
             'paypalEnvironment' => config('services.paypal.mode') === 'live' ? 'production' : 'sandbox',
+            'stripeCheckoutEnabled' => (bool) config('services.stripe.checkout_enabled', false),
         ]);
     }
 }
