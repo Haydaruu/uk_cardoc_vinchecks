@@ -31,10 +31,9 @@ return new class extends Migration
                 }
             });
 
-        DB::statement(
-            'ALTER TABLE guest_report_purchases
-             ALTER COLUMN checkout_reference SET NOT NULL'
-        );
+       Schema::table('guest_report_purchases', function (Blueprint $table) {
+            $table->uuid('checkout_reference')->nullable(false)->change();
+        });
     }
 
     public function down(): void
