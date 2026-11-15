@@ -662,7 +662,17 @@ class GuestReportCaptureService
         }
 
         // Handle malformed/missing capture response -> fallback GET order
-        if (! $completedCapture || ! is_string($completedCapture['id'] ?? null) || trim($completedCapture['id']) === '') {
+        $hasCompleteOrderRepresentation =
+            is_string($capturedOrder['id'] ?? null)
+            && is_string($capturedOrder['status'] ?? null)
+            && is_array($purchaseUnit)
+            && is_string($purchaseUnit['custom_id'] ?? null)
+            && trim($purchaseUnit['custom_id']) !== ''
+            && is_array($completedCapture)
+            && is_string($completedCapture['id'] ?? null)
+            && trim($completedCapture['id']) !== '';
+
+        if (! $hasCompleteOrderRepresentation) {
             $fallbackOrder = $this->payPalService->getOrder($orderId);
             if (($fallbackOrder['status'] ?? null) === 'COMPLETED') {
                 return $this->settleSuccessfulCapture($fallbackOrder, $purchase, $attempt, isReconciliation: true);
@@ -699,7 +709,7 @@ class GuestReportCaptureService
 
                 $lockedPurchase->update([
                     'capture_status' => GuestReportPurchase::CAPTURE_RECONCILIATION_REQUIRED,
-                    'capture_failure_reason' => 'Capture response missing valid COMPLETED capture resource.',
+                    'capture_failure_reason' => 'Capture response was incomplete and GET reconciliation did not confirm a completed order.',
                 ]);
 
                 return new GuestCaptureResult(
@@ -795,6 +805,7 @@ class GuestReportCaptureService
             ) {
                 $lockedAttempt->update([
                     'status' => GuestReportCaptureAttempt::STATUS_COMPLETED,
+                    'failure_reason' => null,
                 ]);
             }
 
@@ -813,6 +824,7 @@ class GuestReportCaptureService
                 if ($activeAttempt && $activeAttempt->status !== GuestReportCaptureAttempt::STATUS_COMPLETED) {
                     $activeAttempt->update([
                         'status' => GuestReportCaptureAttempt::STATUS_COMPLETED,
+                        'failure_reason' => null,
                     ]);
                 }
             }

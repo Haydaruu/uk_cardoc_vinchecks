@@ -450,7 +450,10 @@ class PayPalService
         $response = Http::withToken($this->accessToken())
             ->timeout(20)
             ->acceptJson()
-            ->withHeaders(['PayPal-Request-Id' => $requestId])
+            ->withHeaders([
+                'PayPal-Request-Id' => $requestId,
+                'Prefer' => 'return=representation',
+            ])
             ->withBody('{}', 'application/json')
             ->send('POST', $this->baseUrl()."/v2/checkout/orders/{$orderId}/capture", []);
 

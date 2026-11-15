@@ -1628,3 +1628,108 @@ test('missing purchase remains retryable so correlation recovery policy applies'
         ->and($result->errorMessage)->toContain('purchase record not found')
         ->and($result->isTerminalFailure())->toBeFalse();
 });
+
+test('it reconciles completed capture response missing custom_id through GET and clears stale failure reason', function () {
+    config(['queue.default' => 'database']);
+
+    Queue::fake();
+
+    [$purchase] = createCaptureTestPurchase([
+        'capture_status' => GuestReportPurchase::CAPTURE_CAPTURING,
+        'capture_attempts' => 1,
+        'capture_request_started_at' => now()->subMinutes(5),
+    ]);
+
+    $orderId = $purchase->provider_order_id;
+
+    $attempt = GuestReportCaptureAttempt::create([
+        'guest_report_purchase_id' => $purchase->id,
+        'attempt_uuid' => (string) Str::uuid(),
+        'idempotency_key' => 'guest-cap-incomplete-response',
+        'provider_order_id' => $orderId,
+        'status' => GuestReportCaptureAttempt::STATUS_CAPTURING,
+        'attempt_number' => 1,
+        'request_started_at' => now()->subMinutes(5),
+        'failure_reason' => 'Previous incomplete capture response.',
+    ]);
+
+    $purchase->update([
+        'active_capture_attempt_uuid' => $attempt->attempt_uuid,
+    ]);
+
+    $approvedOrder = buildFakePayPalOrder($purchase, 'APPROVED');
+
+    // Simulate PayPal returning a minimal capture representation
+    // without purchase_units.custom_id.
+    $minimalCaptureResponse = [
+        'id' => $orderId,
+        'status' => 'COMPLETED',
+        'purchase_units' => [
+            [
+                'payments' => [
+                    'captures' => [
+                        [
+                            'id' => 'CAP-RECONCILED-123',
+                            'status' => 'COMPLETED',
+                            'amount' => [
+                                'value' => '28.00',
+                                'currency_code' => 'GBP',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ],
+    ];
+
+    // Full order representation returned by the fallback GET.
+    $completedOrder = buildFakePayPalOrder(
+        $purchase,
+        'COMPLETED',
+        'COMPLETED',
+        'CAP-RECONCILED-123',
+    );
+
+    $payPalMock = Mockery::mock(PayPalService::class);
+
+    $payPalMock->shouldReceive('getOrder')
+        ->twice()
+        ->with($orderId)
+        ->andReturn($approvedOrder, $completedOrder);
+
+    $payPalMock->shouldReceive('prepareGuestReportOrderForCapture')
+        ->once()
+        ->andReturn($approvedOrder);
+
+    $payPalMock->shouldReceive('captureOrder')
+        ->once()
+        ->with($orderId, $attempt->idempotency_key)
+        ->andReturn($minimalCaptureResponse);
+
+    $service = new GuestReportCaptureService(
+        $payPalMock,
+        app(GuestReportPaymentService::class),
+        app(GuestReportCheckoutService::class),
+    );
+
+    $result = $service->replayAmbiguousAttempt($orderId);
+
+    expect($result->isCompleted())->toBeTrue()
+        ->and($result->httpStatus)->toBe(200);
+
+    $purchase->refresh();
+    $attempt->refresh();
+
+    expect($purchase->payment_status)
+        ->toBe(GuestReportPurchase::STATUS_PAID)
+        ->and($purchase->capture_status)
+        ->toBe(GuestReportPurchase::CAPTURE_COMPLETED)
+        ->and($purchase->provider_payment_id)
+        ->toBe('CAP-RECONCILED-123')
+        ->and($attempt->status)
+        ->toBe(GuestReportCaptureAttempt::STATUS_COMPLETED)
+        ->and($attempt->failure_reason)
+        ->toBeNull();
+
+    Queue::assertPushed(ProcessVehicleCheck::class);
+});
