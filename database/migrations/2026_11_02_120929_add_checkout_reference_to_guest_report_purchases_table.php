@@ -31,7 +31,7 @@ return new class extends Migration
                 }
             });
 
-       Schema::table('guest_report_purchases', function (Blueprint $table) {
+        Schema::table('guest_report_purchases', function (Blueprint $table) {
             $table->uuid('checkout_reference')->nullable(false)->change();
         });
     }
