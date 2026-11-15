@@ -1,0 +1,470 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="description" content="UKCarDoc sample full vehicle report. All vehicle details, dates, findings and values are fictional demonstration data.">
+  <title>Sample Full Vehicle Report | UKCarDoc</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Public+Sans:wght@600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --surface:#f9f9ff; --surface-low:#f0f3ff; --surface-container:#e7eefe;
+      --ink:#151c27; --muted:#64748b; --muted-2:#94a3b8; --line:#c5c6d1;
+      --line-soft:#e2e8f0; --primary:#000d2f; --primary-container:#00205b;
+      --secondary:#bb001a; --green:#047857; --green-bg:#ecfdf5; --green-line:#a7f3d0;
+      --red:#b91c1c; --red-bg:#fef2f2; --red-line:#fecaca;
+      --amber:#92400e; --amber-bg:#fffbeb; --amber-line:#fde68a;
+      --blue:#1d4ed8; --blue-bg:#eff6ff; --blue-line:#bfdbfe;
+      --shadow:0 1px 2px rgba(0,13,47,.05);
+    }
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth}
+    body{margin:0;background:var(--surface);color:var(--ink);font:14px/1.55 Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    h1,h2,h3,h4{font-family:"Public Sans",Inter,ui-sans-serif,system-ui,sans-serif}
+    a{color:inherit}
+    .demo-strip{position:sticky;top:0;z-index:30;display:flex;justify-content:center;align-items:center;gap:9px;min-height:34px;padding:7px 14px;background:#fff7dc;border-bottom:1px solid #f0d98f;color:#704900;text-align:center;font-size:10px;font-weight:800;letter-spacing:.075em;text-transform:uppercase}
+    .demo-dot{width:7px;height:7px;flex:0 0 7px;border-radius:50%;background:#c58a08}
+    .navbar{position:sticky;top:34px;z-index:25;border-bottom:1px solid #eef0f5;background:rgba(255,255,255,.96);backdrop-filter:blur(8px)}
+    .nav-inner{max-width:1200px;height:64px;margin:0 auto;padding:0 24px;display:flex;align-items:center;justify-content:space-between;gap:20px}
+    .brand{color:var(--primary-container);font:900 19px/1 "Public Sans",sans-serif;letter-spacing:-.045em;text-decoration:none;white-space:nowrap}
+    .nav-links{display:flex;align-items:center;gap:32px;color:#475569;font-size:13px;font-weight:600}
+    .nav-links a{text-decoration:none}.nav-links a:hover{color:var(--primary-container)}
+    .nav-actions{display:flex;align-items:center;gap:18px;font-size:13px;font-weight:600;color:#475569}
+    .nav-actions a{text-decoration:none}.nav-cta{padding:10px 16px;border-radius:4px;background:var(--secondary);color:#fff!important;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+    .wrap{max-width:1200px;margin:0 auto;padding:32px 24px 58px}
+    .hero{display:flex;align-items:flex-start;gap:32px;margin-bottom:30px;padding:24px;border:1px solid var(--line);border-radius:8px;background:#fff;box-shadow:var(--shadow)}
+    .vehicle-photo{width:33.333%;min-width:260px;aspect-ratio:16/9;overflow:hidden;border:1px solid #e2e8f0;border-radius:7px;background:#eef2f7;display:flex;align-items:center;justify-content:center}
+    .vehicle-photo svg{width:100%;height:100%;display:block}
+    .vehicle-main{min-width:0;flex:1}
+    .hero-top{display:flex;align-items:flex-start;justify-content:space-between;gap:20px}
+    .badges{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:11px}
+    .badge{display:inline-flex;align-items:center;gap:5px;padding:5px 9px;border-radius:4px;font-size:10px;font-weight:800;letter-spacing:.045em;text-transform:uppercase;white-space:nowrap}
+    .badge-demo{border:1px solid var(--blue-line);background:var(--blue-bg);color:#1e40af}
+    .badge-vrm{border-radius:999px;background:var(--surface-container);color:var(--primary-container)}
+    .badge-provider{border:1px solid #e2e8f0;border-radius:999px;background:#fff;color:#64748b}
+    .vehicle-main h1{margin:0 0 7px;color:var(--primary);font-size:clamp(26px,3.4vw,38px);line-height:1.18;letter-spacing:-.045em}
+    .vehicle-meta{display:flex;flex-wrap:wrap;align-items:center;gap:8px;color:#64748b;font-size:12px}
+    .vehicle-meta .sep{width:4px;height:4px;border-radius:50%;background:#cbd5e1}
+    .demo-state{flex:0 0 auto;max-width:220px;padding:12px 14px;border:1px solid var(--blue-line);border-radius:6px;background:var(--blue-bg);color:#1e40af}
+    .demo-state strong{display:flex;align-items:center;gap:7px;font-size:10px;letter-spacing:.055em;text-transform:uppercase}
+    .demo-state p{margin:5px 0 0;color:#3b82f6;font-size:10px;line-height:1.45}
+    .chips{display:flex;flex-wrap:wrap;gap:9px;margin-top:20px;padding-top:17px;border-top:1px solid #f1f5f9}
+    .chip{display:inline-flex;align-items:center;gap:7px;padding:6px 10px;border:1px solid #e2e8f0;border-radius:6px;background:#f8fafc;color:#475569;font-size:11px;font-weight:600;text-transform:uppercase}
+    .chip svg{width:15px;height:15px;color:#64748b}
+    .hero-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:18px}
+    .hero-stat{min-width:0;padding:11px 12px;border:1px solid #f1f5f9;border-radius:7px;background:#f8fafc}
+    .stat-label{color:#94a3b8;font-size:9px;font-weight:800;letter-spacing:.07em;text-transform:uppercase}
+    .stat-value{margin-top:4px;color:var(--primary-container);font-size:16px;font-weight:800;letter-spacing:-.025em}
+    .stat-note{margin-top:2px;color:#94a3b8;font-size:9px}
+    .report-grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:22px 20px;align-items:start}
+    .span-12{grid-column:span 12}.span-8{grid-column:span 8}.span-6{grid-column:span 6}.span-4{grid-column:span 4}
+    .section-card{min-width:0;overflow:hidden;border:1px solid var(--line);border-radius:8px;background:#fff;box-shadow:var(--shadow)}
+    .card-head{display:flex;align-items:flex-start;gap:10px;padding:15px 19px;border-bottom:1px solid #e2e8f0;background:rgba(248,250,252,.78)}
+    .card-icon{width:20px;height:20px;flex:0 0 20px;color:var(--primary-container)}
+    .card-head h2{margin:0;color:#1e293b;font-size:14px;font-weight:700;line-height:1.35}
+    .card-head p{margin:3px 0 0;color:#64748b;font-size:11px;line-height:1.45}
+    .card-body{padding:20px}
+    .card-body.compact{padding:16px}
+    .subheading{margin:0 0 11px;color:#94a3b8;font-size:10px;font-weight:800;letter-spacing:.075em;text-transform:uppercase}
+    .metric-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+    .metric-grid.two{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .metric{min-width:0;padding:13px;border:1px solid #f1f5f9;border-radius:7px;background:#f8fafc}
+    .metric .label{color:#94a3b8;font-size:9px;font-weight:800;letter-spacing:.065em;text-transform:uppercase}
+    .metric .value{margin-top:5px;color:#0f172a;font-size:18px;font-weight:800;letter-spacing:-.035em;overflow-wrap:anywhere}
+    .metric .hint{margin-top:3px;color:#94a3b8;font-size:9px;line-height:1.4}
+    .metric .sample-mark{display:inline-flex;margin-top:7px;padding:3px 6px;border-radius:999px;background:#e7eefe;color:#00205b;font-size:8px;font-weight:800;text-transform:uppercase}
+    .info-table{width:100%;border-collapse:collapse}
+    .info-table td{padding:9px 0;border-bottom:1px solid #f1f5f9;vertical-align:top}
+    .info-table tr:last-child td{border-bottom:0}
+    .info-table td:first-child{width:44%;color:#64748b;font-size:11px}
+    .info-table td:last-child{color:#334155;font-size:11px;font-weight:700;text-align:right}
+    .status{display:inline-flex;align-items:center;gap:6px;padding:5px 8px;border-radius:5px;font-size:9px;font-weight:800;letter-spacing:.025em;text-transform:uppercase;white-space:nowrap}
+    .status:before{content:"";width:6px;height:6px;flex:0 0 6px;border-radius:50%;background:currentColor}
+    .status-green{border:1px solid var(--green-line);background:var(--green-bg);color:var(--green)}
+    .status-red{border:1px solid var(--red-line);background:var(--red-bg);color:var(--red)}
+    .status-amber{border:1px solid var(--amber-line);background:var(--amber-bg);color:var(--amber)}
+    .status-blue{border:1px solid var(--blue-line);background:var(--blue-bg);color:var(--blue)}
+    .status-neutral{border:1px solid #e2e8f0;background:#f8fafc;color:#64748b}
+    .description{margin:0;color:#64748b;font-size:11px;line-height:1.65}
+    .check-list{display:flex;flex-direction:column;gap:9px}
+    .check-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px;border:1px solid #e2e8f0;border-radius:7px;background:#f8fafc}
+    .check-row.issue{border-color:var(--red-line);background:#fef2f2}
+    .check-row.clean{border-color:#d1fae5;background:#ecfdf5}
+    .check-left{display:flex;align-items:center;gap:9px;min-width:0}
+    .check-icon{width:17px;height:17px;flex:0 0 17px;color:#64748b}
+    .check-row.issue .check-icon{color:#b91c1c}.check-row.clean .check-icon{color:#059669}
+    .check-label{color:#334155;font-size:11px;font-weight:700}
+    .check-count{margin-top:2px;color:#94a3b8;font-size:9px}
+    .timeline{position:relative;margin:2px 0 0 5px;padding-left:22px}
+    .timeline:before{content:"";position:absolute;top:7px;bottom:8px;left:5px;width:2px;background:#dce2f3}
+    .timeline-item{position:relative;padding:0 0 18px}
+    .timeline-item:last-child{padding-bottom:0}
+    .timeline-item:before{content:"";position:absolute;top:5px;left:-21px;width:9px;height:9px;border:2px solid #fff;border-radius:50%;background:#5477a5;box-shadow:0 0 0 1px #b7c8dd}
+    .timeline-date{color:#94a3b8;font-size:10px;font-weight:700}
+    .timeline-title{margin-top:2px;color:#1e293b;font-size:12px;font-weight:750}
+    .timeline-note{margin-top:2px;color:#64748b;font-size:10px;line-height:1.5}
+    .notice{display:flex;gap:10px;align-items:flex-start;margin:0 0 16px;padding:12px 14px;border:1px solid var(--blue-line);border-radius:7px;background:#eff6ff;color:#1e40af;font-size:10px;line-height:1.55}
+    .notice strong{display:block;margin-bottom:2px;font-size:10px;text-transform:uppercase;letter-spacing:.04em}
+    .notice p{margin:0;color:#1d4ed8}
+    .road-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:19px}
+    .road-card{padding:14px;border:1px solid var(--green-line);border-radius:7px;background:var(--green-bg);color:#065f46}
+    .road-card .road-label{font-size:9px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;opacity:.65}
+    .road-card .road-value{margin-top:6px;font-size:18px;font-weight:800}
+    .road-card .road-foot{margin-top:6px;padding-top:7px;border-top:1px solid rgba(6,95,70,.1);font-size:9px;opacity:.75}
+    .bar{height:9px;overflow:hidden;border:1px solid #e2e8f0;border-radius:999px;background:#f1f5f9}
+    .bar-fill{height:100%;width:75%;background:#10b981}
+    .legend{display:flex;gap:18px;margin-top:7px;color:#64748b;font-size:9px}
+    .legend span{display:inline-flex;align-items:center;gap:5px}.legend i{width:7px;height:7px;border-radius:50%;background:#10b981}.legend .fail{background:#ef4444}
+    .mileage-graph{height:115px;margin:16px 0 8px;padding:12px;border:1px solid #f1f5f9;border-radius:7px;background:#f8fafc}
+    .mileage-graph svg{width:100%;height:100%}
+    details{overflow:hidden;border:1px solid #e2e8f0;border-radius:7px;background:#fff}
+    summary{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 15px;background:#f8fafc;color:#1e293b;font-size:11px;font-weight:750;cursor:pointer;list-style:none}
+    summary::-webkit-details-marker{display:none}
+    summary:after{content:"+";color:#00205b;font-size:17px;font-weight:500}
+    details[open] summary:after{content:"−"}
+    .detail-content{padding:14px;border-top:1px solid #e2e8f0}
+    .record-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+    .record-group{overflow:hidden;border:1px solid #e2e8f0;border-radius:7px;background:#fff}
+    .record-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 13px;border-bottom:1px solid #e2e8f0;background:#f8fafc}
+    .record-head strong{color:#334155;font-size:11px}
+    .record-content{padding:13px}
+    .record-alert{padding:13px;border:1px solid var(--red-line);border-radius:7px;background:#fef2f2}
+    .record-alert .record-type{display:inline-flex;padding:4px 7px;border-radius:999px;background:#fee2e2;color:#b91c1c;font-size:8px;font-weight:850;text-transform:uppercase}
+    .record-alert h4{margin:9px 0 4px;color:#0f172a;font-size:14px}
+    .record-alert p{margin:0;color:#7f1d1d;font-size:10px;line-height:1.55}
+    .salvage-card{overflow:hidden;border:1px solid var(--red-line);border-radius:8px}
+    .salvage-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:16px;background:#fef2f2;border-bottom:1px solid #fee2e2}
+    .salvage-head h3{margin:8px 0 4px;color:#0f172a;font-size:16px}
+    .salvage-head p{margin:0;color:#64748b;font-size:10px}
+    .auction-ref{padding:9px 11px;border:1px solid #fee2e2;border-radius:6px;background:white;text-align:right;white-space:nowrap}
+    .auction-ref span{display:block;color:#94a3b8;font-size:8px;font-weight:800;text-transform:uppercase}
+    .auction-ref strong{display:block;margin-top:3px;color:#334155;font-family:monospace;font-size:11px}
+    .salvage-photos{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;padding:14px;border-bottom:1px solid #f1f5f9}
+    .photo-placeholder{display:flex;align-items:center;justify-content:center;min-height:115px;border:1px solid #e2e8f0;border-radius:6px;background:linear-gradient(145deg,#edf2f8,#dce5f1);color:#64748b;text-align:center;font-size:9px;font-weight:750}
+    .salvage-details{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;padding:15px}
+    .detail-label{color:#94a3b8;font-size:8px;font-weight:800;letter-spacing:.07em;text-transform:uppercase}
+    .detail-value{margin-top:4px;color:#334155;font-size:11px;font-weight:700}
+    .damage-tags{display:flex;flex-wrap:wrap;gap:7px;padding:0 15px 15px}
+    .damage-tags span{padding:5px 8px;border:1px solid var(--red-line);border-radius:999px;background:#fef2f2;color:#b91c1c;font-size:9px;font-weight:700}
+    .two-timelines{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px}
+    .timeline-titlebar{display:flex;align-items:center;gap:8px;margin-bottom:13px;color:#334155;font-size:12px;font-weight:750}
+    .timeline-titlebar svg{width:16px;height:16px;color:#00205b}
+    .dimension-box{display:flex;justify-content:center;margin:0 0 17px;padding:17px;border:1px solid #f1f5f9;border-radius:7px;background:#f8fafc}
+    .dimension-box svg{width:100%;max-width:490px;height:auto}
+    .status-line{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:11px 0;border-bottom:1px solid #f1f5f9}
+    .status-line:last-child{border-bottom:0}
+    .status-line span:first-child{color:#64748b;font-size:10px}
+    .status-line strong{color:#334155;font-size:10px;text-align:right}
+    .clean-air{padding:16px;border:1px solid var(--green-line);border-radius:7px;background:#ecfdf5;color:#065f46}
+    .clean-air .big{margin:6px 0;font-size:21px;font-weight:850;letter-spacing:-.04em}
+    .clean-air p{margin:0;color:#047857;font-size:10px;line-height:1.55}
+    .source-note{margin-top:13px;padding-top:11px;border-top:1px solid rgba(6,95,70,.12);color:#047857;font-size:9px;line-height:1.5}
+    .actions{display:flex;justify-content:center;flex-wrap:wrap;gap:12px;margin-top:34px}
+    .action-btn{display:inline-flex;align-items:center;justify-content:center;gap:9px;min-height:44px;padding:12px 23px;border:2px solid var(--primary-container);border-radius:6px;background:white;color:var(--primary-container);font-size:10px;font-weight:850;letter-spacing:.07em;text-transform:uppercase;cursor:pointer;text-decoration:none}
+    .action-btn.primary{border-color:var(--secondary);background:var(--secondary);color:white;box-shadow:0 5px 13px rgba(187,0,26,.14)}
+    .action-btn:hover{filter:brightness(.97)}
+    .legal-note{margin-top:25px;padding:15px 17px;border:1px solid #f0d98f;border-radius:7px;background:#fff8e7;color:#704900;font-size:10px;line-height:1.65}
+    .legal-note strong{display:block;margin-bottom:4px;font-size:10px;letter-spacing:.05em;text-transform:uppercase}
+    .footer{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:16px;margin-top:38px;padding-top:20px;border-top:1px solid #e2e8f0;color:#94a3b8;font-size:10px}
+    .footer-brand{color:var(--primary-container);font:900 15px "Public Sans",sans-serif;letter-spacing:-.04em}
+    .footer-links{display:flex;flex-wrap:wrap;gap:17px}.footer-links a{color:#64748b;text-decoration:none}.footer-links a:hover{color:var(--primary-container)}
+    @media(max-width:900px){.nav-links{gap:18px}.hero{gap:22px}.hero-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.span-8,.span-6{grid-column:span 12}.span-4{grid-column:span 6}}
+    @media(max-width:640px){.demo-strip{font-size:9px;line-height:1.35}.nav-inner{height:58px;padding:0 16px}.nav-links{display:none}.nav-actions>a:first-child{display:none}.nav-cta{padding:9px 11px;font-size:9px}.wrap{padding:22px 14px 42px}.hero{flex-direction:column;gap:17px;padding:15px}.vehicle-photo{width:100%;min-width:0}.hero-top{flex-direction:column}.demo-state{max-width:none;width:100%}.vehicle-main h1{font-size:28px}.hero-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.span-4{grid-column:span 12}.report-grid{gap:16px}.card-head{padding:13px 14px}.card-body{padding:15px}.metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.road-grid,.record-grid,.two-timelines{grid-template-columns:1fr}.salvage-head{flex-direction:column}.auction-ref{text-align:left}.salvage-photos{grid-template-columns:1fr}.photo-placeholder{min-height:140px}.salvage-details{grid-template-columns:repeat(2,minmax(0,1fr))}.actions{flex-direction:column}.action-btn{width:100%}}
+    @media print{.demo-strip{position:static}.navbar,.actions,.footer-links{display:none!important}body{background:white}.wrap{max-width:none;padding:10px 0}.section-card,.hero{break-inside:avoid;box-shadow:none}.report-grid{gap:12px}.span-8,.span-6,.span-4{grid-column:span 12}.section-card{break-inside:avoid}.demo-strip{border:1px solid #e6d28c}.legal-note{break-inside:avoid}}
+  </style>
+</head>
+<body>
+  <div class="demo-strip"><span class="demo-dot"></span> Sample report · Fictional demonstration data · Not a live vehicle check</div>
+
+  <header class="navbar">
+    <div class="nav-inner">
+      <a class="brand" href="#top" aria-label="UKCarDoc home">UKCARDOC</a>
+      <nav class="nav-links" aria-label="Main navigation">
+        <a href="#report">About Us</a><a href="#report">Pricing</a><a href="#support">Support</a>
+      </nav>
+      <div class="nav-actions"><a href="#support">Login</a><a class="nav-cta" href="#report">Create Account</a></div>
+    </div>
+  </header>
+
+  <main class="wrap" id="report">
+    <section class="hero" aria-labelledby="vehicle-title">
+      <div class="vehicle-photo" role="img" aria-label="Illustrative blue hatchback vehicle illustration">
+        <svg viewBox="0 0 640 360" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <defs>
+            <linearGradient id="sky" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#f8fafc"/><stop offset="1" stop-color="#dce6f2"/></linearGradient>
+            <linearGradient id="paint" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#4e83c2"/><stop offset="1" stop-color="#17477e"/></linearGradient>
+            <linearGradient id="glass" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#d9e7f4"/><stop offset="1" stop-color="#7b9bb9"/></linearGradient>
+          </defs>
+          <rect width="640" height="360" fill="url(#sky)"/>
+          <circle cx="510" cy="76" r="38" fill="#fff" opacity=".6"/>
+          <path d="M0 260 Q160 220 320 250 T640 242 V360 H0Z" fill="#e4eaf1"/>
+          <path d="M72 286 H568" stroke="#c5d0dc" stroke-width="3" stroke-linecap="round"/>
+          <ellipse cx="320" cy="282" rx="218" ry="24" fill="#7d8ea3" opacity=".18"/>
+          <path d="M127 239 L160 199 Q181 177 229 171 L370 163 Q405 163 435 190 L483 223 Q506 229 514 246 L510 270 Q507 280 490 281 H148 Q125 279 121 264 L119 249 Q119 242 127 239Z" fill="url(#paint)" stroke="#153d69" stroke-width="4"/>
+          <path d="M181 201 Q199 182 232 180 L365 173 Q392 173 416 197 L445 221 H159Z" fill="url(#glass)" stroke="#153d69" stroke-width="4"/>
+          <path d="M300 178 L300 221 M397 180 L421 221" stroke="#315c86" stroke-width="4"/>
+          <path d="M154 224 H451" stroke="#9fc0df" stroke-width="3" opacity=".65"/>
+          <path d="M127 245 L154 242 L164 251 L159 260 H126Z" fill="#e8f2fb"/>
+          <path d="M478 239 L500 243 L504 255 L484 257Z" fill="#f8d98b"/>
+          <path d="M212 231 H264" stroke="#a9c2dc" stroke-width="4" stroke-linecap="round" opacity=".7"/>
+          <path d="M353 231 H408" stroke="#a9c2dc" stroke-width="4" stroke-linecap="round" opacity=".7"/>
+          <circle cx="205" cy="272" r="33" fill="#202b39"/><circle cx="205" cy="272" r="19" fill="#c6d0dc"/><circle cx="205" cy="272" r="8" fill="#76879a"/>
+          <circle cx="440" cy="272" r="33" fill="#202b39"/><circle cx="440" cy="272" r="19" fill="#c6d0dc"/><circle cx="440" cy="272" r="8" fill="#76879a"/>
+          <path d="M130 258 Q320 276 505 257" stroke="#92b2d3" stroke-width="2" fill="none" opacity=".7"/>
+          <text x="320" y="326" text-anchor="middle" fill="#64748b" font-family="Inter, sans-serif" font-size="12" font-weight="700" letter-spacing="2">ILLUSTRATIVE VEHICLE IMAGE</text>
+        </svg>
+      </div>
+      <div class="vehicle-main">
+        <div class="hero-top">
+          <div>
+            <div class="badges">
+              <span class="badge badge-demo">Sample preview · 14 Nov 2026</span>
+              <span class="badge badge-vrm">VRM: DEMO ONLY</span>
+              <span class="badge badge-provider">Provider: example data</span>
+            </div>
+            <h1 id="vehicle-title">2019 Ford Focus</h1>
+            <div class="vehicle-meta">
+              <span>Year: 2019</span><i class="sep"></i><span>Engine: 999cc</span><i class="sep"></i><span>VIN: DEMO ONLY — NOT A REAL VIN</span>
+            </div>
+          </div>
+          <div class="demo-state">
+            <strong>ⓘ Demonstration only</strong>
+            <p>All findings and statuses below are simulated examples. No live vehicle check was performed.</p>
+          </div>
+        </div>
+        <div class="chips">
+          <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 14h18l-2-6H5l-2 6Z"/><path d="M5 14v4m14-4v4M7 18h10"/></svg>Petrol</span>
+          <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8"/><path d="M12 4v4m0 8v4m8-8h-4M8 12H4"/></svg>Manual</span>
+          <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 14h18l-2-6H5l-2 6Z"/><path d="M5 14v4m14-4v4"/></svg>Hatchback</span>
+          <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8"/><path d="M12 4v16M4 12h16"/></svg>Blue</span>
+          <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="8" cy="18" r="2"/><circle cx="16" cy="18" r="2"/><path d="M4 18V8h13l3 5v5h-2M10 18h4M4 12h14"/></svg>5 seats</span>
+        </div>
+        <div class="hero-stats">
+          <div class="hero-stat"><div class="stat-label">Latest Mileage</div><div class="stat-value">48,210 mi</div><div class="stat-note">Example reading · Sep 2026</div></div>
+          <div class="hero-stat"><div class="stat-label">Retail Value</div><div class="stat-value">£11,250</div><div class="stat-note">Illustrative estimate</div></div>
+          <div class="hero-stat"><div class="stat-label">Latest MOT</div><div class="stat-value">PASSED</div><div class="stat-note">Example result</div></div>
+          <div class="hero-stat"><div class="stat-label">Keeper Changes</div><div class="stat-value">2</div><div class="stat-note">Example records</div></div>
+        </div>
+      </div>
+    </section>
+
+    <div class="notice"><span aria-hidden="true">ⓘ</span><div><strong>Sample report notice</strong><p>This page demonstrates the structure and presentation of a UKCarDoc report. Every vehicle detail, provider label, date, status, record, mileage and valuation is fictional. Do not rely on it when assessing or purchasing a vehicle.</p></div></div>
+
+    <div class="report-grid">
+      <!-- VEHICLE STORY -->
+      <section class="section-card span-12">
+        <div class="card-head"><svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5v6h6M20 19v-6h-6"/><path d="M5.5 15a7 7 0 0 0 12 2L20 13M18.5 9a7 7 0 0 0-12-2L4 11"/></svg><div><h2>Vehicle Story</h2><p>A chronological view of the recorded lifecycle of this vehicle.</p></div></div>
+        <div class="card-body">
+          <div class="metric-grid" style="margin-bottom:22px">
+            <div class="metric"><div class="label">Events Recorded</div><div class="value">7</div><div class="hint">Illustrative events</div></div>
+            <div class="metric"><div class="label">MOT Events</div><div class="value">4</div><div class="hint">Example test entries</div></div>
+            <div class="metric"><div class="label">Keeper Changes</div><div class="value">2</div><div class="hint">Example records</div></div>
+            <div class="metric"><div class="label">Plate Changes</div><div class="value">1</div><div class="hint">Example record</div></div>
+          </div>
+          <div class="timeline">
+            <div class="timeline-item"><div class="timeline-date">04 September 2026 · DEMO EVENT</div><div class="timeline-title">MOT test recorded — Passed</div><div class="timeline-note">Example inspection entry. Recorded mileage: 48,210 miles.</div></div>
+            <div class="timeline-item"><div class="timeline-date">12 June 2025 · DEMO EVENT</div><div class="timeline-title">V5C document issue recorded</div><div class="timeline-note">Illustrative logbook issue date and document-history entry.</div></div>
+            <div class="timeline-item"><div class="timeline-date">18 October 2024 · DEMO EVENT</div><div class="timeline-title">Registration plate change recorded</div><div class="timeline-note">DEMO VRM A → DEMO VRM B. Fictional registration identifiers.</div></div>
+            <div class="timeline-item"><div class="timeline-date">12 June 2023 · DEMO EVENT</div><div class="timeline-title">Keeper change recorded</div><div class="timeline-note">Example keeper history entry. This does not identify a real person.</div></div>
+            <div class="timeline-item"><div class="timeline-date">14 March 2022 · DEMO EVENT</div><div class="timeline-title">Illustrative insurance write-off entry</div><div class="timeline-note">Example Category N record used to demonstrate a detailed history card.</div></div>
+            <div class="timeline-item"><div class="timeline-date">28 April 2022 · DEMO EVENT</div><div class="timeline-title">Illustrative salvage auction listing</div><div class="timeline-note">Example auction reference and damage information; no real auction record.</div></div>
+            <div class="timeline-item"><div class="timeline-date">15 May 2019 · DEMO EVENT</div><div class="timeline-title">First registration</div><div class="timeline-note">Fictional first-registration date.</div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- VEHICLE SPECIFICATIONS -->
+      <section class="section-card span-8">
+        <div class="card-head"><svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 14h18l-2-6H5l-2 6Z"/><path d="M5 14v4m14-4v4M7 18h10M7 8l2-3h6l2 3"/></svg><div><h2>Vehicle Specifications</h2><p>Vehicle dimensions, performance and factory specification data.</p></div></div>
+        <div class="card-body">
+          <div class="dimension-box"><svg viewBox="0 0 600 150" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Illustrative vehicle dimension diagram"><rect x="92" y="55" width="378" height="46" rx="10" fill="#eef2f7" stroke="#cbd5e1" stroke-width="1.5"/><path d="M92 35H470M92 28V42M470 28V42M490 55V101M483 55H497M483 101H497" stroke="#94a3b8" stroke-width="1.2"/><text x="281" y="24" text-anchor="middle" fill="#64748b" font-size="12" font-family="Inter">4,378 mm length</text><text x="503" y="82" fill="#64748b" font-size="12" font-family="Inter">1,825 mm</text><text x="281" y="128" text-anchor="middle" fill="#94a3b8" font-size="10" font-family="Inter">DEMONSTRATION DIMENSIONS</text></svg></div>
+          <div class="metric-grid">
+            <div class="metric"><div class="label">Power</div><div class="value">123 bhp</div></div>
+            <div class="metric"><div class="label">Power PS</div><div class="value">125 PS</div></div>
+            <div class="metric"><div class="label">Power kW</div><div class="value">92 kW</div></div>
+            <div class="metric"><div class="label">Torque</div><div class="value">170 Nm</div></div>
+            <div class="metric"><div class="label">Top Speed</div><div class="value">120 mph</div></div>
+            <div class="metric"><div class="label">0–60 mph</div><div class="value">10.0 sec</div></div>
+            <div class="metric"><div class="label">Insurance Group</div><div class="value">14E</div></div>
+            <div class="metric"><div class="label">Euro Standard</div><div class="value">Euro 6</div></div>
+            <div class="metric"><div class="label">Wheelbase</div><div class="value">2,700 mm</div></div>
+            <div class="metric"><div class="label">Kerb Weight</div><div class="value">1,320 kg</div></div>
+            <div class="metric"><div class="label">Gross Weight</div><div class="value">1,870 kg</div></div>
+            <div class="metric"><div class="label">CO₂</div><div class="value">108 g/km</div></div>
+          </div>
+          <div style="margin-top:16px"><table class="info-table"><tr><td>Engine capacity</td><td>999 cc</td></tr><tr><td>Body type</td><td>Hatchback</td></tr><tr><td>Doors / Seats</td><td>5 / 5</td></tr><tr><td>Combined fuel economy</td><td>47.1 mpg</td></tr></table></div>
+        </div>
+      </section>
+
+      <!-- HISTORY CHECKS -->
+      <section class="section-card span-4">
+        <div class="card-head"><svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3 20 6v5c0 5-3.4 8.5-8 10-4.6-1.5-8-5-8-10V6l8-3Z"/><path d="m8 12 2.5 2.5L16 9"/></svg><div><h2>History Checks</h2><p>Critical recorded vehicle history.</p></div></div>
+        <div class="card-body compact">
+          <div class="check-list">
+            <div class="check-row issue"><div class="check-left"><svg class="check-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/></svg><div><div class="check-label">Finance</div><div class="check-count">1 illustrative record</div></div></div><span class="status status-red">Example record</span></div>
+            <div class="check-row clean"><div class="check-left"><svg class="check-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3 20 6v5c0 5-3.4 8.5-8 10-4.6-1.5-8-5-8-10V6l8-3Z"/></svg><div><div class="check-label">Stolen</div><div class="check-count">0 illustrative records</div></div></div><span class="status status-green">Example clear</span></div>
+            <div class="check-row issue"><div class="check-left"><svg class="check-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 14h18l-2-6H5l-2 6Z"/><path d="M5 14v4m14-4v4"/></svg><div><div class="check-label">Write-off</div><div class="check-count">1 illustrative record</div></div></div><span class="status status-red">Example record</span></div>
+            <div class="check-row issue"><div class="check-left"><svg class="check-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m12 3 9 17H3L12 3Z"/><path d="M12 9v5m0 3h.01"/></svg><div><div class="check-label">High Risk</div><div class="check-count">1 illustrative flag</div></div></div><span class="status status-amber">Review example</span></div>
+            <div class="check-row issue"><div class="check-left"><svg class="check-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 14h18l-2-6H5l-2 6Z"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg><div><div class="check-label">Salvage</div><div class="check-count">1 illustrative record</div></div></div><span class="status status-red">Example record</span></div>
+          </div>
+          <p class="description" style="margin-top:12px">These are demonstration states to show how different provider responses may appear. They are not findings about an actual vehicle.</p>
+        </div>
+      </section>
+
+      <!-- MOT & MILEAGE -->
+      <section class="section-card span-8">
+        <div class="card-head"><svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 3h8l3 3v15H5V3h3Z"/><path d="M8 11h8M8 15h8M8 7h3"/></svg><div><h2>MOT &amp; Mileage</h2><p>MOT test history, mileage progression and recorded defects.</p></div></div>
+        <div class="card-body">
+          <p class="subheading">Current Road Status · Example</p>
+          <div class="road-grid">
+            <div class="road-card"><div class="road-label">MOT Status · Demo</div><div class="road-value">PASSED</div><div class="road-foot">Expiry: 03 September 2027 · Illustrative</div></div>
+            <div class="road-card"><div class="road-label">Vehicle Tax · Demo</div><div class="road-value">TAXED</div><div class="road-foot">Expiry: 01 September 2027 · Illustrative</div></div>
+          </div>
+          <div class="notice"><span>ⓘ</span><div><strong>Mileage integrity example</strong><p>Progression appears consistent across the example entries below. This is a fictional calculation, not a provider verification.</p></div></div>
+          <div style="display:flex;justify-content:space-between;gap:15px;align-items:flex-start;margin-bottom:17px;padding-bottom:15px;border-bottom:1px solid #f1f5f9">
+            <div><div class="stat-label">Latest MOT · Example</div><div style="margin-top:4px;font-size:20px;font-weight:800;color:#0f172a">PASSED</div><div class="description">04 September 2026</div></div>
+            <div style="text-align:right"><div class="stat-label">Recorded Mileage</div><div style="margin-top:4px;font-size:20px;font-weight:800;color:#0f172a">48,210 mi</div><div class="description">Expiry 03 September 2027</div></div>
+          </div>
+          <div class="metric-grid">
+            <div class="metric"><div class="label">Tests Recorded</div><div class="value">4</div></div>
+            <div class="metric"><div class="label">Passed</div><div class="value">3</div></div>
+            <div class="metric"><div class="label">Failed</div><div class="value">1</div></div>
+            <div class="metric"><div class="label">Pass Rate</div><div class="value">75%</div></div>
+          </div>
+          <div style="margin-top:16px"><div class="bar"><div class="bar-fill"></div></div><div class="legend"><span><i></i>3 passed</span><span><i class="fail"></i>1 failed</span></div></div>
+          <div class="mileage-graph"><svg viewBox="0 0 600 100" preserveAspectRatio="none" aria-label="Illustrative mileage graph"><path d="M10 86 L195 65 L385 39 L585 12" fill="none" stroke="#00205b" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><path d="M10 86 L195 65 L385 39 L585 12 L585 100 L10 100Z" fill="#00205b" opacity=".06"/><g fill="#00205b"><circle cx="10" cy="86" r="4"/><circle cx="195" cy="65" r="4"/><circle cx="385" cy="39" r="4"/><circle cx="585" cy="12" r="4"/></g></svg></div>
+          <div style="display:flex;justify-content:space-between;color:#94a3b8;font-size:9px;margin-bottom:15px"><span>2023</span><span>2026</span></div>
+          <details><summary>Full MOT History <span class="status status-blue">4 example tests</span></summary><div class="detail-content">
+            <table class="info-table"><tr><td>04 Sep 2026</td><td><span class="status status-green">Passed</span> · 48,210 mi</td></tr><tr><td>18 Oct 2025</td><td><span class="status status-green">Passed</span> · 42,810 mi</td></tr><tr><td>21 Oct 2024</td><td><span class="status status-green">Passed</span> · 36,420 mi</td></tr><tr><td>19 Oct 2023</td><td><span class="status status-red">Failed</span> · 29,700 mi</td></tr></table>
+            <div class="record-alert" style="margin-top:12px"><span class="record-type">Example advisory</span><p style="margin-top:8px">Front tyre showing signs of wear. Fictional example wording only; not an actual MOT defect or advisory.</p></div>
+          </div></details>
+        </div>
+      </section>
+
+      <!-- RUNNING COSTS -->
+      <section class="section-card span-4">
+        <div class="card-head"><svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 11h3m2 0h3M8 15h3m2 0h3"/></svg><div><h2>Running Costs</h2><p>Available tax, insurance and economy estimates.</p></div></div>
+        <div class="card-body compact">
+          <div class="metric-grid two">
+            <div class="metric"><div class="label">Annual Tax</div><div class="value">£195</div></div>
+            <div class="metric"><div class="label">First Year</div><div class="value">£150</div></div>
+            <div class="metric"><div class="label">6 Month Tax</div><div class="value">£107</div></div>
+            <div class="metric"><div class="label">Premium Tax</div><div class="value">£570</div></div>
+            <div class="metric"><div class="label">Insurance Age 20</div><div class="value">£1,850</div></div>
+            <div class="metric"><div class="label">Insurance Age 30</div><div class="value">£900</div></div>
+            <div class="metric"><div class="label">Insurance Age 40</div><div class="value">£720</div></div>
+            <div class="metric"><div class="label">Combined MPG</div><div class="value">47.1</div></div>
+          </div>
+          <p class="description" style="margin-top:13px">Illustrative estimates only. Actual costs vary by vehicle, driver, location, tax rules, insurer and policy details.</p>
+        </div>
+      </section>
+
+      <!-- VALUATION -->
+      <section class="section-card span-8">
+        <div class="card-head"><svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2v20M17 6.5c0-1.7-2.2-3-5-3s-5 1.3-5 3 2.2 3 5 3 5 1.3 5 3-2.2 3-5 3-5-1.3-5-3"/></svg><div><h2>Vehicle Valuation</h2><p>Available market valuation estimates for this vehicle.</p></div></div>
+        <div class="card-body">
+          <div class="metric-grid">
+            <div class="metric"><div class="label">Retail</div><div class="value">£11,250</div><div class="hint">Example dealer value</div><span class="sample-mark">Sample</span></div>
+            <div class="metric"><div class="label">Trade-in</div><div class="value">£9,250</div><div class="hint">Example trade value</div><span class="sample-mark">Sample</span></div>
+            <div class="metric"><div class="label">Private</div><div class="value">£10,400</div><div class="hint">Example private value</div><span class="sample-mark">Sample</span></div>
+            <div class="metric"><div class="label">Trade</div><div class="value">£8,150</div><div class="hint">Example trade value</div><span class="sample-mark">Sample</span></div>
+          </div>
+          <p class="description" style="margin-top:15px;text-align:right">Illustrative valuation figures only. Not an offer, appraisal or live market quote.</p>
+        </div>
+      </section>
+
+      <!-- V5C -->
+      <section class="section-card span-4">
+        <div class="card-head"><svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 3h8l4 4v14H5V3h2Z"/><path d="M14 3v5h5M8 13h8M8 17h6"/></svg><div><h2>V5C / Logbook</h2><p>Recorded registration document history.</p></div></div>
+        <div class="card-body compact">
+          <div class="metric-grid two">
+            <div class="metric"><div class="label">Documents Recorded</div><div class="value">2</div></div>
+            <div class="metric"><div class="label">Latest Issue</div><div class="value" style="font-size:14px">12 Jun 2025</div></div>
+          </div>
+          <div style="margin-top:14px"><div class="status-line"><span>V5C history</span><strong>Example entries available</strong></div><div class="status-line"><span>Serial verification</span><span class="status status-neutral">Not verified</span></div><div class="status-line"><span>Verification source</span><strong>Demo only</strong></div></div>
+          <p class="description" style="margin-top:12px">The sample does not verify a real V5C document or serial number.</p>
+        </div>
+      </section>
+
+      <!-- DETAILED RECORDS -->
+      <section class="section-card span-12">
+        <div class="card-head"><svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3 20 6v5c0 5-3.4 8.5-8 10-4.6-1.5-8-5-8-10V6l8-3Z"/><path d="M12 8v4m0 4h.01"/></svg><div><h2>Detailed History Records</h2><p>Full provider records behind the headline vehicle-history checks.</p></div></div>
+        <div class="card-body"><div class="record-grid">
+          <div class="record-group"><div class="record-head"><strong>Finance Records</strong><span class="status status-red">1 example record</span></div><div class="record-content"><div class="record-alert"><span class="record-type">Finance record</span><h4>Example Motor Finance Ltd</h4><p>A fictional hire-purchase agreement is shown to demonstrate the detail available in a report.</p></div><table class="info-table" style="margin-top:12px"><tr><td>Agreement type</td><td>Hire Purchase</td></tr><tr><td>Agreement date</td><td>12 May 2024</td></tr><tr><td>Term</td><td>36 months</td></tr><tr><td>Vehicle</td><td>2019 Ford Focus</td></tr><tr><td>Provider status</td><td>Example only</td></tr></table></div></div>
+          <div class="record-group"><div class="record-head"><strong>Stolen Records</strong><span class="status status-green">0 example records</span></div><div class="record-content"><p class="description">No stolen record is included in this illustrative dataset. This is not a stolen-vehicle check and must not be interpreted as confirmation that any real vehicle is not stolen.</p><div style="margin-top:12px"><span class="status status-blue">Illustrative result only</span></div></div></div>
+          <div class="record-group"><div class="record-head"><strong>Write-off Records</strong><span class="status status-red">1 example record</span></div><div class="record-content"><div class="record-alert"><span class="record-type">Insurance write-off</span><h4>Category N</h4><p>Illustrative non-structural damage category entry. Not a real insurance or MIAFTR record.</p></div><table class="info-table" style="margin-top:12px"><tr><td>Date of loss</td><td>14 March 2022</td></tr><tr><td>Cause of damage</td><td>Front impact</td></tr><tr><td>Insurer</td><td>Example Insurance</td></tr><tr><td>Record status</td><td>Demonstration</td></tr></table></div></div>
+          <div class="record-group"><div class="record-head"><strong>High Risk Records</strong><span class="status status-amber">1 example flag</span></div><div class="record-content"><div style="padding:13px;border:1px solid var(--amber-line);border-radius:7px;background:var(--amber-bg)"><span class="status status-amber">Review example</span><p class="description" style="margin-top:9px;color:#92400e">An illustrative record requiring further review is included to demonstrate how a report can highlight a risk indicator and supporting detail.</p></div></div></div>
+        </div></div>
+      </section>
+
+      <!-- SALVAGE -->
+      <section class="section-card span-12">
+        <div class="card-head"><svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 14h18l-2-6H5l-2 6Z"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/><path d="M8 8 10 5h4l2 3"/></svg><div><h2>Salvage Auction History</h2><p>Recorded salvage auction entries, damage information and supporting photographs.</p></div></div>
+        <div class="card-body">
+          <div class="salvage-card">
+            <div class="salvage-head"><div><span class="status status-red">Salvage record · sample</span><h3>2019 Ford Focus Titanium — Front-end damage</h3><p>Auctioned 28 April 2022 · Illustrative listing</p></div><div class="auction-ref"><span>Auction Reference</span><strong>DEMO-LOT-2841</strong></div></div>
+            <div class="salvage-photos"><div class="photo-placeholder">Illustrative auction photo 01<br>Not a real vehicle image</div><div class="photo-placeholder">Illustrative auction photo 02<br>Not a real vehicle image</div><div class="photo-placeholder">Illustrative auction photo 03<br>Not a real vehicle image</div></div>
+            <div class="salvage-details"><div><div class="detail-label">Recorded Mileage</div><div class="detail-value">23,120 miles</div></div><div><div class="detail-label">Primary Damage</div><div class="detail-value">Front bumper / front end</div></div><div><div class="detail-label">Secondary Damage</div><div class="detail-value">Not supplied in example</div></div><div><div class="detail-label">Auction Location</div><div class="detail-value">Example UK auction site</div></div><div><div class="detail-label">Lot Date</div><div class="detail-value">28 April 2022</div></div><div><div class="detail-label">Record Reference</div><div class="detail-value">DEMO-LOT-2841</div></div></div>
+            <div class="damage-tags"><span>Front-end damage</span><span>Illustrative salvage entry</span><span>Demo photos only</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- RECALL -->
+      <section class="section-card span-6">
+        <div class="card-head"><svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3 21 20H3L12 3Z"/><path d="M12 9v5m0 3h.01"/></svg><div><h2>Recall Check</h2><p>Manufacturer and vehicle safety recall information.</p></div></div>
+        <div class="card-body compact"><div style="padding:14px;border:1px solid var(--amber-line);border-radius:7px;background:var(--amber-bg)"><span class="status status-amber">Illustrative recall entry</span><h3 style="margin:10px 0 5px;color:#1e293b;font-size:14px">DEMO-RECALL-01</h3><p class="description">Example manufacturer safety campaign description. This is not a real recall reference and has not been checked against a manufacturer database.</p></div><table class="info-table" style="margin-top:12px"><tr><td>Campaign reference</td><td>DEMO-RECALL-01</td></tr><tr><td>Record source</td><td>Demonstration only</td></tr><tr><td>Verification</td><td>Not performed</td></tr></table></div>
+      </section>
+
+      <!-- KEEPER AND PLATE -->
+      <section class="section-card span-6">
+        <div class="card-head"><svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5v6h6M20 19v-6h-6"/><path d="M5.5 15a7 7 0 0 0 12 2L20 13M18.5 9a7 7 0 0 0-12-2L4 11"/></svg><div><h2>Keeper &amp; Registration History</h2><p>Recorded keeper and registration plate changes.</p></div></div>
+        <div class="card-body"><div class="two-timelines"><div><div class="timeline-titlebar">⌑ Keeper Changes</div><div class="timeline"><div class="timeline-item"><div class="timeline-date">12 June 2023 · DEMO</div><div class="timeline-title">Keeper change recorded</div><div class="timeline-note">Illustrative previous keeper count: 1</div></div><div class="timeline-item"><div class="timeline-date">15 May 2019 · DEMO</div><div class="timeline-title">First registration</div><div class="timeline-note">Example registration history start.</div></div></div></div><div><div class="timeline-titlebar">▣ Plate Changes</div><div class="timeline"><div class="timeline-item"><div class="timeline-date">18 October 2024 · DEMO</div><div class="timeline-title">Registration change</div><div class="timeline-note"><span class="status status-neutral">DEMO VRM A</span> → <span class="status status-neutral">DEMO VRM B</span></div></div><div class="timeline-item"><div class="timeline-date">15 May 2019 · DEMO</div><div class="timeline-title">Initial registration</div><div class="timeline-note">Fictional registration identifier.</div></div></div></div></div></div>
+      </section>
+
+      <!-- VEHICLE STATUS -->
+      <section class="section-card span-4">
+        <div class="card-head"><svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 14h18l-2-6H5l-2 6Z"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg><div><h2>Vehicle Status</h2><p>Recorded lifecycle and registration status.</p></div></div>
+        <div class="card-body compact"><div class="status-line"><span>Scrapped</span><span class="status status-green">Example: No</span></div><div class="status-line"><span>Certificate of Destruction</span><span class="status status-green">Example: No</span></div><div class="status-line"><span>Imported</span><span class="status status-neutral">Example: No</span></div><div class="status-line"><span>Exported</span><span class="status status-neutral">Example: No</span></div><p class="description" style="margin-top:12px">Illustrative status fields only; no DVLA or other registry query has been made.</p></div>
+      </section>
+
+      <!-- ULEZ -->
+      <section class="section-card span-8">
+        <div class="card-head"><svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v3m0 12v3M3 12h3m12 0h3M5.6 5.6l2.1 2.1m8.6 8.6 2.1 2.1m0-12.8-2.1 2.1m-8.6 8.6-2.1 2.1"/><circle cx="12" cy="12" r="5"/></svg><div><h2>ULEZ / Clean Air Assessment</h2><p>Emissions-based assessment from the vehicle data available to this report.</p></div></div>
+        <div class="card-body"><div class="clean-air"><div class="stat-label" style="color:#047857">Example Assessment</div><div class="big">Likely compliant</div><p>This illustrative petrol vehicle profile is shown as meeting the example emissions standard. It is not an official TfL or local authority vehicle check.</p><div class="source-note">Assessment type: demonstration only · Euro standard: Euro 6 · Officially verified: No</div></div><div class="metric-grid" style="margin-top:14px"><div class="metric"><div class="label">Fuel Type</div><div class="value" style="font-size:14px">Petrol</div></div><div class="metric"><div class="label">Euro Standard</div><div class="value" style="font-size:14px">Euro 6</div></div><div class="metric"><div class="label">Minimum Standard</div><div class="value" style="font-size:14px">Example: Yes</div></div><div class="metric"><div class="label">Verification</div><div class="value" style="font-size:14px">Not official</div></div></div></div>
+      </section>
+    </div>
+
+    <div class="actions">
+      <button class="action-btn" type="button" onclick="window.print()">↓ &nbsp; Print / Save Sample PDF</button>
+    </div>
+
+    <div class="legal-note"><strong>Important sample report disclaimer</strong>This entire page is a fictional design demonstration. The vehicle profile, registration identifiers, VIN placeholder, mileage entries, MOT events, dates, finance details, write-off category, auction records, recall entry, status indicators and valuation figures are illustrative and have not been retrieved from DVLA, MOT, finance, insurance, police, auction, manufacturer or any other vehicle-record database. The displayed example statuses do not represent a real vehicle's history or condition. A customer must obtain a genuine report and independently verify important vehicle information before making a purchase decision.</div>
+
+    <footer class="footer" id="support">
+      <div><div class="footer-brand">UKCARDOC</div><div style="margin-top:7px">© 2026 UKCarDoc. Sample report preview.</div></div>
+      <div class="footer-links"><a href="#report">About Us</a><a href="#report">Pricing</a><a href="#report">Privacy Policy</a><a href="#report">Refund Policy</a><a href="mailto:support@ukcardoc.com">Contact Support</a></div>
+    </footer>
+  </main>
+
+  <script>
+    document.getElementById('share-button').addEventListener('click', async () => {
+      const shareData = { title: 'UKCarDoc Sample Vehicle Report', text: 'View this illustrative UKCarDoc sample report.', url: window.location.href };
+      try {
+        if (navigator.share) await navigator.share(shareData);
+        else if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(window.location.href);
+          alert('Sample report link copied.');
+        } else {
+          window.prompt('Copy this sample report link:', window.location.href);
+        }
+      } catch (error) {
+        if (error?.name !== 'AbortError') alert('Unable to share this link from your browser.');
+      }
+    });
+  </script>
+</body>
+</html>

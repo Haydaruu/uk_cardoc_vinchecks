@@ -29,7 +29,7 @@ function SessionIllustration() {
             <div className="absolute size-64 rounded-full bg-blue-100/70 blur-3xl" />
             <div className="absolute right-8 bottom-10 size-36 rounded-full bg-red-100/60 blur-3xl" />
 
-            <span className="absolute select-none text-[190px] font-black tracking-tighter text-[#00205B]/[0.035] md:text-[260px]">
+            <span className="absolute text-[190px] font-black tracking-tighter text-[#00205B]/[0.035] select-none md:text-[260px]">
                 419
             </span>
 
@@ -37,7 +37,7 @@ function SessionIllustration() {
                 <div className="absolute inset-5 rounded-[1.5rem] border border-dashed border-blue-100" />
 
                 <div className="relative flex size-48 items-center justify-center rounded-full border-[8px] border-[#E7EEFE] md:size-56">
-                    <div className="absolute inset-0 rounded-full border-[8px] border-transparent border-t-[#C8102E] border-r-[#00205B] rotate-45" />
+                    <div className="absolute inset-0 rotate-45 rounded-full border-[8px] border-transparent border-t-[#C8102E] border-r-[#00205B]" />
 
                     <div className="flex size-36 flex-col items-center justify-center rounded-2xl bg-white shadow-[0_12px_32px_rgba(0,13,47,0.10)] md:size-40">
                         <div className="mb-3 flex size-14 items-center justify-center rounded-xl bg-[#F0F3FF] text-[#C8102E]">
@@ -53,7 +53,7 @@ function SessionIllustration() {
                     </div>
                 </div>
 
-                <div className="absolute -right-3 top-10 flex size-12 items-center justify-center rounded-2xl bg-[#C8102E] text-white shadow-lg">
+                <div className="absolute top-10 -right-3 flex size-12 items-center justify-center rounded-2xl bg-[#C8102E] text-white shadow-lg">
                     <LockKeyhole size={22} />
                 </div>
 
@@ -125,11 +125,15 @@ export default function SessionExpired() {
                 <div className="relative mx-auto w-full max-w-6xl">
                     <header className="flex items-center justify-between border-b border-slate-200/70 pb-5">
                         <Link href="/" className="flex items-center gap-2.5">
-                            <div className="flex size-10 items-center justify-center rounded-xl bg-[#00205B] text-white shadow-md">
-                                <CarFront size={22} />
-                            </div>
+                            <a href="/" aria-label="UKCarDoc home">
+                                <img
+                                    src="/images/Logo.svg"
+                                    alt="UKCarDoc"
+                                    className="h-8 w-auto object-contain"
+                                />
+                            </a>
                             <span className="text-lg font-black tracking-tight text-[#00205B]">
-                                UKCar<span className="text-[#C8102E]">Doc</span>
+                                UKCAR<span className="text-[#C8102E]">DOC</span>
                             </span>
                         </Link>
 
@@ -159,7 +163,10 @@ export default function SessionExpired() {
                             </p>
 
                             <div className="mt-6 flex items-start gap-3 rounded-xl border-l-4 border-[#C8102E] bg-white p-4 shadow-sm">
-                                <ShieldCheck className="mt-0.5 shrink-0 text-[#C8102E]" size={21} />
+                                <ShieldCheck
+                                    className="mt-0.5 shrink-0 text-[#C8102E]"
+                                    size={21}
+                                />
                                 <p className="text-sm leading-relaxed text-slate-600">
                                     Your saved report progress and account
                                     credits remain secure. If you were
@@ -170,7 +177,11 @@ export default function SessionExpired() {
 
                             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                                 <Link
-                                    href={isAuthenticated ? '/dashboard' : '/auth-page'}
+                                    href={
+                                        isAuthenticated
+                                            ? '/dashboard'
+                                            : '/auth-page'
+                                    }
                                     className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-[#C8102E] px-6 py-3 text-sm font-bold text-white shadow-md shadow-red-900/10 transition-all hover:-translate-y-0.5 hover:bg-[#A80D26]"
                                 >
                                     <RefreshCw size={17} />
@@ -210,7 +221,11 @@ export default function SessionExpired() {
                                 description="Explore vehicle history report options."
                             />
                             <QuickLink
-                                href={isAuthenticated ? '/dashboard' : '/auth-page'}
+                                href={
+                                    isAuthenticated
+                                        ? '/dashboard'
+                                        : '/auth-page'
+                                }
                                 icon={<UserRound size={19} />}
                                 title="My Account"
                                 description="Sign in to access your account and saved reports."

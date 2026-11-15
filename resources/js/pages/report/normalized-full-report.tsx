@@ -1,5 +1,5 @@
 import { Head } from '@inertiajs/react';
-import { Download, Loader2, Share2 } from 'lucide-react';
+import { Download, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 
 import NormalizedReportPreview from '@/components/report/normalized-report-preview';
@@ -112,14 +112,6 @@ export default function NormalizedFullReport({ report }: Props) {
                                 Download PDF Report
                             </>
                         )}
-                    </button>
-
-                    <button
-                        type="button"
-                        className="flex items-center justify-center gap-2 rounded-md bg-secondary px-8 py-3 text-sm font-bold tracking-wider text-on-secondary uppercase shadow-md transition-transform hover:bg-secondary-container active:scale-[0.98]"
-                    >
-                        <Share2 className="size-4" />
-                        Share Report Link
                     </button>
                 </div>
             </main>

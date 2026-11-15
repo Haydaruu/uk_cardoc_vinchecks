@@ -7,7 +7,7 @@ const sections = [
         title: '1. About These Terms',
         paragraphs: [
             'These Terms and Conditions govern your access to and use of the VinCheck website, vehicle history reports, accounts, and related services.',
-            'The Services are operated from Indonesia by [Full Legal Name of Operator]. By using the Services or placing an order, you agree to these Terms, subject to any mandatory rights that apply to you under applicable law.',
+            'The Services are operated by UKCarDoc. By using the Services or placing an order, you agree to these Terms, subject to any mandatory rights that apply to you under applicable law.',
         ],
     },
     {
@@ -197,20 +197,12 @@ export default function TermsAndConditions() {
                                     {section.title === '16. Contact Us' && (
                                         <div className="rounded-lg bg-surface-container-low p-5">
                                             <p>
-                                                <strong>Operator:</strong> [Full
-                                                Legal Name of Operator]
-                                            </p>
-                                            <p className="mt-2">
-                                                <strong>
-                                                    Business address:
-                                                </strong>{' '}
-                                                [Full Business Address in
-                                                Indonesia]
+                                                <strong>Operator:</strong>{' '}
+                                                UKCarDoc
                                             </p>
                                             <p className="mt-2">
                                                 <strong>Support email:</strong>{' '}
-                                                [Confirmed Support Email
-                                                Address]
+                                                support@ukcardoc.com
                                             </p>
                                             <p className="mt-2">
                                                 <strong>Privacy Policy:</strong>{' '}

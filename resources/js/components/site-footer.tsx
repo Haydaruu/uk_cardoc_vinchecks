@@ -5,12 +5,11 @@ const footerLinks = [
     [
         { label: 'Terms of Service', href: '/terms-and-conditions' },
         { label: 'Contact Support', href: '/support' },
-        { label: 'Refund Policy', href: '#' },
+        { label: 'Refund Policy', href: '/refund-policy' },
     ],
     [
-        { label: 'Privacy Policy', href: '#' },
-        { label: 'About Us', href: '#' },
-        { label: 'DVLA Status', href: '#' },
+        { label: 'Privacy Policy', href: '/privacy-policy' },
+        { label: 'About Us', href: '/about-us' },
     ],
 ] as const;
 
@@ -45,13 +44,14 @@ export default function SiteFooter() {
                     ))}
 
                     <div className="flex gap-2">
-                        <button
+                        <a
                             type="button"
+                            href="/"
                             className="flex size-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition-colors hover:border-slate-300 hover:text-primary-container"
                             aria-label="Language"
                         >
                             <Globe size={16} />
-                        </button>
+                        </a>
                         <a
                             href="mailto:support@ukcardoc.com"
                             className="flex size-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition-colors hover:border-slate-300 hover:text-primary-container"

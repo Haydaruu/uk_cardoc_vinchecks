@@ -12,7 +12,6 @@ import {
     DollarSign,
     Palette,
     Download,
-    Share2,
     CheckCircle2,
     Fuel,
     Settings,
@@ -1076,9 +1075,6 @@ export default function FullReport({ report }: FullReportProps) {
                 <div className="mt-10 flex flex-col justify-center gap-4 sm:flex-row">
                     <button className="flex items-center justify-center gap-2 rounded-md border-2 border-primary-container px-8 py-3 text-sm font-bold tracking-wider text-primary-container uppercase transition-all hover:bg-slate-50">
                         <Download className="size-4" /> Download PDF Report
-                    </button>
-                    <button className="flex items-center justify-center gap-2 rounded-md bg-secondary px-8 py-3 text-sm font-bold tracking-wider text-on-secondary uppercase shadow-md transition-transform hover:bg-secondary-container active:scale-[0.98]">
-                        <Share2 className="size-4" /> Share Report Link
                     </button>
                 </div>
             </main>

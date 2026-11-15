@@ -30,6 +30,12 @@ Route::get('/terms-and-conditions', function () {
 Route::get('/about-us', function () {
     return Inertia::render('about-us');
 })->name('page.about-us');
+Route::get('/privacy-policy', function () {
+    return Inertia::render('privacy-policy');
+})->name('page.privacy-policy');
+Route::get('/refund-policy', function () {
+    return Inertia::render('refund-policy');
+})->name('page.refund-policy');
 
 Route::get('/guest-purchases/{purchase}/invoice', [GuestReportInvoiceController::class, 'show'])->middleware('signed')->name('guest-report.invoice.show');
 Route::get('/guest-purchases/{purchase}/invoice/pdf', [GuestReportInvoiceController::class, 'download'])->middleware('signed')->name('guest-report.invoice.download');

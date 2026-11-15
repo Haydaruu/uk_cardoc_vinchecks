@@ -350,7 +350,7 @@ function Home() {
                             GET STARTED FREE
                         </Link>
                         <Link
-                            href="/sample"
+                            href="/ukcardoc-sample-report.html"
                             className="rounded-sm border border-slate-800 px-8 py-3.5 text-[12px] font-bold tracking-widest text-slate-800 uppercase transition-colors hover:bg-slate-50"
                         >
                             VIEW SAMPLE REPORT

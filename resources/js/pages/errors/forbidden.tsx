@@ -30,7 +30,7 @@ function SecurityIllustration() {
             <div className="absolute right-8 bottom-10 h-36 w-36 rounded-full bg-red-100/60 blur-3xl" />
 
             <div className="absolute inset-0 flex items-center justify-center">
-                <span className="select-none text-[180px] font-black tracking-tighter text-[#00205B]/[0.035] md:text-[260px]">
+                <span className="text-[180px] font-black tracking-tighter text-[#00205B]/[0.035] select-none md:text-[260px]">
                     403
                 </span>
             </div>
@@ -100,7 +100,7 @@ function SecurityIllustration() {
                     </svg>
                 </div>
 
-                <div className="absolute -right-3 top-10 flex size-12 items-center justify-center rounded-2xl bg-[#C8102E] text-white shadow-lg shadow-red-900/15">
+                <div className="absolute top-10 -right-3 flex size-12 items-center justify-center rounded-2xl bg-[#C8102E] text-white shadow-lg shadow-red-900/15">
                     <ShieldAlert size={23} />
                 </div>
 
@@ -143,9 +143,7 @@ function QuickLink({ href, icon, title, description }: QuickLinkProps) {
             </div>
 
             <div className="min-w-0 flex-1">
-                <h3 className="text-sm font-bold text-[#00205B]">
-                    {title}
-                </h3>
+                <h3 className="text-sm font-bold text-[#00205B]">{title}</h3>
                 <p className="mt-1 text-xs leading-relaxed text-slate-500">
                     {description}
                 </p>
@@ -178,16 +176,17 @@ export default function Forbidden() {
 
                 <div className="relative mx-auto w-full max-w-6xl">
                     <header className="flex items-center justify-between border-b border-slate-200/70 pb-5">
-                        <Link
-                            href="/"
-                            className="flex items-center gap-2.5"
-                        >
-                            <div className="flex size-10 items-center justify-center rounded-xl bg-[#00205B] text-white shadow-md">
-                                <CarFront size={22} />
-                            </div>
+                        <Link href="/" className="flex items-center gap-2.5">
+                            <a href="/" aria-label="UKCarDoc home">
+                                <img
+                                    src="/images/Logo.svg"
+                                    alt="UKCarDoc"
+                                    className="h-8 w-auto object-contain"
+                                />
+                            </a>
 
                             <span className="text-lg font-black tracking-tight text-[#00205B]">
-                                UKCar<span className="text-[#C8102E]">Doc</span>
+                                UKCAR<span className="text-[#C8102E]">DOC</span>
                             </span>
                         </Link>
 
@@ -204,7 +203,7 @@ export default function Forbidden() {
                             </div>
 
                             <div className="relative mb-3">
-                                <span className="select-none text-[104px] leading-none font-black tracking-[-0.08em] text-[#00205B] md:text-[128px]">
+                                <span className="text-[104px] leading-none font-black tracking-[-0.08em] text-[#00205B] select-none md:text-[128px]">
                                     403
                                 </span>
                             </div>

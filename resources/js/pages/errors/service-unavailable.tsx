@@ -48,7 +48,7 @@ function MaintenanceIllustration() {
             <div className="absolute size-64 rounded-full bg-blue-100/70 blur-3xl" />
             <div className="absolute right-8 bottom-10 size-36 rounded-full bg-red-100/60 blur-3xl" />
 
-            <span className="absolute select-none text-[190px] font-black tracking-tighter text-[#00205B]/[0.035] md:text-[260px]">
+            <span className="absolute text-[190px] font-black tracking-tighter text-[#00205B]/[0.035] select-none md:text-[260px]">
                 503
             </span>
 
@@ -71,7 +71,7 @@ function MaintenanceIllustration() {
                     <span className="absolute top-9 left-7 size-2 rounded-full bg-slate-400" />
                 </div>
 
-                <div className="absolute -right-3 top-10 flex size-12 items-center justify-center rounded-2xl bg-[#C8102E] text-white shadow-lg">
+                <div className="absolute top-10 -right-3 flex size-12 items-center justify-center rounded-2xl bg-[#C8102E] text-white shadow-lg">
                     <Wrench size={22} />
                 </div>
 
@@ -108,11 +108,15 @@ export default function ServiceUnavailable() {
                 <div className="relative mx-auto w-full max-w-6xl">
                     <header className="flex items-center justify-between border-b border-slate-200/70 pb-5">
                         <Link href="/" className="flex items-center gap-2.5">
-                            <div className="flex size-10 items-center justify-center rounded-xl bg-[#00205B] text-white shadow-md">
-                                <CarFront size={22} />
-                            </div>
+                            <a href="/" aria-label="UKCarDoc home">
+                                <img
+                                    src="/images/Logo.svg"
+                                    alt="UKCarDoc"
+                                    className="h-8 w-auto object-contain"
+                                />
+                            </a>
                             <span className="text-lg font-black tracking-tight text-[#00205B]">
-                                UKCar<span className="text-[#C8102E]">Doc</span>
+                                UKCAR<span className="text-[#C8102E]">DOC</span>
                             </span>
                         </Link>
 
@@ -139,8 +143,8 @@ export default function ServiceUnavailable() {
                             <p className="mt-5 max-w-lg text-base leading-relaxed text-slate-500 md:text-lg">
                                 UKCarDoc is temporarily unable to process your
                                 request. This may be due to maintenance or a
-                                temporary service interruption. Please try
-                                again shortly.
+                                temporary service interruption. Please try again
+                                shortly.
                             </p>
 
                             <div className="mt-6 rounded-xl border border-slate-100 bg-white p-5 shadow-sm">

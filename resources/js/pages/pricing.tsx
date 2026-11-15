@@ -103,8 +103,8 @@ function Pricing() {
         {
             tier: 'Single Report',
             title: '1 Credit',
-            pricePerReport: '£19.99',
-            totalPrice: '£19.99',
+            pricePerReport: '£28.00',
+            totalPrice: '£28.00',
 
             bullets: [
                 "You'll get 1 credit for a premium report",
@@ -119,8 +119,8 @@ function Pricing() {
         {
             tier: 'Best Value',
             title: '5 Credits',
-            pricePerReport: '£14.00',
-            totalPrice: '£69.99',
+            pricePerReport: '£24.00',
+            totalPrice: '£119.99',
 
             bullets: [
                 "You'll get 5 credits for premium reports",
@@ -138,8 +138,8 @@ function Pricing() {
         {
             tier: 'Regular Pack',
             title: '3 Credits',
-            pricePerReport: '£18.00',
-            totalPrice: '£53.99',
+            pricePerReport: '£25.00',
+            totalPrice: '£74.99',
 
             bullets: [
                 "You'll get 3 credits for premium reports",
@@ -157,12 +157,12 @@ function Pricing() {
             slug: 'premium-monthly',
             tier: 'Monthly Plan',
             name: 'Premium',
-            price: '£39.99',
+            price: '£44.99',
             billingPeriod: 'month',
-            credits: 15,
+            credits: 2,
 
             benefits: [
-                '15 credits every month',
+                '2 credits every month',
                 'Unused credits never expire',
                 'Automatic monthly refill',
                 'Cancel anytime',
@@ -173,12 +173,12 @@ function Pricing() {
             slug: 'premium-plus-monthly',
             tier: 'Best Value',
             name: 'Premium Plus',
-            price: '£59.99',
+            price: '£64.99',
             billingPeriod: 'month',
-            credits: 25,
+            credits: 3,
 
             benefits: [
-                '25 credits every month',
+                '3 credits every month',
                 'Unused credits never expire',
                 'Automatic monthly refill',
                 'Cancel anytime',
@@ -192,12 +192,12 @@ function Pricing() {
             slug: 'premium-max-monthly',
             tier: 'Power User',
             name: 'Premium Max',
-            price: '£89.99',
+            price: '£109.99',
             billingPeriod: 'month',
-            credits: 35,
+            credits: 5,
 
             benefits: [
-                '35 credits every month',
+                '5 credits every month',
                 'Unused credits never expire',
                 'Automatic monthly refill',
                 'Cancel anytime',

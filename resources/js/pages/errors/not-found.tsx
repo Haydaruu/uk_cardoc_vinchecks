@@ -35,9 +35,23 @@ function RadarIllustration() {
                 aria-hidden="true"
             >
                 <defs>
-                    <linearGradient id="radarSweep" x1="200" y1="200" x2="200" y2="35">
-                        <stop offset="0%" stopColor="#C8102E" stopOpacity="0.22" />
-                        <stop offset="100%" stopColor="#C8102E" stopOpacity="0" />
+                    <linearGradient
+                        id="radarSweep"
+                        x1="200"
+                        y1="200"
+                        x2="200"
+                        y2="35"
+                    >
+                        <stop
+                            offset="0%"
+                            stopColor="#C8102E"
+                            stopOpacity="0.22"
+                        />
+                        <stop
+                            offset="100%"
+                            stopColor="#C8102E"
+                            stopOpacity="0"
+                        />
                     </linearGradient>
                     <clipPath id="radarClip">
                         <circle cx="200" cy="200" r="165" />
@@ -67,18 +81,54 @@ function RadarIllustration() {
                         strokeOpacity="0.13"
                         strokeDasharray="4 6"
                     />
-                    <circle cx="200" cy="200" r="165" stroke="#00205B" strokeOpacity="0.12" />
-                    <circle cx="200" cy="200" r="110" stroke="#00205B" strokeOpacity="0.12" />
-                    <circle cx="200" cy="200" r="55" stroke="#00205B" strokeOpacity="0.12" />
+                    <circle
+                        cx="200"
+                        cy="200"
+                        r="165"
+                        stroke="#00205B"
+                        strokeOpacity="0.12"
+                    />
+                    <circle
+                        cx="200"
+                        cy="200"
+                        r="110"
+                        stroke="#00205B"
+                        strokeOpacity="0.12"
+                    />
+                    <circle
+                        cx="200"
+                        cy="200"
+                        r="55"
+                        stroke="#00205B"
+                        strokeOpacity="0.12"
+                    />
                 </g>
 
                 <circle cx="200" cy="200" r="5" fill="#00205B" />
-                <circle cx="200" cy="200" r="12" stroke="#C8102E" strokeOpacity="0.35" />
+                <circle
+                    cx="200"
+                    cy="200"
+                    r="12"
+                    stroke="#C8102E"
+                    strokeOpacity="0.35"
+                />
 
                 <circle cx="282" cy="116" r="6" fill="#C8102E" />
-                <circle cx="282" cy="116" r="13" stroke="#C8102E" strokeOpacity="0.25" />
+                <circle
+                    cx="282"
+                    cy="116"
+                    r="13"
+                    stroke="#C8102E"
+                    strokeOpacity="0.25"
+                />
 
-                <circle cx="113" cy="257" r="4" fill="#00205B" fillOpacity="0.5" />
+                <circle
+                    cx="113"
+                    cy="257"
+                    r="4"
+                    fill="#00205B"
+                    fillOpacity="0.5"
+                />
 
                 <path
                     d="M200 200 L282 116"
@@ -127,11 +177,15 @@ export default function NotFound() {
                 <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-1 flex-col px-5 py-8 sm:px-8 lg:px-12">
                     <header className="flex items-center justify-between">
                         <Link href="/" className="flex items-center gap-2.5">
-                            <div className="flex size-10 items-center justify-center rounded-xl bg-[#00205B] text-sm font-black text-white">
-                                UK
-                            </div>
+                            <a href="/" aria-label="UKCarDoc home">
+                                <img
+                                    src="/images/Logo.svg"
+                                    alt="UKCarDoc"
+                                    className="h-8 w-auto object-contain"
+                                />
+                            </a>
                             <span className="text-lg font-black tracking-tight">
-                                UKCar<span className="text-[#C8102E]">Doc</span>
+                                UKCAR<span className="text-[#C8102E]">DOC</span>
                             </span>
                         </Link>
 
@@ -156,13 +210,15 @@ export default function NotFound() {
                             <h1 className="-mt-2 text-3xl leading-tight font-black tracking-tight sm:text-4xl lg:text-5xl">
                                 Lost on the road?
                                 <br />
-                                <span className="text-[#C8102E]">We can help.</span>
+                                <span className="text-[#C8102E]">
+                                    We can help.
+                                </span>
                             </h1>
 
                             <p className="mx-auto mt-5 max-w-md text-sm leading-7 text-slate-500 lg:mx-0">
-                                The page you are looking for may have been moved,
-                                removed, or is temporarily unavailable. Let's get
-                                you back on track.
+                                The page you are looking for may have been
+                                moved, removed, or is temporarily unavailable.
+                                Let's get you back on track.
                             </p>
 
                             <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row lg:justify-start">
@@ -224,7 +280,9 @@ export default function NotFound() {
                                 <Search className="size-5 text-[#C8102E]" />
                             </div>
                             <div className="min-w-0 flex-1">
-                                <p className="text-sm font-bold">View Pricing</p>
+                                <p className="text-sm font-bold">
+                                    View Pricing
+                                </p>
                                 <p className="mt-1 text-xs text-slate-500">
                                     Explore report options
                                 </p>
